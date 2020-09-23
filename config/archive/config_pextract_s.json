@@ -1,0 +1,9 @@
+{"classKey":{"SINUS": "1"}, 
+"tileDim":"4000", 
+"resizeDim":"256", 
+"step":"512", 
+"magnification":"0", 
+"downsample": "1",
+"masks": "True",
+"software":"ImageJ",
+"drawborder":"False"}

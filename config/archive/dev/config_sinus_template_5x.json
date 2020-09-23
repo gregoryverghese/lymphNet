@@ -1,0 +1,76 @@
+{
+"feature": "sinus",
+"tasktype": "binary",
+"magnification": "5x", 
+"loss": "weightedBinaryCrossEntropy", 
+"modelname": "$model_32_adam_$loss_$augment_$drop_5x_sinus_32", 
+"ratio": 0.9,
+"batchSize": 32,
+"imageDims": 512,
+"epoch": 100, 
+"augmentation": 
+	{
+	"methods": ["Rotate90", "Rotate", "Flip", "Color"],
+	"parameters":
+		{
+		"saturation":[0.5,1.2],
+		"brightness":0.25,
+		"hue":0.05,
+		"contrast":[0.8,1.5],
+		"flipProb":0.5,
+		"rotateProb":0.5,
+		"colorProb":0.5
+		}
+	},	
+"nClasses": 1, 
+"weights": [7.1], 
+"model": 
+	{
+	"network":"unet",
+        "parameters":
+		{
+		"filters":[32,64,128,256,512],
+		"finalActivation":"sigmoid"
+		}
+	},	
+"optimizer": 
+	{
+	"decaymethod": null, 
+	"method": "adam", 
+	"parameters": 
+		{
+		"learning_rate": 0.001, 
+		"amsgrad": true
+		}, 
+	"decayparams": 
+		{
+		"maxEpochs": 50, 
+		"power": 3, 
+		"initLr": 0.001
+		}
+	},  
+"metric": "diceCoef", 
+"normalize":"True", 
+"padding":"same", 
+"multi":
+	{
+	"flag":true,
+	"num":4
+	},  
+"modelapi":"functional", 
+"api":"custom",
+"activationthresholds":[0.1,0.3,0.5,0.7,0.9,0.99],
+"stopthresholds": 
+	{
+	"first":
+		{
+		"metric":0.75,
+		"epochs":50
+		},
+		"second":
+		{
+		"metric":0.72,
+		"epochs":75
+		}
+	}	
+}

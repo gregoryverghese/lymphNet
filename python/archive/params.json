@@ -1,0 +1,1 @@
+{"batchSize": "16", "final": "softmax", "imageDims": "224", "nClasses": "4", "epoch":"30", "ratio":"0.9"}

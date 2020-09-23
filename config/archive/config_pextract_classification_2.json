@@ -1,0 +1,10 @@
+{"classKey":{"SINUS": "0"},
+"tileDim":224, 
+"resizeDim":224, 
+"step":112, 
+"magnification":0, 
+"downsample": 1,
+"masks": false,
+"software":["ImageJ", "Qupath"],
+"drawborder": true,
+"feature":"germinal"}

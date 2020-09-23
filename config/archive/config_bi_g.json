@@ -1,0 +1,28 @@
+{
+    "batchSize": "32", 
+    "final": "sigmoid", 
+    "imageDims": "224", 
+    "nClasses": "1", 
+    "epoch":"2", 
+    "ratio":"0.9", 
+    "augmentation":["Rotate90", "Flip"], 
+    "weights": ["2.13"],
+    "loss": "focalloss",
+    "model": "unet",
+    "modelname": "unet_sgdtest",
+    "optimizer":{
+	"method":"SGD",
+	"parameters":{
+		"learning_rate":0.01, 
+		"momentum":0.9, 
+		"nesterov":true
+			},
+	"decaymethod":"PolynomialDecay",
+	"decayparams":{
+		"maxEpochs":50, 
+		"initLr":0.01, 
+		"power":2
+			}
+		},
+    "metric": "diceCoef"
+}
