@@ -1,17 +1,39 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+'''
+distributed_train.py: trains neural network model using custom
+training module from tensorflow. Performs each forward pass of 
+the network and calculates the new gradients using the loss 
+function and performs backward pass with chosen optimizer
+'''
+
 import os
+import datetime
+
 import tensorflow as tf
 import numpy as np
-import datetime
 import tensorflow.keras.backend as K
 from tensorflow.keras.utils import Progbar
+
 from utilities.custom_loss_classes import WeightedBinaryCrossEntropy
 from utilities.evaluation import diceCoef
+
+__author__ = 'Gregory Verghese'
+__email__ = 'gregory.verghese@kcl.ac.uk'
 
 #import memory_saving_gradients
 #tf.__dict__["gradients"] = memory_saving_gradients.gradients_speed
 
 
 class DistributeTrain():
+     '''
+    class for training neural network over a number of gpus.
+    Performs each forward pass of the network and calculates the 
+    new gradients using the loss function and performs backward 
+    pass with chosen optimizer. Loss and dice are calculated per
+    gpu (known as replica) and combined at the end.
+     '''
 
     def __init__(self, epochs, model, optimizer, lossObject, batchSize,
                  strategy, trainSteps, testNum, imgDims, threshold, modelName, currentTime, currentDate, tasktype):
@@ -33,7 +55,15 @@ class DistributeTrain():
         self.tasktype = tasktype
 
     def computeLoss(self, label, predictions):
-		
+        '''
+        computes loss for each replica
+        Args:
+            label: mask tf 4d-tensor (BxHxW)
+            predictions: network predictoon tf tensor (BxWxH)
+        Returns:
+            loss: loss per replica
+        '''
+
         loss = self.loss_object(label, predictions)
         loss = tf.reduce_sum(loss) * (1. / (self.imgDims*self.imgDims*self.batchSize))
 
@@ -41,7 +71,15 @@ class DistributeTrain():
 
 
     def computeDice(self, yTrue, yPred):
-        
+        '''
+        computes dice score using prediction and mask
+        Args:
+            yTrue: mask 4d-tensor mask (BxWxH)
+            yPred: prediction 4d-tensor prediction (BxWxH)
+        Returns:
+            dice: dice score per replica
+        '''
+
         axIdx=[1,2,3] if self.tasktype=='binary' else [1,2]
         dice = self.metric(yTrue, yPred, axIdx)
         dice = dice * (1 / self.strategy.num_replicas_in_sync)
@@ -50,6 +88,16 @@ class DistributeTrain():
 
 
     def trainStep(self, inputs):
+        '''
+        perfoms one gradient update using tf.GradientTape.
+        calculates loss using logits and then updates all
+        trainable parameters
+        Args:
+            inputs: tuple of image and mask tensors
+        Returns:
+            loss: loss value
+            dice: returns dice coefficient
+        '''
 
         x, y = inputs
 
@@ -68,6 +116,14 @@ class DistributeTrain():
 
 
     def testStep(self, inputs):
+        '''
+        performs prediction using trained model
+        Args:
+            inputs: tuple of x, y image and mask tensors
+        Returns:
+            loss: loss value
+            dice: returns dice coefficient
+        '''
 
         x, y = inputs
         predictions = self.model(x, training=False)
@@ -86,6 +142,14 @@ class DistributeTrain():
 
     @tf.function
     def distributedTrainEpoch(self, batch):
+        '''
+        calculates loss and dice for each replica
+        Args:
+            batch: containing image and mask tensor data
+        Returns:
+            replicaLoss:
+            replicaDice:
+        '''
 
       #totalLoss = 0.0
       #totalDice = 0.0
@@ -103,7 +167,17 @@ class DistributeTrain():
     #ToDo: shitty hack to include progbar in distributed train function. need a
     #way of converting tensor i to integer
     def getDistTrainEpoch(self, trainData):
+        '''
+        iterates over each batch in the data and calulates total
+        loss and dice over all replicas using tf strategy.
+        Args:
+            trainData: contains train image and mask tensors
+        Returns:
+            totalLoss: total loss across all replicas
+            totalDice: total dice across all dice
+        '''
 
+        #use Progbar to provide visual update of training
         totalLoss = 0.0
         totalDice = 0.0
         i = 0
@@ -121,6 +195,15 @@ class DistributeTrain():
        
     @tf.function
     def distributedTestEpoch(self, validData):
+        '''
+        calculates loss and dice across all replicas
+        for the test data
+        Args:
+            validData: contains validation image and mask tensors
+        Returns:
+            totalloss: loss summed over replicas
+            totalDice dice summed over replicas
+        '''
 
         totalLoss = 0.0
         totalDice = 0.0
@@ -135,7 +218,16 @@ class DistributeTrain():
 
     #we wantt o stop on a moving average value, min threshold dice and min epoch iterations 
     def earlyStop(self, valDice, epoch):
-        
+        '''
+        implements and earlystopping criteria based on two dice thresholds
+        and the number of epochs that has passed
+        Args:
+            valDice: current validation dice value
+            epoch: epoch number
+        Returns:
+            stop: boolean
+        '''
+
         if epoch > self.threshold['first']['epochs'] and valDice > self.threshold['first']['metric']:
             stop = True
         elif epoch > self.threshold['second']['epochs'] and valDice > self.threshold['second']['metric']:
@@ -147,6 +239,17 @@ class DistributeTrain():
 
 
     def forward(self, trainDistDataset, testDistDataset):
+        '''
+        performs the forward pass of the network. calls each training epoch
+        and prediction on validation data. Records results in history
+        dictionary. Record logs for tensorboard using create_file_writer
+        Args:
+            trainDistDataset: contains train image and mask tensor data
+            testDistDataset: contains valid image and mask tensor data
+        Returns:
+            self.model: trained tensorflow/keras subclassed model
+            self.history: dictonary containing train and validation scores
+        '''
 
         currentTime = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
         trainLogDir = os.path.join('tensorboard_logs', 'train', self.currentDate, self.modelName + '_' + self.currentTime)
