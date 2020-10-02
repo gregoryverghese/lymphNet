@@ -53,15 +53,15 @@ class UnetSC(Model):
         if upTypeName=='upsampling':
             self.up1 = UpSampling2D((2, 2))
         elif upTypeName=='transpose':
-            self.up1 = Conv2DTranspose(filters[4], kSize, activation='relu', stride=(2,2), padding='same')
-
+            self.up1 = Conv2DTranspose(filters[4], kSize, activation='relu', strides=(2,2), padding='same')
         self.conc1 = Concatenate()
         self.convblockd1 = ConvBlock(filters[3], dropout, kSize, dtype)
 
         if upTypeName=='upsampling':
             self.up2 = UpSampling2D((2, 2))
         elif upTypeName=='transpose':
-            self.up2 = Conv2DTranspose(filters[4], kSize, activation='relu', stride=(2,2), padding='same')
+            print('TRANSPOSEEEEEEEEE')
+            self.up2 = Conv2DTranspose(filters[3], kSize, activation='relu',strides=(2,2), padding='same')
 
         self.conc2 = Concatenate()
         self.convblockd2 = ConvBlock(filters[2], dropout, kSize, dtype)
@@ -69,15 +69,14 @@ class UnetSC(Model):
         if upTypeName=='upsampling':
             self.up3 = UpSampling2D((2, 2))
         elif upTypeName=='transpose':
-            self.up3 = Conv2DTranspose(filters[2], kSize, activation='relu', stride=(2,2),padding='same')
-
+            self.up3 = Conv2DTranspose(filters[2], kSize, activation='relu',strides=(2,2),padding='same')
         self.conc3 = Concatenate()
         self.convblockd3 = ConvBlock(filters[1], dropout, kSize, dtype)
 
         if upTypeName=='upsampling':
             self.up4 = UpSampling2D((2, 2))
         elif upTypeName=='transpose':
-            self.up4 = Conv2DTranspose(filters[4], kSize, activation='relu', stride=(2,2), padding='same')
+            self.up4 = Conv2DTranspose(filters[1], kSize, activation='relu',strides=(2,2), padding='same')
 
         self.conc4 = Concatenate()
         self.convblockd4 = ConvBlock(filters[0], dropout, kSize, dtype)
@@ -104,20 +103,20 @@ class UnetSC(Model):
         b = self.convb_2(b)
         b = self.batchnorm10(b)
 
-        d1 = self.upsampling1(b)
+        d1 = self.up1(b)
         d1 = self.conc1([e4, d1])
         d1 = self.convblockd1(d1)
 
-        d2 = self.upsampling2(d1)
+        d2 = self.up2(d1)
         d2 = self.conc2([e3, d2])
         d2 = self.convblockd2(d2)
 
-        d3 = self.upsampling3(d2)
+        d3 = self.up3(d2)
         d3 = self.conc3([e2, d3])
         d3 = self.convblockd3(d3)
 
 
-        d4 = self.upsampling4(d3)
+        d4 = self.up4(d3)
         d4 = self.conc4([e1, d4])
         d4 = self.convblockd4(d4)
 
@@ -205,6 +204,7 @@ class UnetFunc():
         if self.upTypeName=='upsampling':
             d3 = UpSampling2D((2,2))(d4)
         elif self.upTypeName=='transpose':
+            print('TRANSPOSEEEEEEEEEEEEEEEEEEEEEEEE')
             d3 = Conv2DTranspose(self.filters[2], self.kernelSize, activation='relu', strides=(2,2), padding='same')(d4)
 
         d3 = Concatenate()([e2, d3])

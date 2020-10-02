@@ -5,9 +5,9 @@
 "loss": ["weightedBinaryCrossEntropy"], 
 "modelname": "$model_germ_10x_adam_$loss_$augment", 
 "ratio": 0.9,
-"batchSize": 1,
-"imageDims": 1536,
-"epoch": 1, 
+"batchSize": 8,
+"imageDims": 1024,
+"epoch": 100, 
 "augmentation": 
 	{
 	"methods": [["Flip","Rotate90","Color"]],
@@ -23,7 +23,7 @@
 		}
 	},	
 "nClasses": 1, 
-"weights": [487], 
+"weights": [8.8], 
 "dropout":[0],
 "model": 
 	{
@@ -64,7 +64,7 @@
 "multi":
 	{
 	"flag":true,
-	"num":1
+	"num": 4
 	},  
 "modelapi":"subclass", 
 "api":"custom",
@@ -82,5 +82,5 @@
 		"epochs":75
 		}
 	},
-"step":1536,
+"step":1024,
 "upTypeName":"transpose"}

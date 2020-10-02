@@ -27,16 +27,15 @@ __email__ = 'gregory.verghese@kcl.ac.uk'
 
 
 class DistributeTrain():
-     '''
+    '''
     class for training neural network over a number of gpus.
     Performs each forward pass of the network and calculates the 
     new gradients using the loss function and performs backward 
     pass with chosen optimizer. Loss and dice are calculated per
     gpu (known as replica) and combined at the end.
-     '''
+    '''
 
-    def __init__(self, epochs, model, optimizer, lossObject, batchSize,
-                 strategy, trainSteps, testNum, imgDims, threshold, modelName, currentTime, currentDate, tasktype):
+    def __init__(self, epochs, model, optimizer, lossObject, batchSize, strategy, trainSteps, testNum, imgDims, threshold, modelName, currentTime, currentDate, tasktype):
         self.epochs = epochs
         self.batchSize = batchSize
         self.strategy = strategy

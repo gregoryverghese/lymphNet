@@ -3,14 +3,14 @@
 "tasktype": "binary",
 "magnification": "2.5x", 
 "loss": ["weightedBinaryCrossEntropy"], 
-"modelname": "$model_sinus_2.5x_adam_$loss_$augment", 
+"modelname": "$model_sinus_2.5x_adam_$loss_$augment_sparse", 
 "ratio": 0.9,
-"batchSize": 128,
+"batchSize": 64,
 "imageDims": 256,
 "epoch": 100, 
 "augmentation": 
 	{
-	"methods": [[], ["Flip","Rotate90"], ["Flip", "Rotate90","Rotate"],["Flip","Rotate90","Color"],["Color","Rotate90", "Flip", "Rotate"]],
+	"methods": [["Flip","Rotate90","Color"]],
 	"parameters":
 		{
 		"saturation":[0.5,1.2],
@@ -23,7 +23,7 @@
 		}
 	},	
 "nClasses": 1, 
-"weights": [7.5], 
+"weights": [4.22], 
 "dropout":[0],
 "model": 
 	{
@@ -66,9 +66,9 @@
 	"flag":true,
 	"num":4
 	},  
-"modelapi":"functional", 
+"modelapi":"subclass", 
 "api":"custom",
-"activationthreshold":0.9,
+"activationthreshold":0.5,
 "stopthresholds": 
 	{
 	"first":
@@ -82,5 +82,6 @@
 		"epochs":75
 		}
 	},
-"step":2048
+"step":1024,
+"upTypeName":"transpose"
 }

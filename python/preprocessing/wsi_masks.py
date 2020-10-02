@@ -11,11 +11,11 @@ import xml.etree.ElementTree as ET
 
 color = [(255,0,0), (0,0,255),(255,0,0)]
 #feature = ['germinal', 'sinus']
-feature = 'germinal'
+feature = 'sinus'
 ndpiPath = '/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/wsi/Guys/all/wsi'
 annotationsPath = '/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/wsi/Guys/all/testing'
-outPath = '/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/patches/segmentation/10x/one/testing'
-configPath = 'config/config_tf.json'
+outPath ='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/patches/segmentation/10x/one/testing'
+configPath = '/home/verghese/breastcancer_ln_deeplearning/scripts/config/config_tf.json'
 testingPath = '/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/wsi/Guys/all/testing/*'
 magFactor = 4
 mag = 2
@@ -116,7 +116,7 @@ def resizeDims(currDim, magfactor):
     t = np.ceil(currDim/magfactor)
 
     #power2 = [2**i for i in range(15)]
-    power2  = [1024*i for i in range(30)]
+    power2  = [2048*i for i in range(10)]
     power2 = [p for p in power2 if t-p<300] 
     diff = list(map(lambda x: abs(t-x), power2))
     imgsize = power2[diff.index(min(diff))]
@@ -137,7 +137,7 @@ print(files)
 #files = [f for f in files if '14.90610 C L2.11.ndpi' in f]
 print(len(files))
 for i, f in enumerate(files):
-    print('{}: loading {} '.format(i, f), flush=True)
+    #print('{}: loading {} '.format(i, f), flush=True)
     name = os.path.basename(f)[:-5]
     print(f)
     scan = openslide.OpenSlide(f)
@@ -231,5 +231,5 @@ for i, f in enumerate(files):
     print(np.unique(img2))
      
     img2[img2!=0]=1
-    cv2.imwrite(os.path.join(outPath, 'masks', 'germinal', name+'_masks.png'),img2)
-    patch.convert('RGB').save(os.path.join(outPath, 'images', 'germinal', name+'.png'))
+    cv2.imwrite(os.path.join(outPath, 'masks', feature, name+'_masks.png'),img2)
+    patch.convert('RGB').save(os.path.join(outPath, 'images', feature, name+'.png'))

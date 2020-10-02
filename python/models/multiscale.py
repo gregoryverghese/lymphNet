@@ -92,7 +92,7 @@ class MultiScaleUnetSC(Model):
         if upTypeName == 'upsampling':
             self.up1 = UpSampling2D((2, 2))
         elif upTypeName == 'transpose':
-            self.up1 == Conv2DTranspose(filters[4], kSize, activation='relu', stride=(2,2), padding='same')
+            self.up1 = Conv2DTranspose(filters[4], kSize, activation='relu', strides=(2,2), padding='same')
 
         self.conc1 = Concatenate()
         self.convblockd1 = ConvBlock(filters[4], dilation=1, padding='same', stride=1)
@@ -100,7 +100,7 @@ class MultiScaleUnetSC(Model):
         if upTypeName == 'upsampling':
             self.up2 = UpSampling2D((2, 2))
         elif upTypeName == 'transpose':
-            self.up2 = Conv2DTranspose(filters[4], kSize, activation='relu', stride=(2,2), padding='same')
+            self.up2 = Conv2DTranspose(filters[4], kSize, activation='relu', strides=(2,2), padding='same')
 
         self.conc2 = Concatenate()
         self.convblockd2 = ConvBlock(filters[3], dilation=1, padding='same', stride=1)
@@ -108,7 +108,8 @@ class MultiScaleUnetSC(Model):
         if upTypeName == 'upsampling':
             self.up3 = UpSampling2D((2, 2))
         elif upTypeName == 'transpose':
-            self.up3 = Conv2DTranspose(filters[4], kSize, activation='relu',stride=(2,2), padding='same')
+            print('TRANSPOSEEEEEEEEEEEEEE')
+            self.up3 = Conv2DTranspose(filters[3], kSize, activation='relu',strides=(2,2), padding='same')
 
         self.conc3 = Concatenate()
         self.convblockd3 = ConvBlock(filters[2], dilation=1, padding='same', stride=1)
@@ -116,7 +117,7 @@ class MultiScaleUnetSC(Model):
         if upTypeName == 'upsampling':
             self.up4 = UpSampling2D((2, 2))
         elif upTypeName == 'transpose':
-            self.up4 = Conv2DTranspose(filters[4], kSize,activation='relu',stride=(2,2),padding='same')
+            self.up4 = Conv2DTranspose(filters[2], kSize, activation='relu',strides=(2,2),padding='same')
 
         self.conc4 = Concatenate()
         self.convblockd4 = ConvBlock(filters[1], dilation=1, padding='same', stride=1)
@@ -124,7 +125,7 @@ class MultiScaleUnetSC(Model):
         if upTypeName == 'upsampling':
             self.up5 = UpSampling2D((2, 2))
         elif upTypeName == 'transpose':
-            self.up5 = Conv2DTranspose(filters[4],kSize,activation='relu',stride=(2,2),padding='same')
+            self.up5 = Conv2DTranspose(filters[1], kSize,activation='relu',strides=(2,2),padding='same')
 
         self.conc5 = Concatenate()
         self.convblockd5 = ConvBlock(filters[0], dilation=1, padding='same', stride=1)

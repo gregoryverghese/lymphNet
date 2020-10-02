@@ -1,14 +1,23 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+'''
+calculate_classweights.py: returns weights for each class
+by calculating proportion of pixels for each class in the mask
+'''
+
 import os
 import glob
-import cv2
 import argparse
+
+import cv2
 import numpy as np
 from sklearn.utils import class_weight
 
-weights=[]
-
 
 def calculateWeights(maskPath, outPath, fileName, numClasses):
+
+    weights = []
     i=0
     masks = glob.glob(os.path.join(maskPath,'*'))
     for f in masks:

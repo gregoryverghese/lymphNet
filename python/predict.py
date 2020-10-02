@@ -200,7 +200,7 @@ class WSIPredictions(object):
                 prediction=tf.cast((probs>self.threshold), tf.float32)
             
         with tf.device('/cpu:0'):
-            axIdx=[1,2,3] if sef.tasktype=='binary' else [1,2]
+            axIdx=[1,2,3] if self.tasktype=='binary' else [1,2]
             dice = diceCoef(mask, prediction[:,:,:,0:1], axIdx)
             iou = iouScore(mask, prediction[:,:,:,0:1], axIdx)
 
@@ -219,7 +219,7 @@ class WSIPredictions(object):
         return dice, iou
 
                     
-    def __call__(self, path, tfrecordDir='tfrecords_wsi', outPath='output/predictions/wsi'):
+    def __call__(self, path, tfrecordDir='tfrecords_wsi', outPath='/home/verghese/breastcancer_ln_deeplearning/output/predictions/wsi'):
         '''
         set up paths and iterate over dataset calling predict.
         save down results for each image in csv
@@ -271,13 +271,13 @@ class WSIPredictions(object):
             names.append(label)
 
         imgscores = pd.DataFrame({'image': names, 'dice':diceLst, 'iou':iouLst})
-        imgscores.to_csv(os.path.join(outPath, '_imgscores.csv'))
+        imgscores.to_csv(outPath + '_imgscores.csv')
 
         avgDice = np.mean(diceLst)
         avgIOU = np.mean(iouLst)
 
         summary = pd.DataFrame({'dice':[avgDice], 'iou': [avgIOU]})
-        summary.to_csv(os.path.join(outPath, '_summary.csv'))
+        summary.to_csv(outPath + '_summary.csv')
             
         return avgDice, avgIOU
 

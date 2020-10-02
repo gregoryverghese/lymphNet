@@ -73,7 +73,7 @@ def tuning(args):
           jsonDict['modelname'] = name
           
           #save down analysis specific config file
-          configFile = '/home/verghese/config/' + name+'.json'
+          configFile = os.path.join(os.path.split(configTemplate)[0], name+'.json')
           args['configfile'] = configFile
           with open(configFile, 'w') as jsonFile:
               json.dump(jsonDict, jsonFile)

@@ -219,7 +219,7 @@ def main(args, modelname):
                     unetModel = unet.UnetFunc(filters=filters,finalActivation=finalActivation, nOutput=nClasses, upTypeName=upTypeName)
                     model = unetModel.unet()
                 elif api=='subclass':
-                    model = unet.UnetSC(filters=filters,finalActivation=finalActivation, nClasses=nClasses, upTypeName=upTypeName)
+                    model = unet.UnetSC(filters=filters,finalActivation=finalActivation, nOutput=nClasses, upTypeName=upTypeName)
                     model.build((1, imgDims, imgDims, 3))
 
         elif modelname == 'unetmini':
@@ -252,14 +252,14 @@ def main(args, modelname):
                     attenModel = atten_unet.AttenUnetFunc(filters)
                     model = attenModel.attenunet()
                 elif api=='subclass':
-                    model = atten_unet.AttenUnetSC(filters)
+                    model = atten_unet.AttenUnetSC(filters, finalActivation=finalActivation, nOutput=nClasses, upTypeName=upTypeName)
 
         elif modelname == 'multiscale':
             with tf.device('/cpu:0'):
                 if api== 'functional':
                     multiModel = multiscale.MultiScaleFunc(filters)
                 elif api=='subclass':
-                    model = multiscale.MultiScaleUnetSC(filters)
+                    model = multiscale.MultiScaleUnetSC(filters, finalActivation=finalActivation, nOutput=nClasses, upTypeName=upTypeName)
         else:
             raise ValueError('No model requested, please update config file')
 
@@ -292,8 +292,8 @@ def main(args, modelname):
         pickle.dump(history, f)
 
     #call predict on individual patches and entire annotated wsi region
-    patchpredict = PatchPredictions(model, modelName, batchSize, currentTime, currentDate)
-    patchpredict(testdataset, os.path.join(outPath, 'predictions'))
+    #patchpredict = PatchPredictions(model, modelName, batchSize, currentTime, currentDate, activationthreshold)
+    #patchpredict(testdataset, os.path.join(outPath, 'predictions'))
 
     if magnification in ['2.5x','5x', '10x']:
         wsipredict = WSIPredictions(model, modelName, feature, magnification,step, step, activationthreshold, currentTime, currentDate, tasktype)
@@ -308,7 +308,7 @@ def main(args, modelname):
     #######################################################################
 
     #finally save the config for this file with the model and predictions
-    with open(os.path.join(outModelPath, modelName + '_' + currentTime + '_config.json', 'w')) as jsonFile:
+    with open(os.path.join(outModelPath, modelName + '_' + currentTime + '_config.json'), 'w') as jsonFile:
         json.dump(params, jsonFile)
 
     return result

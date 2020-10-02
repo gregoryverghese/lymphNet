@@ -6,13 +6,16 @@
 #$ -j y
 #$ -N 'arrayJobs' 
 
-for f in 'g'; do
-    for x in '10x'; do
-        for s in '1536'; do
-            echo $f
-            echo $s
-            echo $x 
-            qsub /home/verghese/scripts/bash/tfwrite_bash.sh $f $x $s 
+for f in 's'; do
+    for x in '2.5x'; do
+        for s in '256'; do
+            for o in '64'; do
+	        echo $f
+                echo $s
+                echo $x
+		echo $o
+                qsub /home/verghese/breastcancer_ln_deeplearning/scripts/bash/tfwrite_bash.sh $f $x $s $o
+            done
         done
     done
 done

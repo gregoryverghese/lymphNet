@@ -1,14 +1,19 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+
 import os
 import json
 import glob
+import argparse
+import xml.etree.ElementTree as ET
+
 import cv2
 import openslide
 import numpy as np
 import matplotlib.pyplot as plt
-import argparse
 from matplotlib.path import Path
 from itertools import chain
-import xml.etree.ElementTree as ET
 
 
 class WSITiling():
@@ -57,6 +62,7 @@ class WSITiling():
 
     def getPatchMasks(self, scan, ndpi, boundaries, annotations):
         dim = scan.dimensions
+        print('dimensions', dim)
         img = np.zeros((dim[1], dim[0]), dtype=np.uint8)
         for k in annotations:
             v = annotations[k]
@@ -75,19 +81,23 @@ class WSITiling():
                 patch = scan.read_region((int(w), int(h)), self.magLevel, (self.tileDim, self.tileDim))
                 mask = img[h:h+int(self.tileDim*self.magFactor), w:w+int(self.tileDim*self.magFactor)]
 
-
-
-
                 #for v in list(annotations.values())[0]:
                     #p = Path(v)
                     #contains = p.contains_point([w, h])
                     #if contains==True and (mask.shape == (self.tileDim*self.magFactor, self.tileDim*self.magFactor) and np.mean(patch) < 200):
                    
-                if np.mean(patch) < 200:
+                if np.mean(patch) < 200 and (mask.shape == (self.tileDim*self.magFactor, self.tileDim*self.magFactor)):
                     print((w, h))
                     patch = patch.convert('RGB')
                     patch = patch.resize((self.resizeDim, self.resizeDim)) if self.resizeDim!=self.tileDim else patch
-                    mask = cv2.resize(mask, (self.resizeDim,self.resizeDim))
+                    #ToDo: deal with edge cases where patch is greater than
+                    #mask dimensions
+                    try:
+                        mask = cv2.resize(mask, (self.resizeDim,self.resizeDim))
+                    except cv2.error as e:
+                        print(e)
+                        continue
+
                     patch.save(os.path.join(os.path.join(self.outPath, self.imageDir), os.path.basename(ndpi)[:-5])+'_'+str(w)+'_'+str(h)+'.png')
                     cv2.imwrite(os.path.join(os.path.join(self.outPath, self.maskDir), os.path.basename(ndpi)[:-5])+'_'+str(w)+'_'+str(h)+'_masks.png', mask)
                     #break
@@ -290,7 +300,7 @@ class WSITiling():
     
 
         for i, ndpi in enumerate(ndpiFiles):
-            if i > 0:
+            if i == 98:
                 print('{}: loading {} '.format(i, ndpi), flush=True)
                 scan = openslide.OpenSlide(ndpi)
 

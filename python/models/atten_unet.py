@@ -3,7 +3,7 @@ import tensorflow.keras
 import tensorflow.keras.backend as K
 from tensorflow.keras.models import Model
 from tensorflow.keras import layers
-from tensorflow.keras.layers import Conv2D, UpSampling2D, Input, Concatenate, concatenate
+from tensorflow.keras.layers import Conv2D, UpSampling2D, Input, Concatenate, concatenate, Conv2DTranspose
 from tensorflow.keras.layers import Activation, Dropout, BatchNormalization, MaxPooling2D, Add, Multiply, Input
 
 
@@ -84,9 +84,9 @@ class GridGatingSignal(layers.Layer):
 
 class AttenUnetSC(Model):
     def __init__(self, filters=[16,32,64,128,256], finalActivation='sigmoid', activation='relu', kSize=(3,3),
-                 nOutput=1, padding='same', dropout=0, dilation=(1,1), normalize=True, dtype='float32'):
+                 nOutput=1, padding='same', dropout=0, upTypeName='upsampling', dilation=(1,1), normalize=True, dtype='float32'):
         super(AttenUnetSC, self).__init__()
-
+        self.upTypeName = upTypeName
         self.normalize = normalize
         self.convblocke1 = ConvBlock(filters[0], dropout, kSize, dtype)
         self.pool1 = MaxPooling2D(pool_size=(2,2))
@@ -99,20 +99,40 @@ class AttenUnetSC(Model):
         self.convblocke5 = ConvBlock(filters[4], dropout, kSize, dtype)
 
         self.gridGating = GridGatingSignal(filters[3])
-
-        self.up1 = UpSampling2D((2, 2))
+         
+        if self.upTypeName == 'upsampling':
+            self.up1 = UpSampling2D((2, 2))
+        elif self.upTypeName == 'transpose':
+            self.up1  = Conv2DTranspose(filters[4], kSize, activation='relu', strides=(2,2), padding='same')
+        
         self.conc1 = Concatenate()
         self.convblockd1 = ConvBlock(filters[3], dropout, kSize, dtype)
-        self.up2 = UpSampling2D((2, 2))
+ 
+        if self.upTypeName == 'upsampling':
+            self.up2 = UpSampling2D((2, 2))
+        elif self.upTypeName == 'transpose':
+            self.up2  = Conv2DTranspose(filters[3], kSize, activation='relu', strides=(2,2), padding='same')
+
         self.conc2 = Concatenate()
         self.convblockd2 = ConvBlock(filters[2], dropout, kSize, dtype)
-        self.up3 = UpSampling2D((2, 2))
+
+        if self.upTypeName == 'upsampling':
+            self.up3 = UpSampling2D((2, 2))
+        elif self.upTypeName == 'transpose':
+            print('TRANSPOSEEEEEEEEEEEEEEEEEEE')
+            self.up3 = Conv2DTranspose(filters[2], kSize, activation='relu', strides=(2,2), padding='same')
+
         self.conc3 = Concatenate()
         self.convblockd3 = ConvBlock(filters[1], dropout, kSize, dtype)
-        self.up4 = UpSampling2D((2, 2))
+         
+        if self.upTypeName == 'upsampling':
+            self.up4 = UpSampling2D((2, 2))
+        elif self.upTypeName == 'transpose':
+            self.up4 = Conv2DTranspose(filters[1], kSize, activation='relu', strides=(2,2), padding='same')
+
         self.conc4 = Concatenate()
         self.convblockd4 = ConvBlock(filters[0], dropout, kSize, dtype)
-
+ 
         self.attention2 = AttentionBlock(filters[1], filters[1])
         self.attention3 = AttentionBlock(filters[2], filters[2])
         self.attention4 = AttentionBlock(filters[3], filters[3])

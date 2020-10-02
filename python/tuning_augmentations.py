@@ -1,8 +1,21 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+'''
+augmentations_tuning.py: opens config fie and iterates
+over different combinations of values for the augmentation
+techniques for the purpose of hyperparameter tuning.
+'''
+
 import json
 import os
-import argparse
+import argparsei
+
 import pandas as pd
 from ln_segmentation import trainSegmentationModel
+
+__author__ = 'Gregory Verghese'
+__email__ = 'gregory.verghese@kcl.ac.uk'
 
 
 if __name__ == '__main__':

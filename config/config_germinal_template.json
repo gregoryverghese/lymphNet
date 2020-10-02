@@ -3,10 +3,10 @@
 "tasktype": "binary",
 "magnification": "2.5x", 
 "loss": ["weightedBinaryCrossEntropy"], 
-"modelname": "$model_germ_2.5x_adam_$loss_$augment_sparse", 
+"modelname": "$model_germ_2.5x_adam_$loss_$augment_0.5", 
 "ratio": 0.9,
-"batchSize": 128,
-"imageDims": 1536,
+"batchSize": 8,
+"imageDims": 1024,
 "epoch": 100, 
 "augmentation": 
 	{
@@ -23,7 +23,7 @@
 		}
 	},	
 "nClasses": 1, 
-"weights": [868], 
+"weights": [253], 
 "dropout":[0],
 "model": 
 	{
@@ -66,19 +66,19 @@
 	"flag":true,
 	"num":4
 	},  
-"modelapi":"functional", 
+"modelapi":"subclass", 
 "api":"custom",
-"activationthreshold":0.9,
+"activationthreshold":0.5,
 "stopthresholds": 
 	{
 	"first":
 		{
-		"metric":0.8,
+		"metric":0.875,
 		"epochs":50
 		},
 		"second":
 		{
-		"metric":0.75,
+		"metric":0.85,
 		"epochs":75
 		}
 	},
