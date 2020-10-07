@@ -6,10 +6,10 @@
 #$ -j y
 #$ -N 'arrayJobs' 
 
-for f in 's'; do
+for f in 'g'; do
     for x in '2.5x'; do
         for s in '256'; do
-            for o in '64'; do
+            for o in '2'; do
 	        echo $f
                 echo $s
                 echo $x

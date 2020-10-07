@@ -14,11 +14,11 @@ color = [(255,0,0), (0,0,255),(255,0,0)]
 feature = 'sinus'
 ndpiPath = '/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/wsi/Guys/all/wsi'
 annotationsPath = '/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/wsi/Guys/all/testing'
-outPath ='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/patches/segmentation/10x/one/testing'
+outPath='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/patches/segmentation/2.5x/one/testing'
 configPath = '/home/verghese/breastcancer_ln_deeplearning/scripts/config/config_tf.json'
 testingPath = '/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/wsi/Guys/all/testing/*'
-magFactor = 4
-mag = 2
+magFactor = 16
+mag = 4
 
 def getRegions(xmlFileName):
 
@@ -116,7 +116,8 @@ def resizeDims(currDim, magfactor):
     t = np.ceil(currDim/magfactor)
 
     #power2 = [2**i for i in range(15)]
-    power2  = [2048*i for i in range(10)]
+    power2  = [2**i for i in range(20)]
+    #power2 = power2 + [2048*i for i in range(10)]
     power2 = [p for p in power2 if t-p<300] 
     diff = list(map(lambda x: abs(t-x), power2))
     imgsize = power2[diff.index(min(diff))]
@@ -195,9 +196,11 @@ for i, f in enumerate(files):
     xSize = resizeDims(xSize, magFactor)
     ySize = resizeDims(ySize, magFactor)
 
-
     print('ySize: {}, xSize:{}'.format(ySize, xSize)) 
     img = np.zeros((dim[1], dim[0], 3), dtype=np.uint8)
+ 
+    print('Y coordinates check',(boundaries[1][0] + (ySize)) > dim[1])
+
 
     if (boundaries[1][0] + (ySize)) > dim[1]:
  
@@ -206,6 +209,8 @@ for i, f in enumerate(files):
         print('calculated height: {}'.format(boundaries[1][0]+ySize)),
         print('new dim:{}'.format(dim[1] - boundaries[1][0])) 
         boundaries[1][0] = dim[1] - ySize
+
+    print('X coordinatest check', (boundaries[0][0] + (xSize)) > dim[0])
 
     if (boundaries[0][0] + (xSize)) > dim[0]:
                        

@@ -5,7 +5,7 @@
 "loss": ["weightedBinaryCrossEntropy"], 
 "modelname": "$model_germ_10x_adam_$loss_$augment", 
 "ratio": 0.9,
-"batchSize": 8,
+"batchSize": 4,
 "imageDims": 1024,
 "epoch": 100, 
 "augmentation": 
@@ -83,4 +83,4 @@
 		}
 	},
 "step":1024,
-"upTypeName":"transpose"}
+"upTypeName":"upsampling"}
