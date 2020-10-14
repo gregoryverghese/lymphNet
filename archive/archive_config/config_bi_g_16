@@ -1,0 +1,27 @@
+{
+    "batchSize": "32", 
+    "final": "sigmoid", 
+    "imageDims": "224", 
+    "nClasses": "1", 
+    "epoch":"50", 
+    "ratio":"0.9", 
+    "augmentation":["Rotate90", "Flip"], 
+    "weights": ["6.37"],
+    "loss": "focalloss",
+    "model": "unet",
+    "modelname": "unet_32_adam_fl_rf_pd2",
+    "optimizer":{
+	"method":"adam",
+	"parameters":{
+		"learning_rate":0.001, 
+		"amsgrad":true
+			},
+	"decaymethod":"PolynomialDecay",
+	"decayparams":{
+		"maxEpochs":50, 
+		"initLr":0.001, 
+		"power":2
+			}
+		},
+    "metric": "diceCoef"
+}

@@ -13,7 +13,8 @@ from prettytable import PrettyTable
 
 class Augment():
     def __init__(self, hueLimits, saturationLimits, contrastLimits, brightnessLimits,
-                 rotateProb=0.5, flipProb=0.5, colorProb=0.5): 
+                 rotateProb=0.5, flipProb=0.5, colorProb=0.5, channelMeans=[0,0,0], channelStd=[1,1,1]): 
+
         self.hueLimits = hueLimits
         self.saturationLimits = saturationLimits
         self.contrastLimits = contrastLimits
@@ -21,6 +22,8 @@ class Augment():
         self.rotateProb = rotateProb
         self.flipProb = flipProb
         self.colorProb = colorProb
+        self.channelMeans = channelMeans
+        self.channelStd = channelStd
     
 
     def getRotate90(self, x, y):
@@ -79,9 +82,20 @@ class Augment():
         return x, y
 
 
-    def standardized(self, x, y):
+    def getStandardizeImage(self, x, y):
         x = tf.image.per_image_standardization(x)
         return x, y
+
+
+    def getStandardizeDataset(self, x, y):
+
+        #xnew = (x - self.channelMeans)/self.channelStd
+        #xnew = tf.clip_by_value(xnew,-1.0, 1.0)
+        #xnew = (xnew+1.0)/2.0
+        x=x
+        return x, y
+
+
 
 def readTFRecord(serialized, imgDims=256):
 
@@ -96,6 +110,8 @@ def readTFRecord(serialized, imgDims=256):
     example = tf.io.parse_single_example(serialized, data)
     image = tf.image.decode_png(example['image'])
     mask = tf.image.decode_png(example['mask'])
+
+    print(image)
 
     return image, mask
 
@@ -116,7 +132,9 @@ def getRecordNumber(tfrecords):
 
 
 def getShards(tfrecords, dataSize, batchSize, imgDims, augParams={},
-              augmentations=[], test=False, taskType='binary'):	
+              augmentations=[], test=False, taskType='binary',
+              channelMeans=[1,1,1],
+              channelStd=[1,1,1]):	
     
     AUTO = tf.data.experimental.AUTOTUNE
     ignoreDataOrder = tf.data.Options()
@@ -143,8 +161,18 @@ def getShards(tfrecords, dataSize, batchSize, imgDims, augParams={},
         saturationLimits = augParams['saturation']
         contrastLimits = augParams['contrast']
         brightnessLimits = augParams['brightness']
+        channelMeans = augParams['channelMeans']
+        channelStd = augParams['channelStd']
 
-        aug = Augment(hueLimits, saturationLimits, contrastLimits, brightnessLimits, rotateProb, flipProb, colorProb)
+        aug = Augment(hueLimits, 
+                      saturationLimits, 
+                      contrastLimits, 
+                      brightnessLimits, 
+                      rotateProb, 
+                      flipProb, 
+                      colorProb,
+                      channelMeans,
+                      channelStd)
 
         print('\n'*2+'Applying following Augmentations for'+datasetName+' dataset \n')
         for i, a in enumerate(augmentations):
@@ -163,7 +191,11 @@ def getShards(tfrecords, dataSize, batchSize, imgDims, augParams={},
     else:
         print('No data augmentation being applied')
     
+    #channelMeans = augParams['channelMeans']
+    #channelStd = augParams['channelStd']
     dataset = dataset.map(lambda x, y: (x, y[:,:,0:1]), num_parallel_calls=4)
+    dataset = dataset.map(lambda x, y: (x/255.0, y), num_parallel_calls=4)
+    dataset = dataset.map(lambda x, y: ((x-channelMeans)/channelStd,y), num_parallel_calls=4)
 
     if taskType=='multi':
        dataset = dataset.map(lambda x, y: (x, tf.one_hot(tf.cast(y[:,:,0], tf.int32), depth=3, dtype=tf.float32)), num_parallel_calls=4)

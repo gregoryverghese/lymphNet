@@ -11,7 +11,7 @@ import xml.etree.ElementTree as ET
 
 color = [(255,0,0), (0,0,255),(255,0,0)]
 #feature = ['germinal', 'sinus']
-feature = 'sinus'
+feature = 'germinal'
 ndpiPath = '/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/wsi/Guys/all/wsi'
 annotationsPath = '/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/wsi/Guys/all/testing'
 outPath='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/patches/segmentation/2.5x/one/testing'
@@ -135,7 +135,7 @@ print(testingPath)
 files = glob.glob(testingPath)
 files = [f for f in files if '.ndpi' in f]
 print(files)
-#files = [f for f in files if '14.90610 C L2.11.ndpi' in f]
+files = [f for f in files if '100188' in f]
 print(len(files))
 for i, f in enumerate(files):
     #print('{}: loading {} '.format(i, f), flush=True)
@@ -180,7 +180,7 @@ for i, f in enumerate(files):
     if values==0:
         print('no annotations for feature: {}'.format(feature))
         continue
-
+    
     boundaries = drawBoundaries(annotations)
     scan = openslide.OpenSlide(f)
     dim = scan.dimensions
@@ -223,7 +223,7 @@ for i, f in enumerate(files):
     patch = scan.read_region((boundaries[0][0], boundaries[1][0]), mag, (np.int(xSize/magFactor),np.int(ySize/magFactor)))
     print(np.int(xSize/magFactor),np.int(ySize/magFactor))
     for k in annotations:
-
+        print(k)
         v = annotations[k]
         v = [np.array(a) for a in v]
         #c = color[k]
@@ -231,10 +231,12 @@ for i, f in enumerate(files):
         #cv2.fillPoly(img, v, color=color[k])
         cv2.fillPoly(img, v, color=k)
 
+    #print(np.unique(img))
     img2 = img[boundaries[1][0]:boundaries[1][0]+ySize,boundaries[0][0]:boundaries[0][0]+xSize]
     img2 = cv2.resize(img2, (np.int(xSize/magFactor),np.int(ySize/magFactor)))
     print(np.unique(img2))
      
     img2[img2!=0]=1
-    cv2.imwrite(os.path.join(outPath, 'masks', feature, name+'_masks.png'),img2)
+    print('values', np.unique(img2))
+    cv2.imwrite(os.path.join(outPath, 'masks', feature, name+'_masks.png'),img)
     patch.convert('RGB').save(os.path.join(outPath, 'images', feature, name+'.png'))

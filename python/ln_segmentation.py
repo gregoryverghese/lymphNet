@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 '''
@@ -155,16 +155,30 @@ def main(args, modelname):
     table = PrettyTable(['\nTrainNum', 'ValidNum', 'TestNum', 'TrainSteps', 'ValidSteps', 'TestSteps', 'Weights'])
     table.add_row([trainNum, validNum, testNum, trainSteps, validSteps, testSteps, weights])
     print(table)
-
+    channelMeans = augparams['channelMeans']
+    channelStd = augparams['channelStd']
 
     trainDataset = tfrecord_read.getShards(trainFiles, imgDims=imgDims, batchSize=batchSize, dataSize=trainNum, 
-                                           augParams=augparams, augmentations=augment, taskType=tasktype)
+                                           augParams=augparams,
+                                           augmentations=augment,
+                                           taskType=tasktype,
+                                           channelMeans=channelMeans,
+                                           channelStd=channelStd)
     validDataset = tfrecord_read.getShards(validFiles, imgDims=imgDims, batchSize=batchSize,
-                                           dataSize=validNum, taskType=tasktype)
+                                           dataSize=validNum,
+                                           taskType=tasktype,
+                                           channelMeans=channelMeans,
+                                           channelStd=channelStd)
     testdataset = tfrecord_read.getShards(testFiles, batchSize=batchSize,imgDims=imgDims,
-                                          dataSize=testNum, test=True, taskType=tasktype)
+                                          dataSize=testNum, test=True,
+                                          taskType=tasktype,
+                                          channelMeans=channelMeans,
+                                          channelStd=channelStd)
 
+    #for p in trainDataset:
+        #pass
 
+    #print('it is al here', p)
     #get the number of gpus available and initiate a distribute mirror strategy
     devices = tf.config.experimental.list_physical_devices('GPU')
     devices = [x.name.replace('/physical_device:', '') for x in devices] 
@@ -271,6 +285,11 @@ def main(args, modelname):
         #call distributed training script to allow for training on multiple gpus
         trainDistDataset = strategy.experimental_distribute_dataset(trainDataset)
         validDistDataset = strategy.experimental_distribute_dataset(validDataset)
+        
+        #print('datasetsize', trainDistDataset)
+        #for p in trainDistDataset:
+            #print(p)
+
 
         train = distributed_train.DistributeTrain(epoch, model, optimizer,
                                                   lossObject, batchSize,
@@ -296,7 +315,11 @@ def main(args, modelname):
     #patchpredict(testdataset, os.path.join(outPath, 'predictions'))
 
     if magnification in ['2.5x','5x', '10x']:
-        wsipredict = WSIPredictions(model, modelName, feature, magnification,step, step, activationthreshold, currentTime, currentDate, tasktype)
+        wsipredict = WSIPredictions(model, modelName, feature,
+                                    magnification,step, step,
+                                    activationthreshold, currentTime,
+                                    currentDate, tasktype, augparams['channelMeans'],
+                                    augparams['channelStd'])
         result = wsipredict(os.path.join(recordsPath, 'tfrecords_wsi'))
 
     #########################Loss and train curves ########################

@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python3
 
 '''
 distributed_train.py: trains neural network model using custom
@@ -100,6 +99,8 @@ class DistributeTrain():
 
         x, y = inputs
 
+        print(x)
+
         with tf.GradientTape() as tape:
 
             logits = self.model(x, training=True)
@@ -182,6 +183,8 @@ class DistributeTrain():
         i = 0
         prog = Progbar(self.trainSteps-1)
         for batch in trainData:
+            #print('hereeeeeeeeeeeee', batch[0])
+
             replicaLoss, replicaDice = self.distributedTrainEpoch(batch)
             totalLoss += self.strategy.reduce(tf.distribute.ReduceOp.SUM, replicaLoss, axis=None)
             totalDice += self.strategy.reduce(tf.distribute.ReduceOp.SUM, replicaDice, axis=None)

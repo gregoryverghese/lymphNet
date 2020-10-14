@@ -1,4 +1,4 @@
-#!/usr/bin/env/python
+#!/usr/bin/env python3
 #-*- coding: utf-8 -*-
 
 import os
@@ -140,7 +140,7 @@ class WSIPredictions(object):
     image
     '''
     def __init__(self, model, modelName, feature, magnification, imgDims, step,
-                 threshold, currentTime, currentDate, tasktype, resolutionDict={'2.5x':16,'5x':8,'10x':4}, figureSize=500):
+                 threshold, currentTime, currentDate, tasktype, channelMeans, channelStd, resolutionDict={'2.5x':16,'5x':8,'10x':4}, figureSize=500):
         self.model = model 
         self.modelName = modelName
         self.feature = feature
@@ -154,6 +154,8 @@ class WSIPredictions(object):
         self.threshold = threshold,
         self.step = step
         self.tasktype = tasktype
+        self.channelMeans = channelMeans
+        self.channelStd = channelStd
 
     
     def predict(self, image, mask, label, outPath):
@@ -258,9 +260,14 @@ class WSIPredictions(object):
         for data in dataset:
 
             image = tf.cast(data[0], tf.float32)
+            image = image/255.0
+            image = (image-self.channelMeans)/self.channelStd
             mask = tf.cast(data[1], tf.float32)
             label = (data[2].numpy()[0]).decode('utf-8')
             
+            if '100188_01_R' in label:
+                continue
+
             print('shape of the image', K.int_shape(image))
             print('Image: {}'.format(label))
 

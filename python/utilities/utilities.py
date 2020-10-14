@@ -12,3 +12,12 @@ def oneHotToMask(onehot):
     return multimask
 
 
+def resizeImage(dim, factor=2048):
+
+    boundaries = [factor*i for i in range(100)]
+    diff = list(map(lambda x: abs(dim-x), boundaries))
+    newDim = boundaries[diff.index(min(diff))]
+
+    return newDim
+
+

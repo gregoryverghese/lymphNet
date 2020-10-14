@@ -110,8 +110,6 @@ def getFiles(imagePath, maskPath, outPath, config, shardSize=0.1):
 
     validFiles=configFile['validFiles']
     testFiles = configFile['testFiles']
-    print('imagesssssssss', imagePath)
-    print('maskssssssssss', maskPath)
     imagePaths = glob.glob(os.path.join(imagePath, '*'))
     maskPaths = glob.glob(os.path.join(maskPath, '*'))
     

@@ -3,14 +3,14 @@
 "tasktype": "binary",
 "magnification": "2.5x", 
 "loss": ["weightedBinaryCrossEntropy"], 
-"modelname": "$model_germ_2.5x_adam_$loss_$augment_0.5", 
+"modelname": "$model_germ_2.5x_adam_$loss_$augment_data4_256_32", 
 "ratio": 0.9,
-"batchSize": 4,
-"imageDims": 1024,
-"epoch": 100, 
+"batchSize": 128,
+"imageDims": 256,
+"epoch": 200, 
 "augmentation": 
 	{
-	"methods": [["Flip","Rotate90","Color"]],
+	"methods": [["Flip","Rotate90"]],
 	"parameters":
 		{
 		"saturation":[0.5,1.2],
@@ -19,11 +19,13 @@
 		"contrast":[0.8,1.5],
 		"flipProb":0.5,
 		"rotateProb":0.5,
-		"colorProb":0.5
+		"colorProb":0.5,
+		"channelMeans":[0.62160518, 0.36647544, 0.63492442],
+	        "channelStd": [0.14326476, 0.19415494, 0.19237681]
 		}
 	},	
 "nClasses": 1, 
-"weights": [253], 
+"weights": [9.2], 
 "dropout":[0],
 "model": 
 	{
@@ -66,7 +68,7 @@
 	"flag":true,
 	"num":4
 	},  
-"modelapi":"subclass", 
+"modelapi":"functional", 
 "api":"custom",
 "activationthreshold":0.5,
 "stopthresholds": 
@@ -83,5 +85,5 @@
 		}
 	},
 "step":2048,
-"upTypeName":"transpose"
+"upTypeName":"upsampling"
 }

@@ -75,32 +75,32 @@ class WSITiling():
             boundaries  = [wBoundaries, hBoundaries]
         for w in range(boundaries[0][0], boundaries[0][1], self.step*self.magFactor):
             for h in range(boundaries[1][0], boundaries[1][1], self.step*self.magFactor):
-                #patch = scan.read_region((int(w-(self.tileDim*0.5*self.magFactor)), int(h-(self.tileDim*0.5*self.magFactor))), self.magLevel, (self.tileDim, self.tileDim))
-                #mask = img[h-int(self.tileDim*0.5*self.magFactor):h+int(self.tileDim*0.5*self.magFactor), w-int(self.tileDim*0.5*self.magFactor):w+int(self.tileDim*0.5*self.magFactor)]
+                patch = scan.read_region((int(w-(self.tileDim*0.5*self.magFactor)), int(h-(self.tileDim*0.5*self.magFactor))), self.magLevel, (self.tileDim, self.tileDim))
+                mask = img[h-int(self.tileDim*0.5*self.magFactor):h+int(self.tileDim*0.5*self.magFactor), w-int(self.tileDim*0.5*self.magFactor):w+int(self.tileDim*0.5*self.magFactor)]
 
                 patch = scan.read_region((int(w), int(h)), self.magLevel, (self.tileDim, self.tileDim))
                 mask = img[h:h+int(self.tileDim*self.magFactor), w:w+int(self.tileDim*self.magFactor)]
 
-                #for v in list(annotations.values())[0]:
-                    #p = Path(v)
-                    #contains = p.contains_point([w, h])
-                    #if contains==True and (mask.shape == (self.tileDim*self.magFactor, self.tileDim*self.magFactor) and np.mean(patch) < 200):
+                for v in list(annotations.values())[0]:
+                    p = Path(v)
+                    contains = p.contains_point([w, h])
+                    if contains==True and (mask.shape == (self.tileDim*self.magFactor, self.tileDim*self.magFactor) and np.mean(patch) < 200):
                    
-                if np.mean(patch) < 200 and (mask.shape == (self.tileDim*self.magFactor, self.tileDim*self.magFactor)):
-                    print((w, h))
-                    patch = patch.convert('RGB')
-                    patch = patch.resize((self.resizeDim, self.resizeDim)) if self.resizeDim!=self.tileDim else patch
+                #if np.mean(patch) < 200 and (mask.shape == (self.tileDim*self.magFactor, self.tileDim*self.magFactor)):
+                        print((w, h))
+                        patch = patch.convert('RGB')
+                        patch = patch.resize((self.resizeDim, self.resizeDim)) if self.resizeDim!=self.tileDim else patch
                     #ToDo: deal with edge cases where patch is greater than
                     #mask dimensions
-                    try:
-                        mask = cv2.resize(mask, (self.resizeDim,self.resizeDim))
-                    except cv2.error as e:
-                        print(e)
-                        continue
+                        try:
+                            mask = cv2.resize(mask, (self.resizeDim,self.resizeDim))
+                        except cv2.error as e:
+                            print(e)
+                            continue
 
-                    patch.save(os.path.join(os.path.join(self.outPath, self.imageDir), os.path.basename(ndpi)[:-5])+'_'+str(w)+'_'+str(h)+'.png')
-                    cv2.imwrite(os.path.join(os.path.join(self.outPath, self.maskDir), os.path.basename(ndpi)[:-5])+'_'+str(w)+'_'+str(h)+'_masks.png', mask)
-                    #break
+                        patch.save(os.path.join(os.path.join(self.outPath, self.imageDir), os.path.basename(ndpi)[:-5])+'_'+str(w)+'_'+str(h)+'.png')
+                        cv2.imwrite(os.path.join(os.path.join(self.outPath, self.maskDir), os.path.basename(ndpi)[:-5])+'_'+str(w)+'_'+str(h)+'_masks.png', mask)
+                        break
 
     def filterPatches(self, p, w, h, tolerance=0.75):
 
@@ -133,7 +133,7 @@ class WSITiling():
         print('Number of annotations{}'.format(len(list(annotations.values())[0])))
         for w in range(boundaries[0][0], boundaries[0][1], self.step*self.magFactor):
             for h in range(boundaries[1][0], boundaries[1][1], self.step*self.magFactor):
-                #print(w, h)
+                print(w, h)
                 #maskDim = tf.shape(mask).numpy()
                 #patch = scan.read_region((int(w-(self.tileDim*0.5)), int(h-(self.tileDim*0.5))), self.magLevel, (self.tileDim, self.tileDim))
                 #patch.convert('RGB')
@@ -292,15 +292,16 @@ class WSITiling():
     def getTiles(self, ndpiPath, annotationPath):
 
         ndpiFiles = [f for f in glob.glob(os.path.join(ndpiPath, '*')) if '.ndpi' in f]
-        #ndpiFiles = [f for f in ndpiFiles if '14.90610 C L2.11' not in f]
-        #ndpiFiles = [f for f in ndpiFiles if '18.90452 C4 L11' not in f]
-        #ndpiFiles = [f for f in ndpiFiles if '11.90656 C L1' not in f]
+        ndpiFiles = [f for f in ndpiFiles if '32.90577 C L1.2' not in f]
+        ndpiFiles = [f for f in ndpiFiles if '100237_03_mets' not in f]
+        ndpiFiles = [f for f in ndpiFiles if 'U_90420_5_X_LOW_1_L1' not in f]
+        ndpiFiles = [f for f in ndpiFiles if 'U_90385_2_A_SNLB_2_L1' not in f]
         
         print('ndpiFiles: {}'.format(ndpiFiles))
     
 
         for i, ndpi in enumerate(ndpiFiles):
-            if i == 98:
+            if i >0:
                 print('{}: loading {} '.format(i, ndpi), flush=True)
                 scan = openslide.OpenSlide(ndpi)
 

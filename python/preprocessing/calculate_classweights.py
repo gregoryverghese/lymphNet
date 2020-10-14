@@ -37,7 +37,7 @@ def calculateWeights(maskPath, outPath, fileName, numClasses):
         weights.append(list(values))
 
         i=i+1
-        print(i, flush=True)
+        #print(i, classWeights, flush=True)
 
     finalWeights = list(zip(*weights))
     averageWeights = [np.mean(np.array(w)) for w in finalWeights]
