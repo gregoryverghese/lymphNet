@@ -34,7 +34,11 @@ class DistributeTrain():
     gpu (known as replica) and combined at the end.
     '''
 
-    def __init__(self, epochs, model, optimizer, lossObject, batchSize, strategy, trainSteps, testNum, imgDims, threshold, modelName, currentTime, currentDate, tasktype):
+    def __init__(self, epochs, model, optimizer, lossObject,
+                 batchSize, strategy, trainSteps, testNum, 
+                 imgDims, threshold, modelName, currentTime, 
+                 currentDate, tasktype):
+
         self.epochs = epochs
         self.batchSize = batchSize
         self.strategy = strategy
@@ -182,8 +186,6 @@ class DistributeTrain():
         i = 0
         prog = Progbar(self.trainSteps-1)
         for batch in trainData:
-            #print('hereeeeeeeeeeeee', batch[0])
-
             replicaLoss, replicaDice = self.distributedTrainEpoch(batch)
             totalLoss += self.strategy.reduce(tf.distribute.ReduceOp.SUM, replicaLoss, axis=None)
             totalDice += self.strategy.reduce(tf.distribute.ReduceOp.SUM, replicaDice, axis=None)

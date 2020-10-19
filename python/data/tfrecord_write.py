@@ -1,15 +1,38 @@
-import cv2
-import json
+#!/usr/bin/env python3
+
+'''
+tfrecord_write.py: write down image and mask data in serialized tfrecord format
+'''
+
 import os
-import numpy as np
+import json
 import glob
 import argparse
-import tensorflow as tf
 import math
+
+import cv2
+import numpy as np
+import tensorflow as tf
+
+__author__= 'Gregory Verghese'
+__email__='gregory.verghese@gmail.com'
+
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
-def getShardNumber(images, masks, shardSize=0.1, unit=10**9):
 
+def getShardNumber(images, masks, shardSize=0.1, unit=10**9):
+    '''
+    calculate the number of shards based on images
+    masks and required shard size
+    Args:
+        images: image paths
+        masks: mask paths
+        shardsize: memory size of each shard
+        unit: gb
+    Returns:
+        shardNum: number of shards
+        imgPerShard: number of images in each shard
+    '''
     maskMem = sum(os.path.getsize(f) for f in masks if os.path.isfile(f))
     imageMem = sum(os.path.getsize(f) for f in images if os.path.isfile(f))
     totalMem = (maskMem+imageMem)/unit
@@ -22,7 +45,13 @@ def getShardNumber(images, masks, shardSize=0.1, unit=10**9):
 
 
 def printProgress(count, total):
-
+    '''
+    print progress of saving
+    Args:
+        count: current image number
+    total:
+        total: total number of images
+    '''
     complete = float(count)/total
     print('\r- Progress: {0:.1%}'.format(complete), flush=True)
 
@@ -32,16 +61,35 @@ def wrapInt64(value):
 
 
 def wrapFloat(value):
+    '''
+    convert to tf float
+    Returns:
+
+    '''
     return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
 
 
 def wrapBytes(value):
+    '''
+    convert value to bytes
+    Args:
+        value: image
+    Returns:
+
+    '''
     if isinstance(value, type(tf.constant(0))):
         value = value.numpy()
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
 
 def convert(imageFiles, maskFiles, tfRecordPath, dim=None):
+    '''
+    load images and masks and serialize as a tfrecord file
+    Args:
+        imageFiles: imagefile paths
+        maskFiles: maskfile paths
+        tfRecordPath: path to save tfrecords
+    '''
 
     numImgs = len(imageFiles)
     check=[]
@@ -86,11 +134,16 @@ def convert(imageFiles, maskFiles, tfRecordPath, dim=None):
 
 
 def doConversion(imgs, masks, shardNum, num, outPath, outDir):
-    
-    print('shardNum', shardNum)
-    print('num', num)
-    
-    
+    '''
+    split files into shards for saving down
+    Args:
+        imgs: list of image tensors
+        masks: list of mask image tensors
+        shardNum: number of shards
+        num: number of images per shard
+        outPath: path to save files
+        outDir: directory to save files
+    '''
     for i in range(0, shardNum):
         shardImgs = imgs[i*num:num*(i+1)]
         shardMasks = masks[i*num:num*(i+1)]
@@ -104,7 +157,14 @@ def doConversion(imgs, masks, shardNum, num, outPath, outDir):
 
 
 def getFiles(imagePath, maskPath, outPath, config, shardSize=0.1):
-
+    '''
+    gets images paths and split into train, valid and test sets
+    Args:
+        imagePath: path to image files
+        maskPath: path to mask files
+        outPath: path to save down files
+        config: config file path containig names of test images
+    '''
     with open(config) as jsonFile:
         configFile = json.load(jsonFile)
 
@@ -122,12 +182,12 @@ def getFiles(imagePath, maskPath, outPath, config, shardSize=0.1):
     testImgs = [img for img in imagePaths if any([v for v in testFiles if v in img])]
     testMasks = [m for m in maskPaths if any([v for v in testFiles if v in m])]
     
+    '''
+    #datacheck
     import pandas as pd
-
     x = pd.DataFrame({'train': trainImgs})
-
-    x.to_csv('pleaseeenooooo.csv')
-
+    x.to_csv('check.csv')
+    '''
     print('train:{}, valid: {}, test: {}'.format(len(trainImgs), len(validImgs), len(testImgs)))
     print('train:{}, valid: {}, test: {}'.format(len(trainMasks), len(validMasks), len(testMasks)))
      

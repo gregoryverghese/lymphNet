@@ -1,5 +1,12 @@
+#!/usr/bin/env python3
+
+'''
+decay_schedules.py custom decay schedules for learning rate
+'''
+
 import numpy as np
 import matplotlib.pyplot as plt
+
 
 class Decay():
     def plot(self, epochs, title='Learning rate schedule'):

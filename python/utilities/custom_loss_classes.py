@@ -1,3 +1,9 @@
+#!/usr/bin/env python3
+
+'''
+custom_classes.py: script contains classes inheriting from tf.keras.losses.loss
+'''
+
 import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.losses import binary_crossentropy

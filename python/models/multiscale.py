@@ -1,8 +1,13 @@
+#!/usr/bin/env python3 
+
+'''
+multiscale.py: multiscale unet, uses dilated convolutions
+'''
+
 import tensorflow as tf
 from tensorflow.keras import layers
 from tensorflow.keras import Model
 import tensorflow.keras.backend as K
-
 from tensorflow.keras.layers import Conv2D, UpSampling2D, Input, Concatenate,concatenate, Conv2DTranspose
 from tensorflow.keras.layers import  Activation, Dropout, BatchNormalization, MaxPooling2D, Add, Multiply
 

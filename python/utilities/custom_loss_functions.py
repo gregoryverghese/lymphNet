@@ -1,7 +1,14 @@
-from tensorflow.keras import backend as K
-from evaluation import diceCoef
+#!usr/bin/env python3
+
+'''
+custom_loss_functions.py: contains loss functions
+'''
+
 import tensorflow as tf
+from tensorflow.keras import backend as K
 from tensorflow.keras.losses import categorical_crossentropy, binary_crossentropy
+
+from evaluation import diceCoef
 
 
 def calculateWeightedBinaryCrossEntropy(yTrue, yPred, posWeight):

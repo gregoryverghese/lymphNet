@@ -1,3 +1,10 @@
+#!/usr/bin/env python3
+
+'''
+atten_unet.py: attention unet model in both functional and subclass forms
+inspired by 'Attention U-Net: Learning Where to Look for the Pancreas' oktay et.al.
+'''
+
 import tensorflow as tf
 import tensorflow.keras
 import tensorflow.keras.backend as K

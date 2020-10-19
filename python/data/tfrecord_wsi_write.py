@@ -1,11 +1,26 @@
+#!usr/bin/env python3
+
+'''
+tfrecord_wsi_write.py: write test wsi files to tfrecords
+'''
+
+
 import os
 import glob
+import argparse
+
 import numpy as np
 import tensorflow as tf
-import argparse
+
 
 
 def printProgress(count, total):
+    '''
+    print progress of saving files
+    Args:
+        count: image number
+        total: total number of images
+    '''
 
     complete = float(count)/total
     print('\r- Progress: {0:.1%}'.format(complete), flush=True)
@@ -22,6 +37,13 @@ def wrapBytes(value):
 
 
 def convert(imageFiles, maskPath, tfRecordPath):
+    '''
+    Serialize images and masks and save them down as tfrecords
+    Args:
+        imageFiles: images paths
+        maskPath: mask paths
+        tfRecordPath: path to save tfrecords
+    '''
 
     numImgs = len(imageFiles)
     print('Number of test images: {}'.format(numImgs))

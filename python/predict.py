@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 #-*- coding: utf-8 -*-
 
+'''
+predict.py: segmentation prediction on wsi images
+'''
+
 import os
 import glob
 import json
@@ -9,10 +13,10 @@ import cv2
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-
 import tensorflow as tf
 import tensorflow.keras.backend as K
 from tensorflow.keras.models import load_model
+
 from utilities.evaluation import diceCoef, iouScore
 from utilities.utilities import oneHotToMask
 
@@ -53,8 +57,6 @@ def readTF(serialized):
     image = tf.cast(image, tf.float32)
     mask = tf.cast(mask, tf.float32)
 
-    print(K.int_shape(image))
-
     return image, mask, label
 
 
@@ -66,7 +68,9 @@ class PatchPredictions(object):
     average across test dataset
     '''
 
-    def __init__(self, model, modelName, batchSize, currentTime, currentDate, threshold):
+    def __init__(self, model, modelName, batchSize, currentTime, 
+                 currentDate, threshold):
+
         self.model = model
         self.modelName = modelName
         self.batchSize = batchSize
@@ -140,8 +144,11 @@ class WSIPredictions(object):
     class that applies model to predict on large region/entire whople slide
     image
     '''
-    def __init__(self, model, modelName, feature, magnification, imgDims, step,
-                 threshold, currentTime, currentDate, tasktype, channelMeans, channelStd, resolutionDict={'2.5x':16,'5x':8,'10x':4}, figureSize=500):
+    def __init__(self, model, modelName, feature, magnification, imgDims, 
+                 step, threshold, currentTime, currentDate, tasktype, 
+                 channelMeans, channelStd, 
+                 resolutionDict={'2.5x':16,'5x':8,'10x':4}, figureSize=500):
+
         self.model = model 
         self.modelName = modelName
         self.feature = feature
@@ -161,10 +168,10 @@ class WSIPredictions(object):
     
     def predict(self, image, mask, label, outPath):
         '''
-        takes a image and predicts a class for each pixel using trained 
-        self.model. If the image is large than certain threshold
-        self.step we split the image into smaller regions and predict 
-        on each one and then stitch back together.
+        takes a image and predicts a class for each pixel using 
+        trained self.model. If the image is large than certain 
+        threshold self.step we split the image into smaller regions 
+        and predict on each one and then stitch back together.
         Args:
             image: 4d-tensor image
             mask: 4d-tensor groundtruth mask
@@ -177,23 +184,32 @@ class WSIPredictions(object):
 
         _,x,y,_ = K.int_shape(image)
         if x>self.step and y>self.step:
-            #split the image into several patches based on self.step
-            #predict on each patch and then stitch back together
-            imagepatches = [[image[:,i:i+self.step,j:j+self.step,:] 
-                             for j in range(0, y, self.step)] for i in range(0, x, self.step)]
 
-            #force prediction onto cpu for memory reasons
-            with tf.device('/cpu:0'):            
-                probabilities = [[self.model.predict(img) for img in imagepatches[i]] 
-                            for i in range(len(imagepatches))]
+            #split into patches based with self.step
+            #predict on each patch and then stitch together
+            patches=[]
+            for i in range(0, x, self.step):
+                for j in range(0, y, self.step):
+                    patch = image[:,i:i+self.step,j:j+self.step,:]
+                    patches.append(patch) 
 
-            imagepatches = [list(map(lambda i: tf.reshape(i,(self.step,self.step,3)),imgs)) for imgs in imagepatches]
-            probabilities = [list(map(lambda i:tf.reshape(i,(self.step,self.step,1)),probs)) for probs in probabilities]
+            #predict on cpu
+            probs=[]
+            with tf.device('/cpu:0'):
+                for i in range(len(patches)):
+                    for img in patches[i]:
+                        probs.append(self.model.predict(img))
+            
+            for p, imgs in zip(probs, patches):
+                f = lambda x: tf.reshape(i,(self.step, self.step,3)
+                patches = list(map(f, imgs))
+                f = lambda x: tf.reshape(i,(self.step, self.step,1)
+                probs = list(map(f, p)
+            
+            image=np.vstack([np.hstack(i) for i in patches])
+            probs=np.vstack([np.hstack(p) for p in probs])
 
-            image=np.vstack([np.hstack(i) for i in imagepatches])
-            probabilities=np.vstack([np.hstack(i) for i in probabilities])
-
-            prediction=tf.cast((probabilities>self.threshold), tf.float32)
+            prediction=tf.cast((probs>self.threshold), tf.float32)
             prediction = tf.expand_dims(prediction, axis=0)
 
         else:
@@ -201,17 +217,10 @@ class WSIPredictions(object):
             with tf.device('/cpu:0'):
                 probs=self.model.predict(image)
                 prediction=tf.cast((probs>self.threshold), tf.float32)
-         
-        print('mask', mask.shape, prediction.shape)
-        with tf.device('/cpu:0'):
-            #axIdx=[1,2,3] if self.tasktype=='binary' else [1,2]
-            #dice = diceCoef(mask, prediction[:,:,:,0:1], axIdx)
-            if self.tasktype=='multi':
+
+                #
                 dice = [diceCoef(mask[:,:,:,i],prediction[:,:,:,i]) for i in range(mask.shape[-1])]
-            else:
-                dice = diceCoef(mask, prediction[:,:,:,0:1])
-            #iou = iouScore(mask, prediction[:,:,:,0:1], axIdx)
-            #iou = [iouScore(mask[:,:,:,i], prediction[:,:,:,i]) for i in range(mask.shape[-1])]
+                iou = [iouScore(mask[:,:,:,i], prediction[:,:,:,i]) for i in range(mask.shape[-1])]
             print('dice scores', dice)            
  
         prediction = prediction.numpy().astype(np.uint8)[0,:,:,:]
@@ -219,13 +228,9 @@ class WSIPredictions(object):
         
         if self.tasktype=='multi':
             prediction = oneHotToMask(prediction)
-     
-        prediction = prediction*int(255)
 
-        cv2.imwrite(os.path.join(outPath, label +'_pred.png'),prediction)
-        #cv2.imwrite(os.path.join(outPath, label +'_mask.png'),mask)
-        plt.close()
-
+        cv2.imwrite(os.path.join(outPath, label +'_pred.png'),prediction*int(255))
+        
         return np.mean(dice)
 
                     
@@ -268,25 +273,25 @@ class WSIPredictions(object):
         for data in dataset:
 
             image = tf.cast(data[0], tf.float32)
-            #image = image/255.0
-            #image = (image-self.channelMeans)/self.channelStd
             mask = tf.cast(data[1], tf.float32)
+            label = (data[2].numpy()[0]).decode('utf-8')
+
+
+            print(np.unique(mask[:,:,0]),np.unique([:,:,1]),np.unique([:,:,2]))
+
             if self.tasktype=='multi':
                 mask = tf.one_hot(tf.cast(mask[:,:,:,0], tf.int32), depth=3, dtype=tf.float32)
-            else:
-                mask = mask[:,:,:,2:3]
-
-            print('unique values', np.unique(mask))
-            label = (data[2].numpy()[0]).decode('utf-8')
-            
+             
+            #ToDO: Hack need to remove duplicate test image with different name
             if '100188_01_R' in label:
                 continue
 
+            dice = self.predict(image, mask, label, outPath)
+
             print('shape of the image', K.int_shape(image))
             print('Image: {}'.format(label))
+            print('dice: {}'.format(dice))
 
-            dice = self.predict(image, mask, label, outPath)
-            print('dice: {}'.format(dice))            
             diceLst.append(dice)
             iouLst.append(dice)
             names.append(label)

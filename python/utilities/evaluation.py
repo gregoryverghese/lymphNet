@@ -1,7 +1,14 @@
+#!/usr/bin/env python3
+
+'''
+evaluation.py contains evaluation metric
+'''
+
+
 import numpy as np
 import pandas as pd
-from keras import backend as K
 import tensorflow as tf
+from keras import backend as K
 
 
 

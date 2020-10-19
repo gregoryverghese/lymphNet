@@ -11,10 +11,10 @@ import xml.etree.ElementTree as ET
 
 color = [(255,0,0), (0,0,255),(255,0,0)]
 #feature = ['germinal', 'sinus']
-feature = 'germinal_sinus'
+feature = 'germinal'
 ndpiPath = '/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/wsi/Guys/all/testing/*'
 annotationsPath ='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/wsi/Guys/all/testing'
-outPath='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/patches/segmentation/2.5x/two/testing'
+outPath='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/patches/segmentation/2.5x/one/testing'
 #outPath = '/home/verghese/scratch'
 configPath = '/home/verghese/breastcancer_ln_deeplearning/scripts/config/config_tf.json'
 testingPath = '/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/wsi/Guys/all/testing/*'
@@ -239,6 +239,8 @@ for i, f in enumerate(files):
     print(np.unique(img2))
     print(img2.shape)
     #:img2[img2!=0]=1
-    print('values', np.unique(img2))
+    print('values 0', np.unique(img2[:,:,0]))
+    print('values 1', np.unique(img2[:,:,1]))
+    print('values 2', np.unique(img2[:,:,2]))
     cv2.imwrite(os.path.join(outPath, 'masks', feature, name+'_masks.png'),img2)
     patch.convert('RGB').save(os.path.join(outPath, 'images', feature, name+'.png'))

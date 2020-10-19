@@ -1,4 +1,4 @@
-#!/usr/Bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 '''
@@ -280,11 +280,13 @@ def main(args, modelname):
         #call distributed training script to allow for training on multiple gpus
         trainDistDataset = strategy.experimental_distribute_dataset(trainDataset)
         validDistDataset = strategy.experimental_distribute_dataset(validDataset)
-                                                  lossObject, batchSize,
-                                                  strategy, trainSteps,
-                                                  validSteps, imgDims,
-                                                  stopthresholds, modelName, currentDate,
-                                                  currentTime, tasktype)
+                                                  
+        train = distributed_train.DistributedTrain(model, epochs, optimizer,
+                                                   lossObject, batchSize,
+                                                   strategy, trainSteps,
+                                                   validSteps, imgDims,
+                                                   stopthresholds, modelName, 
+                                                   currentDate, currentTime, tasktype)
 
         model, history = train.forward(trainDistDataset, validDistDataset)
     
