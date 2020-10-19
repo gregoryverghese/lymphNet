@@ -11,12 +11,14 @@ import xml.etree.ElementTree as ET
 
 color = [(255,0,0), (0,0,255),(255,0,0)]
 #feature = ['germinal', 'sinus']
-feature = 'germinal'
-ndpiPath = '/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/wsi/Guys/all/wsi'
-annotationsPath = '/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/wsi/Guys/all/testing'
-outPath='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/patches/segmentation/2.5x/one/testing'
+feature = 'germinal_sinus'
+ndpiPath = '/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/wsi/Guys/all/testing/*'
+annotationsPath ='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/wsi/Guys/all/testing'
+outPath='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/patches/segmentation/2.5x/two/testing'
+#outPath = '/home/verghese/scratch'
 configPath = '/home/verghese/breastcancer_ln_deeplearning/scripts/config/config_tf.json'
 testingPath = '/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/wsi/Guys/all/testing/*'
+#testingPath = '/home/verghese/scratch'
 magFactor = 16
 mag = 4
 
@@ -61,7 +63,7 @@ def getQupathAnnotations(jsonPath, feature):
         classKey = {'sinus':1}
     elif feature == 'germinal':
         classKey = {'GC':1}
-    elif feature == ['germinal', 'sinus']:
+    elif feature == 'germinal_sinus':
         classKey = {'GC':1, 'sinus':2}
 
 
@@ -85,7 +87,7 @@ def getImageJAnnotations(xmlPath, feature):
         classKey = {'SINUS':1}
     elif feature == 'germinal':
         classKey = {'GERMINAL CENTRE':1}
-    elif feature == ['germinal', 'sinus']:
+    elif feature == 'germinal_sinus':
         classKey = {'GERMINAL CENTRE':1, 'SINUS':2}
 
     xmlAnnotations = getRegions(xmlPath)
@@ -135,7 +137,7 @@ print(testingPath)
 files = glob.glob(testingPath)
 files = [f for f in files if '.ndpi' in f]
 print(files)
-files = [f for f in files if '100188' in f]
+files = [f for f in files if '100188_02_R' not in f]
 print(len(files))
 for i, f in enumerate(files):
     #print('{}: loading {} '.format(i, f), flush=True)
@@ -235,8 +237,8 @@ for i, f in enumerate(files):
     img2 = img[boundaries[1][0]:boundaries[1][0]+ySize,boundaries[0][0]:boundaries[0][0]+xSize]
     img2 = cv2.resize(img2, (np.int(xSize/magFactor),np.int(ySize/magFactor)))
     print(np.unique(img2))
-     
-    img2[img2!=0]=1
+    print(img2.shape)
+    #:img2[img2!=0]=1
     print('values', np.unique(img2))
-    cv2.imwrite(os.path.join(outPath, 'masks', feature, name+'_masks.png'),img)
+    cv2.imwrite(os.path.join(outPath, 'masks', feature, name+'_masks.png'),img2)
     patch.convert('RGB').save(os.path.join(outPath, 'images', feature, name+'.png'))

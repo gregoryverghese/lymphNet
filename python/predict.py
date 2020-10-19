@@ -14,6 +14,7 @@ import tensorflow as tf
 import tensorflow.keras.backend as K
 from tensorflow.keras.models import load_model
 from utilities.evaluation import diceCoef, iouScore
+from utilities.utilities import oneHotToMask
 
 
 __author__ = 'Gregory Verghese'
@@ -200,25 +201,32 @@ class WSIPredictions(object):
             with tf.device('/cpu:0'):
                 probs=self.model.predict(image)
                 prediction=tf.cast((probs>self.threshold), tf.float32)
-            
+         
+        print('mask', mask.shape, prediction.shape)
         with tf.device('/cpu:0'):
-            axIdx=[1,2,3] if self.tasktype=='binary' else [1,2]
-            dice = diceCoef(mask, prediction[:,:,:,0:1], axIdx)
-            iou = iouScore(mask, prediction[:,:,:,0:1], axIdx)
-
+            #axIdx=[1,2,3] if self.tasktype=='binary' else [1,2]
+            #dice = diceCoef(mask, prediction[:,:,:,0:1], axIdx)
+            if self.tasktype=='multi':
+                dice = [diceCoef(mask[:,:,:,i],prediction[:,:,:,i]) for i in range(mask.shape[-1])]
+            else:
+                dice = diceCoef(mask, prediction[:,:,:,0:1])
+            #iou = iouScore(mask, prediction[:,:,:,0:1], axIdx)
+            #iou = [iouScore(mask[:,:,:,i], prediction[:,:,:,i]) for i in range(mask.shape[-1])]
+            print('dice scores', dice)            
+ 
         prediction = prediction.numpy().astype(np.uint8)[0,:,:,:]
         mask  = mask.numpy().astype(np.uint8)[0,:,:,:]
         
         if self.tasktype=='multi':
-            prediction = onehotToMask(prediction)
-        elif self.tasktype=='binary':
-            prediction = prediction*int(255)
+            prediction = oneHotToMask(prediction)
+     
+        prediction = prediction*int(255)
 
         cv2.imwrite(os.path.join(outPath, label +'_pred.png'),prediction)
         #cv2.imwrite(os.path.join(outPath, label +'_mask.png'),mask)
         plt.close()
 
-        return dice, iou
+        return np.mean(dice)
 
                     
     def __call__(self, path, tfrecordDir='tfrecords_wsi', outPath='/home/verghese/breastcancer_ln_deeplearning/output/predictions/wsi'):
@@ -260,9 +268,15 @@ class WSIPredictions(object):
         for data in dataset:
 
             image = tf.cast(data[0], tf.float32)
-            image = image/255.0
-            image = (image-self.channelMeans)/self.channelStd
+            #image = image/255.0
+            #image = (image-self.channelMeans)/self.channelStd
             mask = tf.cast(data[1], tf.float32)
+            if self.tasktype=='multi':
+                mask = tf.one_hot(tf.cast(mask[:,:,:,0], tf.int32), depth=3, dtype=tf.float32)
+            else:
+                mask = mask[:,:,:,2:3]
+
+            print('unique values', np.unique(mask))
             label = (data[2].numpy()[0]).decode('utf-8')
             
             if '100188_01_R' in label:
@@ -271,10 +285,10 @@ class WSIPredictions(object):
             print('shape of the image', K.int_shape(image))
             print('Image: {}'.format(label))
 
-            dice, iou = self.predict(image, mask, label, outPath)
-            
-            diceLst.append(dice.numpy())
-            iouLst.append(iou.numpy())
+            dice = self.predict(image, mask, label, outPath)
+            print('dice: {}'.format(dice))            
+            diceLst.append(dice)
+            iouLst.append(dice)
             names.append(label)
 
         imgscores = pd.DataFrame({'image': names, 'dice':diceLst, 'iou':iouLst})

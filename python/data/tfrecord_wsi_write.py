@@ -34,6 +34,7 @@ def convert(imageFiles, maskPath, tfRecordPath):
             m = os.path.join(maskPath, label + '_masks.png')
 
             image = tf.keras.preprocessing.image.load_img(img)
+            print(np.array(image))
             image = tf.keras.preprocessing.image.img_to_array(image, dtype=np.uint8)
 
             imageDim = tf.shape(image).numpy()

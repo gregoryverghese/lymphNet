@@ -78,8 +78,8 @@ class WSITiling():
                 patch = scan.read_region((int(w-(self.tileDim*0.5*self.magFactor)), int(h-(self.tileDim*0.5*self.magFactor))), self.magLevel, (self.tileDim, self.tileDim))
                 mask = img[h-int(self.tileDim*0.5*self.magFactor):h+int(self.tileDim*0.5*self.magFactor), w-int(self.tileDim*0.5*self.magFactor):w+int(self.tileDim*0.5*self.magFactor)]
 
-                patch = scan.read_region((int(w), int(h)), self.magLevel, (self.tileDim, self.tileDim))
-                mask = img[h:h+int(self.tileDim*self.magFactor), w:w+int(self.tileDim*self.magFactor)]
+                #patch = scan.read_region((int(w), int(h)), self.magLevel, (self.tileDim, self.tileDim))
+                #mask = img[h:h+int(self.tileDim*self.magFactor), w:w+int(self.tileDim*self.magFactor)]
 
                 for v in list(annotations.values())[0]:
                     p = Path(v)
@@ -301,7 +301,7 @@ class WSITiling():
     
 
         for i, ndpi in enumerate(ndpiFiles):
-            if i >0:
+            if i > 26:
                 print('{}: loading {} '.format(i, ndpi), flush=True)
                 scan = openslide.OpenSlide(ndpi)
 

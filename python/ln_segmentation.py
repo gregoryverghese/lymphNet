@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/Bin/env python3
 # -*- coding: utf-8 -*-
 
 '''
@@ -99,7 +99,8 @@ def main(args, modelname):
     modelName = params['modelname']
     optKwargs = params['optimizer']['parameters']
     decaySchedule = params['optimizer']['decaymethod']
-    normalize = params['normalize']
+    normalize = params['normalize']['methods']
+    normalizeParams= params['normalize']['params']
     padding = params['padding']
     multiDict = params['multi']
     multi = multiDict['flag']
@@ -155,15 +156,13 @@ def main(args, modelname):
     table = PrettyTable(['\nTrainNum', 'ValidNum', 'TestNum', 'TrainSteps', 'ValidSteps', 'TestSteps', 'Weights'])
     table.add_row([trainNum, validNum, testNum, trainSteps, validSteps, testSteps, weights])
     print(table)
-    channelMeans = augparams['channelMeans']
-    channelStd = augparams['channelStd']
 
     trainDataset = tfrecord_read.getShards(trainFiles, imgDims=imgDims, batchSize=batchSize, dataSize=trainNum, 
                                            augParams=augparams,
                                            augmentations=augment,
                                            taskType=tasktype,
-                                           channelMeans=channelMeans,
-                                           channelStd=channelStd)
+                                           normalize=normlize,
+                                           normalizeParams=normalizeparams)
     validDataset = tfrecord_read.getShards(validFiles, imgDims=imgDims, batchSize=batchSize,
                                            dataSize=validNum,
                                            taskType=tasktype,
@@ -175,10 +174,6 @@ def main(args, modelname):
                                           channelMeans=channelMeans,
                                           channelStd=channelStd)
 
-    #for p in trainDataset:
-        #pass
-
-    #print('it is al here', p)
     #get the number of gpus available and initiate a distribute mirror strategy
     devices = tf.config.experimental.list_physical_devices('GPU')
     devices = [x.name.replace('/physical_device:', '') for x in devices] 
@@ -285,13 +280,6 @@ def main(args, modelname):
         #call distributed training script to allow for training on multiple gpus
         trainDistDataset = strategy.experimental_distribute_dataset(trainDataset)
         validDistDataset = strategy.experimental_distribute_dataset(validDataset)
-        
-        #print('datasetsize', trainDistDataset)
-        #for p in trainDistDataset:
-            #print(p)
-
-
-        train = distributed_train.DistributeTrain(epoch, model, optimizer,
                                                   lossObject, batchSize,
                                                   strategy, trainSteps,
                                                   validSteps, imgDims,

@@ -3,14 +3,14 @@
 "tasktype": "binary",
 "magnification": "2.5x", 
 "loss": ["weightedBinaryCrossEntropy"], 
-"modelname": "$model_sinus_2.5x_adam_$loss_$augment_data4_256_64", 
+"modelname": "$model_sinus_2.5x_adam_$loss_$augment_data_256_64", 
 "ratio": 0.9,
 "batchSize": 128,
 "imageDims": 256,
-"epoch": 200, 
+"epoch": 100, 
 "augmentation": 
 	{
-	"methods": [["Flip","Rotate90"]],
+	"methods": [[], ["Flip","Rotate90"], ["Flip","Rotate90"], ["Flip","Rotate90", "Color"], ["Flip","Rotate90", "Color"]],
 	"parameters":
 		{
 		"saturation":[0.5,1.2],
@@ -25,7 +25,7 @@
 		}
 	},	
 "nClasses": 1, 
-"weights": [4], 
+"weights": [3.15], 
 "dropout":[0],
 "model": 
 	{
@@ -80,7 +80,7 @@
 		},
 		"second":
 		{
-		"metric":0.75,
+		"metric":0.725,
 		"epochs":75
 		}
 	},

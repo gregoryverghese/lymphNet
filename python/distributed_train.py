@@ -78,10 +78,11 @@ class DistributeTrain():
             dice: dice score per replica
         '''
 
-        axIdx=[1,2,3] if self.tasktype=='binary' else [1,2]
-        dice = self.metric(yTrue, yPred, axIdx)
+        #axIdx=[1,2,3] if self.tasktype=='binary' else [1,2]
+        print('we are checking shape', yTrue.shape)
+        dice = tf.reduce_mean([self.metric(yTrue[:,:,:,i], yPred[:,:,:,i]) for i in range(yTrue.shape[-1])])
+        #dice = self.metric(yTrue, yPred)
         dice = dice * (1 / self.strategy.num_replicas_in_sync)
-
         return dice
 
 
@@ -98,8 +99,6 @@ class DistributeTrain():
         '''
 
         x, y = inputs
-
-        print(x)
 
         with tf.GradientTape() as tape:
 
@@ -264,6 +263,8 @@ class DistributeTrain():
 
             #trainLoss, trainDice = self.distributedTrainEpoch(trainDistDataset)
             trainLoss, trainDice = self.getDistTrainEpoch(trainDistDataset)
+
+            print('trainLoss', trainLoss, 'trainDice', trainDice)
             epochTrainLoss, epochTrainDice = float(trainLoss/self.trainSteps), float(trainDice/self.trainSteps)
 
             with trainWriter.as_default():
