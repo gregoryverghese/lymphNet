@@ -100,7 +100,7 @@ def main(args, modelname):
     optKwargs = params['optimizer']['parameters']
     decaySchedule = params['optimizer']['decaymethod']
     normalize = params['normalize']['methods']
-    normalizeParams= params['normalize']['params']
+    normalizeParams= params['normalize']['parameters']
     padding = params['padding']
     multiDict = params['multi']
     multi = multiDict['flag']
@@ -153,26 +153,24 @@ def main(args, modelname):
           \nloss:{} \
           \naugmentation:{} \n'.format(modelname, feature, magnification, loss, augment))
          
-    table = PrettyTable(['\nTrainNum', 'ValidNum', 'TestNum', 'TrainSteps', 'ValidSteps', 'TestSteps', 'Weights'])
+    table = PrettyTable(['\nTrainNum', 'ValidNum', 'TestNum', 
+                         'TrainSteps', 'ValidSteps', 'TestSteps', 'Weights'])
+
     table.add_row([trainNum, validNum, testNum, trainSteps, validSteps, testSteps, weights])
     print(table)
 
-    trainDataset = tfrecord_read.getShards(trainFiles, imgDims=imgDims, batchSize=batchSize, dataSize=trainNum, 
-                                           augParams=augparams,
-                                           augmentations=augment,
-                                           taskType=tasktype,
-                                           normalize=normlize,
-                                           normalizeParams=normalizeparams)
+    trainDataset = tfrecord_read.getShards(trainFiles, imgDims=imgDims, batchSize=batchSize, 
+                                           dataSize=trainNum,augParams=augparams, 
+                                           augmentations=augment, taskType=tasktype,
+                                           normalize=normalize, normalizeParams=normalizeParams)
+
     validDataset = tfrecord_read.getShards(validFiles, imgDims=imgDims, batchSize=batchSize,
-                                           dataSize=validNum,
-                                           taskType=tasktype,
-                                           channelMeans=channelMeans,
-                                           channelStd=channelStd)
+                                           dataSize=validNum, taskType=tasktype, normalize=normalize,
+                                           normalizeParams=normalizeParams)
+
     testdataset = tfrecord_read.getShards(testFiles, batchSize=batchSize,imgDims=imgDims,
-                                          dataSize=testNum, test=True,
-                                          taskType=tasktype,
-                                          channelMeans=channelMeans,
-                                          channelStd=channelStd)
+                                          dataSize=testNum, test=True, taskType=tasktype,
+                                          normalize=normalize, normalizeParams=normalizeParams)
 
     #get the number of gpus available and initiate a distribute mirror strategy
     devices = tf.config.experimental.list_physical_devices('GPU')
@@ -261,14 +259,16 @@ def main(args, modelname):
                     attenModel = atten_unet.AttenUnetFunc(filters)
                     model = attenModel.attenunet()
                 elif api=='subclass':
-                    model = atten_unet.AttenUnetSC(filters, finalActivation=finalActivation, nOutput=nClasses, upTypeName=upTypeName)
+                    model = atten_unet.AttenUnetSC(filters, finalActivation=finalActivation, 
+                                                   nOutput=nClasses, upTypeName=upTypeName)
 
         elif modelname == 'multiscale':
             with tf.device('/cpu:0'):
                 if api== 'functional':
                     multiModel = multiscale.MultiScaleFunc(filters)
                 elif api=='subclass':
-                    model = multiscale.MultiScaleUnetSC(filters, finalActivation=finalActivation, nOutput=nClasses, upTypeName=upTypeName)
+                    model = multiscale.MultiScaleUnetSC(filters, finalActivation=finalActivation, 
+                                                        nOutput=nClasses, upTypeName=upTypeName)
         else:
             raise ValueError('No model requested, please update config file')
 
@@ -281,12 +281,9 @@ def main(args, modelname):
         trainDistDataset = strategy.experimental_distribute_dataset(trainDataset)
         validDistDataset = strategy.experimental_distribute_dataset(validDataset)
                                                   
-        train = distributed_train.DistributedTrain(model, epochs, optimizer,
-                                                   lossObject, batchSize,
-                                                   strategy, trainSteps,
-                                                   validSteps, imgDims,
-                                                   stopthresholds, modelName, 
-                                                   currentDate, currentTime, tasktype)
+        train = distributed_train.DistributeTrain(epoch, model,  optimizer, lossObject, batchSize, 
+                                                  strategy, trainSteps, validSteps, imgDims, 
+                                                  stopthresholds, modelName, currentDate, currentTime, tasktype)
 
         model, history = train.forward(trainDistDataset, validDistDataset)
     
@@ -304,13 +301,15 @@ def main(args, modelname):
     #patchpredict = PatchPredictions(model, modelName, batchSize, currentTime, currentDate, activationthreshold)
     #patchpredict(testdataset, os.path.join(outPath, 'predictions'))
 
-    if magnification in ['2.5x','5x', '10x']:
+    if magnification in ['2.5x','5x','10x']:
+        outpath='/home/verghese/breastcancer_ln_deeplearning/output/predictions/wsi'
         wsipredict = WSIPredictions(model, modelName, feature,
                                     magnification,step, step,
                                     activationthreshold, currentTime,
-                                    currentDate, tasktype, augparams['channelMeans'],
-                                    augparams['channelStd'])
-        result = wsipredict(os.path.join(recordsPath, 'tfrecords_wsi'))
+                                    currentDate, tasktype, normalize,
+                                    normalizeParams)
+
+        result = wsipredict(os.path.join(recordsPath, 'tfrecords_wsi'), outpath)
 
     #########################Loss and train curves ########################
     #ToDo: replace generic trainmetric with metric name from config file

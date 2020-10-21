@@ -60,6 +60,7 @@ def readTF(serialized):
     return image, mask, label
 
 
+#ToDo: merge this class into WSIPredict class
 class PatchPredictions(object):
     '''
     class that applies trained model to predict
@@ -144,26 +145,23 @@ class WSIPredictions(object):
     class that applies model to predict on large region/entire whople slide
     image
     '''
+    resolutionDict = {'2.5x':16,'5x':8,'10x':4}
+
     def __init__(self, model, modelName, feature, magnification, imgDims, 
                  step, threshold, currentTime, currentDate, tasktype, 
-                 channelMeans, channelStd, 
-                 resolutionDict={'2.5x':16,'5x':8,'10x':4}, figureSize=500):
+                 normalize, normalizeParams, figureSize=500):
 
         self.model = model 
         self.modelName = modelName
         self.feature = feature
-        self.resolutionDict = resolutionDict
         self.imgDims = imgDims
         self.figureSize = figureSize
         self.magnification = magnification
-        self.magFactor = self.resolutionDict[self.magnification] 
         self.currentDate = currentDate
         self.currentTime = currentTime
         self.threshold = threshold,
         self.step = step
         self.tasktype = tasktype
-        self.channelMeans = channelMeans
-        self.channelStd = channelStd
 
     
     def predict(self, image, mask, label, outPath):
@@ -181,60 +179,48 @@ class WSIPredictions(object):
             dice: float dice score
             iou: float iou score
         '''
+        with tf.device('/cpu:0'):
 
-        _,x,y,_ = K.int_shape(image)
-        if x>self.step and y>self.step:
+            _,x,y,_ = K.int_shape(image)
+            xStep = self.step if x>self.step else x
+            yStep = self.step if y>self.step else y
 
-            #split into patches based with self.step
-            #predict on each patch and then stitch together
+            #split image into patches if x,y 
+            #greater than step size
             patches=[]
-            for i in range(0, x, self.step):
-                for j in range(0, y, self.step):
-                    patch = image[:,i:i+self.step,j:j+self.step,:]
-                    patches.append(patch) 
+            for i in range(0, y, yStep):
+                row=[image[:,j:j+xStep,i:i+yStep,:] for j in range(0, x, xStep)]
+                patches.append(row)
 
-            #predict on cpu
             probs=[]
-            with tf.device('/cpu:0'):
-                for i in range(len(patches)):
-                    for img in patches[i]:
-                        probs.append(self.model.predict(img))
-            
-            for p, imgs in zip(probs, patches):
-                f = lambda x: tf.reshape(i,(self.step, self.step,3)
-                patches = list(map(f, imgs))
-                f = lambda x: tf.reshape(i,(self.step, self.step,1)
-                probs = list(map(f, p)
-            
-            image=np.vstack([np.hstack(i) for i in patches])
-            probs=np.vstack([np.hstack(p) for p in probs])
+            for i in range(len(patches)):
+                row=[self.model.predict(img) for img in patches[i]]
+                probs.append(row)
 
+            probs=np.vstack([np.dstack(p) for p in probs])
             prediction=tf.cast((probs>self.threshold), tf.float32)
-            prediction = tf.expand_dims(prediction, axis=0)
 
-        else:
-
-            with tf.device('/cpu:0'):
-                probs=self.model.predict(image)
-                prediction=tf.cast((probs>self.threshold), tf.float32)
-
-                #
-                dice = [diceCoef(mask[:,:,:,i],prediction[:,:,:,i]) for i in range(mask.shape[-1])]
-                iou = [iouScore(mask[:,:,:,i], prediction[:,:,:,i]) for i in range(mask.shape[-1])]
-            print('dice scores', dice)            
+            if self.tasktype=='binary':
+                mask = mask[:,:,:,2:3]
+            
+            dice = [diceCoef(mask[:,:,:,i] ,prediction[:,:,:,i]) 
+                   for i in range(mask.shape[-1])]
+            iou = [iouScore(mask[:,:,:,i], prediction[:,:,:,i]) 
+                   for i in range(mask.shape[-1])]
  
-        prediction = prediction.numpy().astype(np.uint8)[0,:,:,:]
-        mask  = mask.numpy().astype(np.uint8)[0,:,:,:]
+            prediction = prediction.numpy().astype(np.uint8)[0,:,:,:]
+            mask  = mask.numpy().astype(np.uint8)[0,:,:,:]
         
-        if self.tasktype=='multi':
-            prediction = oneHotToMask(prediction)
-
-        cv2.imwrite(os.path.join(outPath, label +'_pred.png'),prediction*int(255))
+            if self.tasktype=='multi':
+                prediction = oneHotToMask(prediction)
+            
+            outpath = os.path.join(outPath, label +'_pred.png')
+            cv2.imwrite(outpath, prediction*int(255))
         
         return np.mean(dice)
 
                     
-    def __call__(self, path, tfrecordDir='tfrecords_wsi', outPath='/home/verghese/breastcancer_ln_deeplearning/output/predictions/wsi'):
+    def __call__(self, path, outPath):
         '''
         set up paths and iterate over dataset calling predict.
         save down results for each image in csv
@@ -276,8 +262,7 @@ class WSIPredictions(object):
             mask = tf.cast(data[1], tf.float32)
             label = (data[2].numpy()[0]).decode('utf-8')
 
-
-            print(np.unique(mask[:,:,0]),np.unique([:,:,1]),np.unique([:,:,2]))
+            print(np.unique(mask[:,:,:,0]),np.unique(mask[:,:,:,1]),np.unique(mask[:,:,:,2]))
 
             if self.tasktype=='multi':
                 mask = tf.one_hot(tf.cast(mask[:,:,:,0], tf.int32), depth=3, dtype=tf.float32)

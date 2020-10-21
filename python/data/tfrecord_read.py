@@ -25,7 +25,7 @@ class Augment():
     '''
 
     def __init__(self, hueLimits, saturationLimits, contrastLimits, brightnessLimits,
-                 rotateProb=0.5, flipProb=0.5, colorProb=0.5, channelMeans=[0,0,0], channelStd=[1,1,1]): 
+                 rotateProb=0.5, flipProb=0.5, colorProb=0.5): 
 
         self.hueLimits = hueLimits
         self.saturationLimits = saturationLimits
@@ -34,8 +34,6 @@ class Augment():
         self.rotateProb = rotateProb
         self.flipProb = flipProb
         self.colorProb = colorProb
-        self.channelMeans = channelMeans
-        self.channelStd = channelStd
     
 
     def getRotate90(self, x, y):
@@ -284,8 +282,6 @@ transfomations/augmentations. Info on https://www.tensorflow.org/api_docs/python
         saturationLimits = augParams['saturation']
         contrastLimits = augParams['contrast']
         brightnessLimits = augParams['brightness']
-        channelMeans = augParams['channelMeans']
-        channelStd = augParams['channelStd']
 
         aug = Augment(hueLimits, 
                       saturationLimits, 
@@ -293,9 +289,7 @@ transfomations/augmentations. Info on https://www.tensorflow.org/api_docs/python
                       brightnessLimits, 
                       rotateProb, 
                       flipProb, 
-                      colorProb,
-                      channelMeans,
-                      channelStd)
+                      colorProb)
 
         print('\n'*2+'Applying following Augmentations for'+datasetName+' dataset \n')
         for i, a in enumerate(augmentations):
@@ -337,7 +331,8 @@ transfomations/augmentations. Info on https://www.tensorflow.org/api_docs/python
     
     dataset = dataset.map(lambda x, y: (x, y[:,:,0:1]), num_parallel_calls=4)
     if taskType=='multi':
-       dataset = dataset.map(lambda x, y: (x, tf.one_hot(tf.cast(y[:,:,0], tf.int32), depth=3, dtype=tf.float32)), num_parallel_calls=4)
+       dataset = dataset.map(lambda x, y: (x, tf.one_hot(tf.cast(y[:,:,0], tf.int32), 
+                            depth=3, dtype=tf.float32)), num_parallel_calls=4)
 
     #batch train and validation datasets (do not use dataset.repeat())
     #since we build our own custom training loop as opposed to model.fit

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 '''
@@ -17,34 +17,31 @@ from sklearn.utils import class_weight
 
 def calculateWeights(maskPath, outPath, fileName, numClasses):
 
-    weights = []
+    total = {c:0 for c in range(numClasses)}
     i=0
+
     masks = glob.glob(os.path.join(maskPath,'*'))
     for f in masks:
         mask = cv2.imread(f)
         labels = mask.reshape(-1)
-        classes = np.unique(labels)
-        classWeights = class_weight.compute_class_weight('balanced', classes, labels)
+        classes = np.unique(labels, return_counts=True)
+
+        pixelDict = dict(list(zip(*classes))) 
     
-        weightDict = {c:0 for c in range(numClasses)} 
+        for k, v in pixelDict.items():
+            total[k] = total[k] + v
+        print(i)
+        i+=1
+
+    print(total)
+    if numClasses==2:
+        weight = total[0]/total[1]
+    else:
+        weight = [1/v for v in list(total.values())]
         
 
-        weightKey = list(zip(classes, classWeights))   
-        for k, v in weightKey:
-           weightDict[k]=v
-    
-        values=list(weightDict.values())
-        weights.append(list(values))
-
-        i=i+1
-        #print(i, classWeights, flush=True)
-
-    finalWeights = list(zip(*weights))
-    averageWeights = [np.mean(np.array(w)) for w in finalWeights]
-    print(averageWeights, flush=True)
-
-    np.savetxt(fileName+'.csv', averageWeights, delimiter=',')
-
+    #np.savetxt(fileName+'.csv', averageWeights, delimiter=',')
+    print(weight)
 
 if __name__=='__main__':
 

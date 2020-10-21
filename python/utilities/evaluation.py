@@ -29,6 +29,11 @@ def diceCoef(yTrue, yPred, axIdx=[1,2,3], smooth=1):
 
 
 def iouScore(yTrue, yPred, axIdx=[1,2,3], smooth=1):
+    
+    yTrue = tf.expand_dims(yTrue, axis=-1)
+    yPred = tf.expand_dims(yPred, axis=-1)
+    yPred = tf.cast(yPred, tf.float32)
+    yTrue = tf.cast(yTrue, tf.float32)
 
     intersection = K.sum(yTrue*yPred, axis=axIdx)
     union = K.sum(yTrue, axis=axIdx) + K.sum(yPred, axis=axIdx) - intersection
