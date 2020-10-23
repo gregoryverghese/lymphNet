@@ -1,6 +1,7 @@
 import tensorflow as tf
 import seaborn as sns
 import numpy as np
+import operator
 
 
 def oneHotToMask(onehot):
@@ -14,9 +15,10 @@ def oneHotToMask(onehot):
     return multimask
 
 
-def resizeImage(dim, factor=2048):
+def resizeImage(dim, factor=2048, threshold=0, op=operator.gt):
 
     boundaries = [factor*i for i in range(100)]
+    boundaries = [f for f in boundaries if op(f,threshold)]
     diff = list(map(lambda x: abs(dim-x), boundaries))
     newDim = boundaries[diff.index(min(diff))]
 
