@@ -196,13 +196,16 @@ class WSIPredictions(object):
             for i in range(len(patches)):
                 row=[self.model.predict(img) for img in patches[i]]
                 probs.append(row)
-
-            probs=np.vstack([np.dstack(p) for p in probs])
+            
+            print(len(probs), probs[0][0].shape)
+            probs=np.dstack([np.vstack(p) for p in probs])
             prediction=tf.cast((probs>self.threshold), tf.float32)
 
             if self.tasktype=='binary':
                 mask = mask[:,:,:,2:3]
             
+            print(prediction.shape, mask.shape)
+
             dice = [diceCoef(mask[:,:,:,i] ,prediction[:,:,:,i]) 
                    for i in range(mask.shape[-1])]
             iou = [iouScore(mask[:,:,:,i], prediction[:,:,:,i]) 
@@ -257,25 +260,20 @@ class WSIPredictions(object):
         dataset = dataset.batch(1)
 
         for data in dataset:
-
             image = tf.cast(data[0], tf.float32)
             mask = tf.cast(data[1], tf.float32)
             label = (data[2].numpy()[0]).decode('utf-8')
 
-            print(np.unique(mask[:,:,:,0]),np.unique(mask[:,:,:,1]),np.unique(mask[:,:,:,2]))
-
             if self.tasktype=='multi':
-                mask = tf.one_hot(tf.cast(mask[:,:,:,0], tf.int32), depth=3, dtype=tf.float32)
+                mask = tf.cast(mask[:,:,:,0], tf.int32)
+                mask = tf.one_hot(mask, depth=3, dtype=tf.float32)
              
             #ToDO: Hack need to remove duplicate test image with different name
             if '100188_01_R' in label:
                 continue
-
+ 
             dice = self.predict(image, mask, label, outPath)
-
-            print('shape of the image', K.int_shape(image))
-            print('Image: {}'.format(label))
-            print('dice: {}'.format(dice))
+            print('shape:{},Image:{},dice:{}'.format(K.int_shape(image),label,dice))
 
             diceLst.append(dice)
             iouLst.append(dice)

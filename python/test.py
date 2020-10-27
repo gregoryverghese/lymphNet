@@ -6,6 +6,7 @@ test.py
 
 import os
 import glob
+import json
 import argparse
 
 import numpy as np
@@ -19,64 +20,77 @@ import operator
 from utilities.utilities import resizeImage
 
 
-def getPatches(slide, h, w, size, mag):
+def getPatches(slide, w, h, size, mag, magFactor):
     
-    for y in range(0,h,size):
-        for x in range(0,w,size):
+    for y in range(0,h,size*magFactor):
+        for x in range(0,w,size*magFactor):
             patch = slide.read_region((x,y), mag,(size, size))
             patch = patch.convert('RGB')
             yield np.array(patch), x, y
 
 
-def predict(model, p, h, w):
+def predict(model,p,xsize,ysize):
 
     probs=model.predict(p)
     pred=(probs > threshold).astype(np.int32)
+    print('values {}'.format(np.unique(pred)))
     pred=(pred[0,:,:,:]).astype(np.uint8)
+
     pred=cv2.resize(pred, (xsize,ysize), interpolation=cv2.INTER_AREA)
-        
-    xnew, ynew = int(x/xfactor), int(y/yfactor)
-    print(xnew, ynew, pred.shape)
-
-    new[ynew:ynew+ysize,xnew:xnew+xsize,0]=pred[:,:]
-            
-    hfinal=int(h/10)
-    wfinal=int(w/10)
-    new=new[:hfinal,:wfinal]
-
-    return new
-
-
-def buildSlidePrediction(germModel,sinusModel,slide,mag,threshold):
     
+    return pred
+
+
+def buildSlidePrediction(germModel,sinusModel,slide,mag,
+                        magFactor,threshold,patchsize):
+
     w,h =slide.dimensions
     hNew=resizeImage(h, patchsize, h, operator.gt)
     wNew=resizeImage(w, patchsize, w, operator.gt)
     wfactor=wNew/patchsize
     hfactor=hNew/patchsize
     wResize=resizeImage(wNew/10, wfactor)
-    hResize=resizeImage(hNew/10, hfactor)
+    hResize=resizeImage(hNew/10, hfactor) 
+    print('w: {}, wResize: {}, wfinal" {}'.format(w,wResize,int(w/10)))
+    print('h: {}, hResize: {}, hfinal" {}'.format(h,hResize,int(h/10)))
     xsize=int(hResize/hfactor)
     ysize=int(wResize/wfactor)
     xfactor=patchsize/xsize
     yfactor=patchsize/ysize
-    germinal = np.zeros((int(hResize), int(wResize), 3))
-    sinus = np.zeros((int(hResize), int(wResize), 3))
+    sinus=np.zeros((int(hResize), int(wResize)))
+    germinal=np.zeros((int(hResize), int(wResize)))
+    temp=np.zeros((int(hResize), int(wResize), 3))
 
-    for p,x,y in getPatches(slide, wNew, hNew, patchsize, mag):
-        p = tf.cast(tf.expand_dims(p,axis=0), tf.float32)
-        
-        germinal=predict(germModel,p,w,h)
-        sinus=predict(sinusModel,p,w,h)
+    for p,x,y in getPatches(slide, wNew, hNew, patchsize, mag, magFactor):
+        pnew = tf.cast(tf.expand_dims(p,axis=0), tf.float32)
+        xnew, ynew = int(x/xfactor), int(y/yfactor)
+        print(xnew,ynew) 
+        germPred=predict(germModel, pnew,xsize,ysize)
+        sinusPred=predict(sinusModel, pnew,xsize,ysize)
+
+        germinal[ynew:ynew+ysize,xnew:xnew+xsize]=germPred[:,:]
+        sinus[ynew:ynew+ysize,xnew:xnew+xsize]=sinusPred[:,:]
+        p=cv2.resize(p, (xsize,ysize), interpolation=cv2.INTER_AREA)
+        temp[ynew:ynew+ysize,xnew:xnew+xsize,0]=p[:,:,0]
+        temp[ynew:ynew+ysize,xnew:xnew+xsize,1]=p[:,:,1]
+        temp[ynew:ynew+ysize,xnew:xnew+xsize,2]=p[:,:,2]
+
+
+    hfinal=int(h/10)
+    wfinal=int(w/10)
+
+    germinal=germinal[:hfinal,:wfinal]
+    sinus=sinus[:hfinal,:wfinal]
+    temp=temp[:hfinal,:wfinal]
                         
-    return germinal, sinus
+    return germinal, sinus, temp
 
 
 def test(savePath, wsiPath, germModelPath, sinusModelPath,
-         mag, threshold, downfactor, patchsize):
+         mag, magFactor, threshold, downfactor, patchsize):
  
     germModel=load_model(germModelPath)
-    sinusModelPath=load_model(sinusModelPath)
+    sinusModel=load_model(sinusModelPath)
 
     patients=[p for p in glob.glob(os.path.join(wsiPath, '*'))]
     numPatients = len(patients)
@@ -106,8 +120,22 @@ def test(savePath, wsiPath, germModelPath, sinusModelPath,
             name = os.path.basename(images[i])[:-5]
             slide = openslide.OpenSlide(images[i])
             
-            germinal, sinus = buildSlidePrediction(slide, mag, threshold)
-            cv2.imwrite(os.path.join(savePath,patientId,name+'.png'),temp)
+            germinal, sinus, temp = buildSlidePrediction(germModel,sinusModel,slide, 
+                                                   mag,magFactor,threshold,patchsize)
+            
+            print(sinus.shape)
+            germinal = germinal[:,:,None] * np.zeros(3, dtype=int)[None,None,:]
+            sinus = sinus[:,:,None] * np.zeros(3, dtype=int)[None,None,:]
+            
+            print('unique values: {}'.format(np.unique(germinal[:,:,0])))
+            germinal[:,:,1][germinal[:,:,0]==1]=1
+            germinal[:,:,0][germinal[:,:,0]==1]=0
+            print('unique values 2:{} {}'.format(np.unique(germinal[:,:,0]),np.unique(germinal[:,:,1])))
+            final=germinal+sinus
+            final=final.astype(np.uint8)
+            temp=temp.astype(np.uint8)
+            cv2.imwrite(os.path.join(savePath,patientId,name+'.png'),final*255)
+            cv2.imwrite(os.path.join(savePath,patientId,name+'_image.png'),temp)
 
 
 if __name__=='__main__':
@@ -117,7 +145,7 @@ if __name__=='__main__':
 
     args=vars(ap.parse_args())
     
-    configPath=args['configPath']
+    configPath=args['configpath']
 
     with open(configPath) as jsonFile:
         config=json.load(jsonFile)
@@ -128,15 +156,16 @@ if __name__=='__main__':
     germModelName=config['germinalmodel']
     sinusModelName=config['sinusmodel']
     mag=config['mag']
+    magFactor=config['magFactor']
     threshold=config['threshold']
     downfactor=config['downfactor']
-    patchsize=config=['patchsize']
+    patchsize=config['patchsize']
 
-    germModelPath=os.path.join(germModelPath,germModelName)
-    sinuModelPath=os.path.join(germModelPath,germModelName)
+    germModelPath=os.path.join(modelPath,germModelName)
+    sinusModelPath=os.path.join(modelPath,germModelName)
 
     test(savePath, wsiPath, germModelPath, sinusModelPath,
-         mag, threshold, downfactor, patchsize)
+         mag,magFactor,threshold, downfactor, patchsize)
          
          
          

@@ -7,7 +7,7 @@
 "ratio": 0.9,
 "batchSize": 32,
 "imageDims": 256,
-"epoch": 20, 
+"epoch": 3, 
 "augmentation": 
 	{
 	"methods": [["Flip","Rotate90"],["Flip","Rotate90"],["Flip","Rotate90", "Color"], ["Flip","Rotate90", "Color"]],

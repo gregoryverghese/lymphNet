@@ -36,8 +36,7 @@ def getShardNumber(images, masks, shardSize=0.1, unit=10**9):
     maskMem = sum(os.path.getsize(f) for f in masks if os.path.isfile(f))
     imageMem = sum(os.path.getsize(f) for f in images if os.path.isfile(f))
     totalMem = (maskMem+imageMem)/unit
-    print('Image memory: {}, Mask memory: {}, Total memory: {}'.format(imageMem, maskMem, totalMem))
-    
+    print('Image memory: {}, Mask memory: {}, Total memory: {}'.format(imageMem, maskMem, totalMem))    
     shardNum = int(np.ceil(totalMem/shardSize))
     imgPerShard = int(np.floor(len(images)/shardNum))
 
@@ -172,7 +171,8 @@ def getFiles(imagePath, maskPath, outPath, config, shardSize=0.1):
     testFiles = configFile['testFiles']
     imagePaths = glob.glob(os.path.join(imagePath, '*'))
     maskPaths = glob.glob(os.path.join(maskPath, '*'))
-    
+    :x
+
     print('Total images: {}, Total masks: {}'.format(len(imagePaths), len(maskPaths)))
 
     trainImgs = [img for img in imagePaths if not any([v for v in validFiles+testFiles if v in img])]

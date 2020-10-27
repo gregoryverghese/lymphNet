@@ -7,7 +7,7 @@
 "ratio": 0.9,
 "batchSize": 32,
 "imageDims": 256,
-"epoch": 10, 
+"epoch": 3, 
 "normalize": 
  	{
 	"methods":[],
