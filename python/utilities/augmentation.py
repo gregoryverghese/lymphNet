@@ -12,7 +12,6 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_addons as tfa
 import matplotlib.pyplot as plt
-from prettytable import PrettyTable
 
 __author__ = 'Gregory Verghese'
 __email__ ='gregory.verghese@kcl.ac.uk'
