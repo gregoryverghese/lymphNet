@@ -17,7 +17,7 @@ from tensorflow.keras.models import load_model
 from prettytable import PrettyTable
 import operator
 
-from utilities.utilities import resizeImage
+from utilities.utils import resizeImage
 
 
 def getPatches(slide, w, h, size, mag, magFactor):
@@ -33,11 +33,8 @@ def predict(model,p,xsize,ysize):
 
     probs=model.predict(p)
     pred=(probs > threshold).astype(np.int32)
-    print('values {}'.format(np.unique(pred)))
     pred=(pred[0,:,:,:]).astype(np.uint8)
-
     pred=cv2.resize(pred, (xsize,ysize), interpolation=cv2.INTER_AREA)
-    
     return pred
 
 
@@ -45,29 +42,28 @@ def buildSlidePrediction(germModel,sinusModel,slide,mag,
                         magFactor,threshold,patchsize):
 
     w,h =slide.dimensions
-    hNew=resizeImage(h, patchsize, h, operator.gt)
-    wNew=resizeImage(w, patchsize, w, operator.gt)
-    wfactor=wNew/patchsize
-    hfactor=hNew/patchsize
-    wResize=resizeImage(wNew/10, wfactor)
-    hResize=resizeImage(hNew/10, hfactor) 
-    print('w: {}, wResize: {}, wfinal" {}'.format(w,wResize,int(w/10)))
-    print('h: {}, hResize: {}, hfinal" {}'.format(h,hResize,int(h/10)))
+    hNew=resizeImage(h, patchsize*magFactor, h, operator.gt)
+    wNew=resizeImage(w, patchsize*magFactor, w, operator.gt)
+    wfactor=wNew/(patchsize*magFactor)
+    hfactor=hNew/(patchsize*magFactor)
+    wResize=resizeImage(wNew/100, wfactor)
+    hResize=resizeImage(hNew/100, hfactor) 
+    print('w: {}, wResize: {}, wfinal" {}'.format(w,wResize,int(w/100)))
+    print('h: {}, hResize: {}, hfinal" {}'.format(h,hResize,int(h/100)))
     xsize=int(hResize/hfactor)
     ysize=int(wResize/wfactor)
-    xfactor=patchsize/xsize
-    yfactor=patchsize/ysize
+    xfactor=(patchsize*magFactor)/xsize
+    yfactor=(patchsize*magFactor)/ysize
     sinus=np.zeros((int(hResize), int(wResize)))
     germinal=np.zeros((int(hResize), int(wResize)))
+    print('hi')
     temp=np.zeros((int(hResize), int(wResize), 3))
-
+    print('hello')
     for p,x,y in getPatches(slide, wNew, hNew, patchsize, mag, magFactor):
         pnew = tf.cast(tf.expand_dims(p,axis=0), tf.float32)
         xnew, ynew = int(x/xfactor), int(y/yfactor)
-        print(xnew,ynew) 
         germPred=predict(germModel, pnew,xsize,ysize)
         sinusPred=predict(sinusModel, pnew,xsize,ysize)
-
         germinal[ynew:ynew+ysize,xnew:xnew+xsize]=germPred[:,:]
         sinus[ynew:ynew+ysize,xnew:xnew+xsize]=sinusPred[:,:]
         p=cv2.resize(p, (xsize,ysize), interpolation=cv2.INTER_AREA)
@@ -76,8 +72,8 @@ def buildSlidePrediction(germModel,sinusModel,slide,mag,
         temp[ynew:ynew+ysize,xnew:xnew+xsize,2]=p[:,:,2]
 
 
-    hfinal=int(h/10)
-    wfinal=int(w/10)
+    hfinal=int(h/100)
+    wfinal=int(w/100)
 
     germinal=germinal[:hfinal,:wfinal]
     sinus=sinus[:hfinal,:wfinal]
@@ -118,19 +114,25 @@ def test(savePath, wsiPath, germModelPath, sinusModelPath,
 
         for i in range(numImage):
             name = os.path.basename(images[i])[:-5]
-            slide = openslide.OpenSlide(images[i])
+            print('name: {}'.format(name))
+            try:
+                slide = openslide.OpenSlide(images[i])
+            except Exception as e:
+                print(e)
+                print('patient:{}:name{}'.format(patientId,name))
+                continue
             
             germinal, sinus, temp = buildSlidePrediction(germModel,sinusModel,slide, 
                                                    mag,magFactor,threshold,patchsize)
             
-            print(sinus.shape)
-            germinal = germinal[:,:,None] * np.zeros(3, dtype=int)[None,None,:]
-            sinus = sinus[:,:,None] * np.zeros(3, dtype=int)[None,None,:]
+            germinal = germinal[:,:,None]*np.ones(3, dtype=int)[None,None,:]
+            sinus = sinus[:,:,None]*np.ones(3, dtype=int)[None,None,:]
             
-            print('unique values: {}'.format(np.unique(germinal[:,:,0])))
-            germinal[:,:,1][germinal[:,:,0]==1]=1
-            germinal[:,:,0][germinal[:,:,0]==1]=0
-            print('unique values 2:{} {}'.format(np.unique(germinal[:,:,0]),np.unique(germinal[:,:,1])))
+            sinus[:,:,1]=0
+            sinus[:,:,2]=0
+            germinal[:,:,0]=0
+            germinal[:,:,2]=0
+
             final=germinal+sinus
             final=final.astype(np.uint8)
             temp=temp.astype(np.uint8)

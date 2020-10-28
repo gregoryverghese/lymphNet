@@ -16,7 +16,7 @@ def oneHotToMask(onehot):
 
 
 def resizeImage(dim, factor=2048, threshold=0, op=operator.gt):
-    boundaries = [factor*i for i in range(1000)]
+    boundaries = [factor*i for i in range(100000)]
     boundaries = [f for f in boundaries if op(f,threshold)]
     diff = list(map(lambda x: abs(dim-x), boundaries))
     newDim = boundaries[diff.index(min(diff))]
