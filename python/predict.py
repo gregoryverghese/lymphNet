@@ -18,7 +18,8 @@ import tensorflow.keras.backend as K
 from tensorflow.keras.models import load_model
 
 from utilities.evaluation import diceCoef, iouScore
-from utilities.utilities import oneHotToMask
+from utilities.utils import oneHotToMask
+from utilities.augmentation import Augment, Normalize
 
 
 __author__ = 'Gregory Verghese'
@@ -162,9 +163,11 @@ class WSIPredictions(object):
         self.threshold = threshold,
         self.step = step
         self.tasktype = tasktype
+        self.normalize = normalize
+        self.normalizeParams = normalizeParams
 
     
-    def predict(self, image, mask, label, outPath):
+    def predict(self, image, mask):
         '''
         takes a image and predicts a class for each pixel using 
         trained self.model. If the image is large than certain 
@@ -197,32 +200,20 @@ class WSIPredictions(object):
                 row=[self.model.predict(img) for img in patches[i]]
                 probs.append(row)
             
-            print(len(probs), probs[0][0].shape)
             probs=np.dstack([np.vstack(p) for p in probs])
             prediction=tf.cast((probs>self.threshold), tf.float32)
 
             if self.tasktype=='binary':
                 mask = mask[:,:,:,2:3]
             
-            print(prediction.shape, mask.shape)
-
             dice = [diceCoef(mask[:,:,:,i] ,prediction[:,:,:,i]) 
                    for i in range(mask.shape[-1])]
             iou = [iouScore(mask[:,:,:,i], prediction[:,:,:,i]) 
                    for i in range(mask.shape[-1])]
- 
-            prediction = prediction.numpy().astype(np.uint8)[0,:,:,:]
-            mask  = mask.numpy().astype(np.uint8)[0,:,:,:]
-        
-            if self.tasktype=='multi':
-                prediction = oneHotToMask(prediction)
             
-            outpath = os.path.join(outPath, label +'_pred.png')
-            cv2.imwrite(outpath, prediction*int(255))
-        
-        return np.mean(dice)
+        return np.mean(dice), np.mean(iou), prediction
 
-                    
+
     def __call__(self, path, outPath):
         '''
         set up paths and iterate over dataset calling predict.
@@ -260,23 +251,44 @@ class WSIPredictions(object):
         dataset = dataset.batch(1)
 
         for data in dataset:
+
             image = tf.cast(data[0], tf.float32)
             mask = tf.cast(data[1], tf.float32)
             label = (data[2].numpy()[0]).decode('utf-8')
+            print('normalize',self.normalize) 
+            if len(self.normalize)>0:
+                channelMeans = self.normalizeParams['channelMeans']
+                channelStd = self.normalizeParams['channelStd']
+                norm=Normalize(channelMeans, channelStd)
+                for method in self.normalize:
+                    getattr(norm,'get'+method)
+
+            print(np.unique(image))
 
             if self.tasktype=='multi':
                 mask = tf.cast(mask[:,:,:,0], tf.int32)
                 mask = tf.one_hot(mask, depth=3, dtype=tf.float32)
-             
+            elif self.tasktype=='binary':
+                mask = mask[:,:,:,2:3]
+
             #ToDO: Hack need to remove duplicate test image with different name
             if '100188_01_R' in label:
                 continue
- 
-            dice = self.predict(image, mask, label, outPath)
+            
+            dice,iou,prediction = self.predict(image, mask)
             print('shape:{},Image:{},dice:{}'.format(K.int_shape(image),label,dice))
+ 
+            prediction = prediction.numpy().astype(np.uint8)[0,:,:,:]
+            mask  = mask.numpy().astype(np.uint8)[0,:,:,:]
+        
+            if self.tasktype=='multi':
+                prediction = oneHotToMask(prediction)
+            
+            outpath = os.path.join(outPath, label +'_pred.png')
+            cv2.imwrite(outpath, prediction*int(255))
 
             diceLst.append(dice)
-            iouLst.append(dice)
+            iouLst.append(iou)
             names.append(label)
 
         imgscores = pd.DataFrame({'image': names, 'dice':diceLst, 'iou':iouLst})

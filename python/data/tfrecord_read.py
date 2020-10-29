@@ -151,10 +151,8 @@ transfomations/augmentations. Info on https://www.tensorflow.org/api_docs/python
         print(table)
         print('\n')
     
-        for n in normalize:
-            dataset = dataset.map(getattr(norm, 'get'+f), num_parallel_calls=4)
-        else:
-            print('No normalization being applied to data')
+    else:
+        print('No normalization being applied to data')
     
     dataset = dataset.map(lambda x, y: (x, y[:,:,0:1]), num_parallel_calls=4)
     if taskType=='multi':

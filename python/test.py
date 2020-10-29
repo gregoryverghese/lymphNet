@@ -56,9 +56,7 @@ def buildSlidePrediction(germModel,sinusModel,slide,mag,
     yfactor=(patchsize*magFactor)/ysize
     sinus=np.zeros((int(hResize), int(wResize)))
     germinal=np.zeros((int(hResize), int(wResize)))
-    print('hi')
     temp=np.zeros((int(hResize), int(wResize), 3))
-    print('hello')
     for p,x,y in getPatches(slide, wNew, hNew, patchsize, mag, magFactor):
         pnew = tf.cast(tf.expand_dims(p,axis=0), tf.float32)
         xnew, ynew = int(x/xfactor), int(y/yfactor)
@@ -107,8 +105,17 @@ def test(savePath, wsiPath, germModelPath, sinusModelPath,
 
     for p in patients:
         patientId = os.path.basename(p)
-        print(patientId) 
-        os.system('mkdir -p ' + os.path.join(savePath,patientId))
+        pId=int(patientId[0:2])
+
+        if pId <30:
+            continue 
+        print(pId, patientId)
+        #os.system('mkdir -p ' + os.path.join(savePath,patientId))
+        try:
+            os.mkdir(os.path.join(savePath,patientId))
+        except Exception as e:
+            pass
+
         images = glob.glob(os.path.join(p, '*'))
         numImage = len(images)
 
