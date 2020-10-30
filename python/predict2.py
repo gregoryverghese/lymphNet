@@ -152,7 +152,19 @@ class WSIPredictions(object):
                  step, threshold, currentTime, currentDate, tasktype, 
                  normalize, normalizeParams, figureSize=500):
 
-        self.model = model 
+        self.model=model
+        self.image=image
+        self.mask=mask
+        self.dice=dice
+        self.iou=iou
+        self.normalize=normalize
+        self.normalizeParams=normalizeParams
+        self.step = step
+
+
+
+
+
         self.modelName = modelName
         self.feature = feature
         self.imgDims = imgDims
@@ -165,45 +177,46 @@ class WSIPredictions(object):
         self.tasktype = tasktype
         self.normalize = normalize
         self.normalizeParams = normalizeParams
+        self.dice = None
+        self.iou = None
 
     
-    def predict(self, image, mask):
+    def predict(self):
+
         '''
-        takes a image and predicts a class for each pixel using 
-        trained self.model. If the image is large than certain 
-        threshold self.step we split the image into smaller regions 
-        and predict on each one and then stitch back together.
+        Image predictions. Image is split into patches
+        if bigger than self.step threshold.
         Args:
             image: 4d-tensor image
             mask: 4d-tensor groundtruth mask
-            label: string name
-            outPath: path to save down predictions
         Returns:
-            dice: float dice score
-            iou: float iou score
+            prediction
         '''
+    
+        _,x,y,_ = K.int_shape(image)
+        xStep = self.step if x>self.step else x
+        yStep = self.step if y>self.step else y
+
+        patches=[]
+        for i in range(0, y, yStep):
+            row=[image[:,j:j+xStep,i:i+yStep,:] for j in range(0, x, xStep)]
+            patches.append(row)
+
+        probs=[]
         with tf.device('/cpu:0'):
-
-            _,x,y,_ = K.int_shape(image)
-            xStep = self.step if x>self.step else x
-            yStep = self.step if y>self.step else y
-
-            #split image into patches if x,y 
-            #greater than step size
-            patches=[]
-            for i in range(0, y, yStep):
-                row=[image[:,j:j+xStep,i:i+yStep,:] for j in range(0, x, xStep)]
-                patches.append(row)
-
-            probs=[]
             for i in range(len(patches)):
                 row=[self.model.predict(img) for img in patches[i]]
                 probs.append(row)
             
-            probs=np.dstack([np.vstack(p) for p in probs])
-            prediction=tf.cast((probs>self.threshold), tf.float32)
+        probs=np.dstack([np.vstack(p) for p in probs])
+        prediction=tf.cast((probs>self.threshold), tf.float32)
+        
+        return prediction
 
-            print('here we are', np.unique(mask), np.unique(prediction))    
+
+      def dice(self, prediction, mask):
+
+
             dice = [diceCoef(mask[:,:,:,i] ,prediction[:,:,:,i]) 
                    for i in range(mask.shape[-1])]
             iou = [iouScore(mask[:,:,:,i], prediction[:,:,:,i]) 
@@ -212,7 +225,8 @@ class WSIPredictions(object):
         return np.mean(dice), np.mean(iou), prediction
 
 
-    def __applyNormalization(self, image, mask):
+    @staticmethod
+    def applyNormalization(self, channelMeans, channelStd):
    
         channelMeans = self.normalizeParams['channelMeans']
         channelStd = self.normalizeParams['channelStd']

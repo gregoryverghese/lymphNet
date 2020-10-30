@@ -57,18 +57,21 @@ def buildSlidePrediction(germModel,sinusModel,slide,mag,
     sinus=np.zeros((int(hResize), int(wResize)))
     germinal=np.zeros((int(hResize), int(wResize)))
     temp=np.zeros((int(hResize), int(wResize), 3))
+
     for p,x,y in getPatches(slide, wNew, hNew, patchsize, mag, magFactor):
         pnew = tf.cast(tf.expand_dims(p,axis=0), tf.float32)
         xnew, ynew = int(x/xfactor), int(y/yfactor)
+
         germPred=predict(germModel, pnew,xsize,ysize)
         sinusPred=predict(sinusModel, pnew,xsize,ysize)
+
         germinal[ynew:ynew+ysize,xnew:xnew+xsize]=germPred[:,:]
         sinus[ynew:ynew+ysize,xnew:xnew+xsize]=sinusPred[:,:]
         p=cv2.resize(p, (xsize,ysize), interpolation=cv2.INTER_AREA)
+
         temp[ynew:ynew+ysize,xnew:xnew+xsize,0]=p[:,:,0]
         temp[ynew:ynew+ysize,xnew:xnew+xsize,1]=p[:,:,1]
         temp[ynew:ynew+ysize,xnew:xnew+xsize,2]=p[:,:,2]
-
 
     hfinal=int(h/100)
     wfinal=int(w/100)
@@ -106,9 +109,9 @@ def test(savePath, wsiPath, germModelPath, sinusModelPath,
     for p in patients:
         patientId = os.path.basename(p)
         pId=int(patientId[0:2])
+        if pId<27:
+            continue
 
-        if pId <30:
-            continue 
         print(pId, patientId)
         #os.system('mkdir -p ' + os.path.join(savePath,patientId))
         try:
@@ -135,16 +138,21 @@ def test(savePath, wsiPath, germModelPath, sinusModelPath,
             germinal = germinal[:,:,None]*np.ones(3, dtype=int)[None,None,:]
             sinus = sinus[:,:,None]*np.ones(3, dtype=int)[None,None,:]
             
+            print('sinus values 1: {}'.format(np.unique(sinus,return_counts=True)))
             sinus[:,:,1]=0
             sinus[:,:,2]=0
+            print('sinus values: {}'.format(np.unique(sinus, return_counts=True)))
             germinal[:,:,0]=0
             germinal[:,:,2]=0
+            print('germ', np.unique(germinal, return_counts=True))
 
             final=germinal+sinus
             final=final.astype(np.uint8)
             temp=temp.astype(np.uint8)
             cv2.imwrite(os.path.join(savePath,patientId,name+'.png'),final*255)
             cv2.imwrite(os.path.join(savePath,patientId,name+'_image.png'),temp)
+            cv2.imwrite(os.path.join(savePath,patientId,name+'_imagesinus.png'),sinus)
+            cv2.imwrite(os.path.join(savePath,patientId,name+'_imagegerm.png'),germinal)
 
 
 if __name__=='__main__':
@@ -171,7 +179,7 @@ if __name__=='__main__':
     patchsize=config['patchsize']
 
     germModelPath=os.path.join(modelPath,germModelName)
-    sinusModelPath=os.path.join(modelPath,germModelName)
+    sinusModelPath=os.path.join(modelPath,sinusModelName)
 
     test(savePath, wsiPath, germModelPath, sinusModelPath,
          mag,magFactor,threshold, downfactor, patchsize)

@@ -3,14 +3,28 @@
 "tasktype": "binary",
 "magnification": "2.5x", 
 "loss": ["weightedBinaryCrossEntropy"], 
-"modelname": "$model_sinus_2.5x_adam_$loss_$augment_data_256_64", 
+"modelname": "$model_sinus_2.5x_adam_$loss_$augment_data_256_32", 
 "ratio": 0.9,
 "batchSize": 128,
 "imageDims": 256,
 "epoch": 100, 
+"normalize": 
+ 	{
+	"methods":["Scale", "StandardizeDataset"],
+	"parameters":
+	 	{
+		"channelMeans":[0.633, 0.383, 0.649],
+		"channelStd":[0.143, 0.197, 0.19]
+	        }
+	},
 "augmentation": 
 	{
-	"methods": [[], ["Flip","Rotate90"], ["Flip","Rotate90"], ["Flip","Rotate90", "Color"], ["Flip","Rotate90", "Color"]],
+	"methods": [[], 
+                    ["Flip","Rotate90"], 
+                    ["Flip","Rotate90"], 
+                    ["Flip","Rotate90", "Color"], 
+                    ["Flip","Rotate90", "Color"]
+                   ],
 	"parameters":
 		{
 		"saturation":[0.5,1.2],
@@ -19,13 +33,11 @@
 		"contrast":[0.8,1.5],
 		"flipProb":0.5,
 		"rotateProb":0.5,
-		"colorProb":0.5,
-		"channelMeans":[0.63070861, 0.3855289, 0.64133991],
-		"channelStd": [0.14157639, 0.19420394, 0.18001524]
+		"colorProb":0.5
 		}
 	},	
 "nClasses": 1, 
-"weights": [3.15], 
+"weights": [4.4], 
 "dropout":[0],
 "model": 
 	{
@@ -43,7 +55,7 @@
 		{
 		"learning_rate": 0.001, 
 		"amsgrad": true
-		},
+		,
         "decaymethod":{"custom":{
 		                "method":null,
 				"decayparams":   
@@ -52,7 +64,7 @@
 		                             "power": 3, 
 		                             "initLr": 0.001
 					     }
-				},
+	                        },
 	              "keras":"piecewise",
 		      "decayparams": {
 			             "boundaries":[30, 60],
@@ -61,7 +73,7 @@
 		      		}
 			}, 
 "metric": "diceCoef", 
-"normalize":"True", 
+"batchnormalize":"True", 
 "padding":"same", 
 "multi":
 	{
@@ -80,10 +92,10 @@
 		},
 		"second":
 		{
-		"metric":0.725,
+		"metric":0.75,
 		"epochs":75
 		}
 	},
 "step":2048,
 "upTypeName":"upsampling"
-}
+

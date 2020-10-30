@@ -5,16 +5,16 @@
 "loss": ["weightedBinaryCrossEntropy"], 
 "modelname": "$model_germ_2.5x_adam_$loss_$augment_data_256_32", 
 "ratio": 0.9,
-"batchSize": 32,
+"batchSize": 128,
 "imageDims": 256,
-"epoch": 1, 
+"epoch": 100, 
 "normalize": 
  	{
-	"methods":["Scale"],
+	"methods":["Scale", "StandardizeDataset"],
 	"parameters":
 	 	{
-		"channelMeans":[0.623, 0.366, 0.635],
-		"channelStd":[0.623, 0.366, 0.635]
+		"channelMeans":[0.633, 0.383, 0.649],
+		"channelStd":[0.143, 0.197, 0.19]
 	        }
 	},
 "augmentation": 
@@ -64,7 +64,7 @@
 		                             "power": 3, 
 		                             "initLr": 0.001
 					     }
-				},
+	                        },
 	              "keras":"piecewise",
 		      "decayparams": {
 			             "boundaries":[30, 60],

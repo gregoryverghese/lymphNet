@@ -170,6 +170,7 @@ class Normalize():
             x: transformed image tensor
             y : transformed mask tensor
         '''
+        print('UNDER PRESSURE')
         xnew = (x - self.channelMeans)/self.channelStd
         xnew = tf.clip_by_value(xnew,-1.0, 1.0)
         xnew = (xnew+1.0)/2.0
@@ -186,6 +187,7 @@ class Normalize():
             x: transformed image tensor
             y : transformed mask tensor
         '''
+        print('IM COMING OUT TONIGHT, I WANT THE WORLD TO KNOW')
         return x/255.0, y
         
 
