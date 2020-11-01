@@ -91,7 +91,8 @@ def test(savePath, wsiPath, germModelPath, sinusModelPath,
 
     patients=[p for p in glob.glob(os.path.join(wsiPath, '*'))]
     numPatients = len(patients)
-         
+    
+    print(patients)
     totalImages=[]
     for path, subdirs, files in os.walk(wsiPath):
         for name in files:
@@ -108,9 +109,16 @@ def test(savePath, wsiPath, germModelPath, sinusModelPath,
 
     for p in patients:
         patientId = os.path.basename(p)
-        pId=int(patientId[0:2])
-        if pId<27:
+
+        if patientId=='106 100054':
             continue
+        #pId=int(patientId[0:2])
+        pId=int(patientId.split('.')[0])
+        print(pId)
+        if pId>19 or pId<2:
+            print(pId)
+            continue
+
 
         print(pId, patientId)
         #os.system('mkdir -p ' + os.path.join(savePath,patientId))

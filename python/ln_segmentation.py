@@ -223,10 +223,12 @@ def main(args, modelname):
         elif modelname == 'unet':
             with tf.device('/cpu:0'):
                 if api=='functional':
-                    unetModel = unet.UnetFunc(filters=filters,finalActivation=finalActivation, nOutput=nClasses, upTypeName=upTypeName)
+                    unetModel = unet.UnetFunc(filters=filters,finalActivation=finalActivation, 
+                                              nOutput=nClasses, upTypeName=upTypeName)
                     model = unetModel.unet()
                 elif api=='subclass':
-                    model = unet.UnetSC(filters=filters,finalActivation=finalActivation, nOutput=nClasses, upTypeName=upTypeName)
+                    model = unet.UnetSC(filters=filters,finalActivation=finalActivation, 
+                                        nOutput=nClasses, upTypeName=upTypeName)
                     model.build((1, imgDims, imgDims, 3))
 
         elif modelname == 'unetmini':
@@ -256,7 +258,8 @@ def main(args, modelname):
         elif modelname == 'attention':
             with tf.device('/cpu:0'):
                 if api == 'functional':
-                    attenModel = atten_unet.AttenUnetFunc(filters)
+                    attenModel=atten_unet.AttenUnetFunc(filters,finalActivation=finalActivation,
+                                            nOutput=nClasses,upTypeName=upTypeName)
                     model = attenModel.attenunet()
                 elif api=='subclass':
                     model = atten_unet.AttenUnetSC(filters, finalActivation=finalActivation, 

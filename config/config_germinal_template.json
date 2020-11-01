@@ -7,7 +7,7 @@
 "ratio": 0.9,
 "batchSize": 128,
 "imageDims": 256,
-"epoch": 100, 
+"epoch": 200, 
 "normalize": 
  	{
 	"methods":["Scale", "StandardizeDataset"],
@@ -19,12 +19,7 @@
 	},
 "augmentation": 
 	{
-	"methods": [[], 
-                    ["Flip","Rotate90"], 
-                    ["Flip","Rotate90"], 
-                    ["Flip","Rotate90", "Color"], 
-                    ["Flip","Rotate90", "Color"]
-                   ],
+	"methods": [["Flip","Rotate90","Color"]],
 	"parameters":
 		{
 		"saturation":[0.5,1.2],
@@ -87,12 +82,12 @@
 	{
 	"first":
 		{
-		"metric":0.8,
+		"metric":0.95,
 		"epochs":50
 		},
 		"second":
 		{
-		"metric":0.75,
+		"metric":0.95,
 		"epochs":75
 		}
 	},
