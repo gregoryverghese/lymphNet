@@ -16,7 +16,7 @@ import tensorflow as tf
 from tensorflow.keras.models import load_model
 from prettytable import PrettyTable
 import operator
-
+from utilities.augmentation import Normalize
 from utilities.utils import resizeImage
 
 
@@ -38,8 +38,18 @@ def predict(model,p,xsize,ysize):
     return pred
 
 
+def applyNormalization(image, normalize=[],channelMeans=None,
+                       channelStd=None):
+    _=None 
+    norm=Normalize(channelMeans, channelStd)
+                                               
+    for method in normalize:
+        image,_=getattr(norm,'get'+method)(image,_)
+        return image
+
+
 def buildSlidePrediction(germModel,sinusModel,slide,mag,
-                        magFactor,threshold,patchsize):
+                        magFactor,threshold,patchsize,methods,mean,std):
 
     w,h =slide.dimensions
     hNew=resizeImage(h, patchsize*magFactor, h, operator.gt)
@@ -60,6 +70,7 @@ def buildSlidePrediction(germModel,sinusModel,slide,mag,
 
     for p,x,y in getPatches(slide, wNew, hNew, patchsize, mag, magFactor):
         pnew = tf.cast(tf.expand_dims(p,axis=0), tf.float32)
+        pnew = applyNormalization(pnew, normalize=methods,channelMeans=mean,channelStd=std)
         xnew, ynew = int(x/xfactor), int(y/yfactor)
 
         germPred=predict(germModel, pnew,xsize,ysize)
@@ -85,7 +96,11 @@ def buildSlidePrediction(germModel,sinusModel,slide,mag,
 
 def test(savePath, wsiPath, germModelPath, sinusModelPath,
          mag, magFactor, threshold, downfactor, patchsize):
- 
+    
+
+    mean=[0.64,0.39,0.65]
+    std=[0.15,0.21,0.18]
+    methods=['Scale', 'StandardizeDataset']
     germModel=load_model(germModelPath)
     sinusModel=load_model(sinusModelPath)
 
@@ -115,9 +130,9 @@ def test(savePath, wsiPath, germModelPath, sinusModelPath,
         #pId=int(patientId[0:2])
         pId=int(patientId.split('.')[0])
         print(pId)
-        if pId>19 or pId<2:
-            print(pId)
-            continue
+        #if pId>19 or pId<2:
+         #   print(pId)
+          #  continue
 
 
         print(pId, patientId)
@@ -141,7 +156,7 @@ def test(savePath, wsiPath, germModelPath, sinusModelPath,
                 continue
             
             germinal, sinus, temp = buildSlidePrediction(germModel,sinusModel,slide, 
-                                                   mag,magFactor,threshold,patchsize)
+                                                   mag,magFactor,threshold,patchsize,methods,mean,std)
             
             germinal = germinal[:,:,None]*np.ones(3, dtype=int)[None,None,:]
             sinus = sinus[:,:,None]*np.ones(3, dtype=int)[None,None,:]
