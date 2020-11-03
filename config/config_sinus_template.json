@@ -7,10 +7,10 @@
 "ratio": 0.9,
 "batchSize": 128,
 "imageDims": 256,
-"epoch": 200, 
+"epoch": 100, 
 "normalize": 
  	{
-	"methods":["Scale", "StandardizeDataset"],
+	"methods":["Scale"],
 	"parameters":
 	 	{
 		"channelMeans":[0.64,0.40,0.65],

@@ -174,8 +174,8 @@ def test(savePath, wsiPath, germModelPath, sinusModelPath,
             temp=temp.astype(np.uint8)
             cv2.imwrite(os.path.join(savePath,patientId,name+'.png'),final*255)
             cv2.imwrite(os.path.join(savePath,patientId,name+'_image.png'),temp)
-            cv2.imwrite(os.path.join(savePath,patientId,name+'_imagesinus.png'),sinus)
-            cv2.imwrite(os.path.join(savePath,patientId,name+'_imagegerm.png'),germinal)
+            cv2.imwrite(os.path.join(savePath,patientId,name+'_imagesinus.png'),sinus*255)
+            cv2.imwrite(os.path.join(savePath,patientId,name+'_imagegerm.png'),germinal*255)
 
 
 if __name__=='__main__':

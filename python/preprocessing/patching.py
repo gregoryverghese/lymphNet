@@ -102,15 +102,14 @@ class WSITiling():
 
                 size = self.tileDim*0.5*self.magFactor
                 x = int(w-(size*.5))
-                y = int(h-(size*.5)))
+                y = int(h-(size*.5))
                 patch = scan.read_region((x, y), self.magLevel, 
                                          (self.tileDim, self.tileDim))
-                mask = img[h-int(size):h+int(size), w-int(size):w+int(size)]
+                mask = img[h-int(size*0.5):h+int(size*0.5),w-int(size*0.5):w+int(size*0.5)]
 
                 for v in list(annotations.values())[0]:
                     p = Path(v)
                     contains = p.contains_point([w, h])
-                      
                     if (contains and mask.shape == (size, size) and np.mean(patch) < 200):
                        print((w, h))
                        patch = patch.convert('RGB')
@@ -119,16 +118,16 @@ class WSITiling():
                            patch.resize((self.resizeDim, self.resizeDim)) 
                        try:
                            mask = cv2.resize(mask,(self.resizeDim,self.resizeDim))
-                       except
+                       except:
                            print(e)
                            continue
 
-                       imgpath = os.path.join(os.path.join(self.outPath, self.imageDir), os.path.basename(ndpi)[:-5])
-                       filename = os.path.basename(ndpi)[:-5])+'_'+str(w)+'_'+str(h)+'.png'
-                       patch.save(imgpath, name)
-                       maskpath = os.path.join(os.path.join(self.outPath, self.maskDir), os.path.basename(ndpi)[:-5])
-                       cv2.imwrite(maskpath, filename + '_masks.png')
-                        
+                       imgpath = os.path.join(self.outPath,self.imageDir)
+                       maskpath = os.path.join(self.outPath, self.maskDir)
+                       filename = os.path.basename(ndpi)[:-5]+'_'+str(w)+'_'+str(h)
+                       patch.save(os.path.join(imgpath, filename+'.png'))
+                       cv2.imwrite(os.path.join(maskpath, filename + '_masks.png'))
+                       break    
         ##########################Code to create sparse dataset##############################
         #patch = scan.read_region((int(w), int(h)), self.magLevel, #(self.tileDim, self.tileDim))
         #mask = img[h:h+int(self.tileDim*self.magFactor), #w:w+int(self.tileDim*self.magFactor)]  
@@ -336,10 +335,10 @@ class WSITiling():
 
 
     def getTiles(self, ndpiPath, annotationPath):
-       '''
-       loops over whole slide images, gets annotations
-       and generates patches and masks
-       '''
+        '''
+        loops over whole slide images, gets annotations
+        and generates patches and masks
+        '''
         ndpiFiles = [f for f in glob.glob(os.path.join(ndpiPath, '*')) if '.ndpi' in f]
         print('ndpiFiles: {}'.format(ndpiFiles))  
 

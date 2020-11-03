@@ -1,1 +1,0 @@
-{"batchSize": "32", "final": "sigmoid", "imageDims": "224", "nClasses": "1", "epoch":"30", "ratio":"0.9", "augmentation":[], "weights": ["1.14"]}
