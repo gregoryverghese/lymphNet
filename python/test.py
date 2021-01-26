@@ -12,6 +12,7 @@ import argparse
 import numpy as np
 import openslide
 import cv2
+import pandas as pd
 import tensorflow as tf
 from tensorflow.keras.models import load_model
 from prettytable import PrettyTable
@@ -29,7 +30,7 @@ def getPatches(slide, w, h, size, mag, magFactor):
             yield np.array(patch), x, y
 
 
-def predict(model,p,xsize,ysize):
+def predict(model,p,xsize,ysize, threshold):
 
     probs=model.predict(p)
     pred=(probs > threshold).astype(np.int32)
@@ -49,7 +50,7 @@ def applyNormalization(image, normalize=[],channelMeans=None,
 
 
 def buildSlidePrediction(germModel,sinusModel,slide,mag,
-                        magFactor,threshold,patchsize,methods,mean,std):
+                        magFactor,gThreshold,sThreshold,patchsize,methods,mean,std):
 
     w,h =slide.dimensions
     hNew=resizeImage(h, patchsize*magFactor, h, operator.gt)
@@ -73,8 +74,8 @@ def buildSlidePrediction(germModel,sinusModel,slide,mag,
         pnew = applyNormalization(pnew, normalize=methods,channelMeans=mean,channelStd=std)
         xnew, ynew = int(x/xfactor), int(y/yfactor)
 
-        germPred=predict(germModel, pnew,xsize,ysize)
-        sinusPred=predict(sinusModel, pnew,xsize,ysize)
+        germPred=predict(germModel, pnew,xsize,ysize,gThreshold)
+        sinusPred=predict(sinusModel, pnew,xsize,ysize,sThreshold)
 
         germinal[ynew:ynew+ysize,xnew:xnew+xsize]=germPred[:,:]
         sinus[ynew:ynew+ysize,xnew:xnew+xsize]=sinusPred[:,:]
@@ -90,12 +91,14 @@ def buildSlidePrediction(germModel,sinusModel,slide,mag,
     germinal=germinal[:hfinal,:wfinal]
     sinus=sinus[:hfinal,:wfinal]
     temp=temp[:hfinal,:wfinal]
+    
+    size=[w,h,hfinal,wfinal]
                         
-    return germinal, sinus, temp
+    return germinal, sinus, temp, size
 
 
 def test(savePath, wsiPath, germModelPath, sinusModelPath,
-         mag, magFactor, threshold, downfactor, patchsize):
+         mag, magFactor, sThreshold, gThreshold, downfactor, patchsize):
     
 
     mean=[0.64,0.39,0.65]
@@ -124,8 +127,8 @@ def test(savePath, wsiPath, germModelPath, sinusModelPath,
 
     for p in patients:
         patientId = os.path.basename(p)
-
-        if patientId=='106 100054':
+        
+        if '62. 90513' not in patientId:
             continue
         #pId=int(patientId[0:2])
         pId=int(patientId.split('.')[0])
@@ -144,7 +147,7 @@ def test(savePath, wsiPath, germModelPath, sinusModelPath,
 
         images = glob.glob(os.path.join(p, '*'))
         numImage = len(images)
-
+        sizeDict={'w':[],'h':[],'hfinal':[],'wfinal':[]}
         for i in range(numImage):
             name = os.path.basename(images[i])[:-5]
             print('name: {}'.format(name))
@@ -154,10 +157,14 @@ def test(savePath, wsiPath, germModelPath, sinusModelPath,
                 print(e)
                 print('patient:{}:name{}'.format(patientId,name))
                 continue
-            
-            germinal, sinus, temp = buildSlidePrediction(germModel,sinusModel,slide, 
-                                                   mag,magFactor,threshold,patchsize,methods,mean,std)
-            
+            #if '13.03.90689 C L1.2' not in name:
+                #continue 
+            #sizeDict={'w':[],'h':[],'hfinal':[],'wfinal':[]}
+            germinal, sinus, temp, size = buildSlidePrediction(germModel,sinusModel,slide, 
+                                                   mag,magFactor,gThreshold,sThreshold,patchsize,methods,mean,std)
+            for i, k in enumerate(sizeDict.keys()):
+                sizeDict[k].append(size[i])
+
             germinal = germinal[:,:,None]*np.ones(3, dtype=int)[None,None,:]
             sinus = sinus[:,:,None]*np.ones(3, dtype=int)[None,None,:]
             
@@ -176,6 +183,10 @@ def test(savePath, wsiPath, germModelPath, sinusModelPath,
             cv2.imwrite(os.path.join(savePath,patientId,name+'_image.png'),temp)
             cv2.imwrite(os.path.join(savePath,patientId,name+'_imagesinus.png'),sinus*255)
             cv2.imwrite(os.path.join(savePath,patientId,name+'_imagegerm.png'),germinal*255)
+            print(final.shape)
+
+        sizeDf=pd.DataFrame(sizeDict)
+        sizeDf.to_csv(os.path.join(savePath, 'dimensions.csv'))
 
 
 if __name__=='__main__':
@@ -197,7 +208,8 @@ if __name__=='__main__':
     sinusModelName=config['sinusmodel']
     mag=config['mag']
     magFactor=config['magFactor']
-    threshold=config['threshold']
+    sThreshold=config['sinusThreshold'],
+    gThreshold=config['germThreshold']
     downfactor=config['downfactor']
     patchsize=config['patchsize']
 
@@ -205,7 +217,7 @@ if __name__=='__main__':
     sinusModelPath=os.path.join(modelPath,sinusModelName)
 
     test(savePath, wsiPath, germModelPath, sinusModelPath,
-         mag,magFactor,threshold, downfactor, patchsize)
+         mag,magFactor,sThreshold, gThreshold, downfactor, patchsize)
          
          
          

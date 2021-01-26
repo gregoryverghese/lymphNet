@@ -20,7 +20,7 @@ __email__='gregory.verghese@gmail.com'
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 
-def getShardNumber(images, masks, shardSize=0.1, unit=10**9):
+def getShardNumber(images, masks, shardSize=0.01, unit=10**9):
     '''
     calculate the number of shards based on images
     masks and required shard size
@@ -171,7 +171,6 @@ def getFiles(imagePath, maskPath, outPath, config, shardSize=0.1):
     testFiles = configFile['testFiles']
     imagePaths = glob.glob(os.path.join(imagePath, '*'))
     maskPaths = glob.glob(os.path.join(maskPath, '*'))
-    :x
 
     print('Total images: {}, Total masks: {}'.format(len(imagePaths), len(maskPaths)))
 
@@ -195,12 +194,15 @@ def getFiles(imagePath, maskPath, outPath, config, shardSize=0.1):
     doConversion(trainImgs, trainMasks, trainShardNum, tNum, outPath, 'train')
     print('Number of train shards: {}'.format(trainShardNum))
 
-    validShardNum, vNum = getShardNumber(validImgs, validMasks)
+    validShardNum, vNum = getShardNumber(validImgs, validMasks, shardSize=0.005)
     doConversion(validImgs, validMasks, validShardNum, vNum, outPath, 'validation')
     print('Number of validation shards: {}'.format(validShardNum))
 
-    testShardNum, tstNum = getShardNumber(testImgs, testMasks)
-    doConversion(testImgs, testMasks, testShardNum, tstNum, outPath, 'test')
+
+    testShardNum, tstNum = getShardNumber(validImgs, validMasks, shardSize=0.005)
+    doConversion(validImgs, validMasks, validShardNum, vNum, outPath, 'test')
+    #testShardNum, tstNum = getShardNumber(testImgs, testMasks,shardSize=0.005)
+    #doConversion(testImgs, testMasks, testShardNum, tstNum, outPath, 'test')
     print('Number of test shards: {}'.format(testShardNum))
     
 

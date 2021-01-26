@@ -1,6 +1,6 @@
 {"classKey":{"SINUS": "1"}, 
-"tileDim":512, 
-"resizeDim":512, 
+"tileDim":256, 
+"resizeDim":256, 
 "step":64, 
 "magnification":4, 
 "downsample": 16,

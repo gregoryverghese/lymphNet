@@ -7,7 +7,11 @@ unet.py: unet model in functional and subclass forms
 import tensorflow as tf
 from tensorflow.keras import layers
 from tensorflow.keras import Model
-from tensorflow.keras.layers import Conv2D, UpSampling2D, BatchNormalization, MaxPooling2D, Dropout, Activation, Concatenate, Add, Multiply, Input, Conv2DTranspose
+from keras.regularziers import l2
+from tensorflow.keras.layers import Conv2D, UpSampling2D, BatchNormalization
+from tensorflow.keras.layers import MaxPooling2D, Dropout, Activation, Concatenate
+from tensorflow.keras.layers import Add, Multiply, Input, Conv2DTranspose, LeakyReLU
+#from crfrnn_layer import CrfRnnLayer
 
 #################################### subclassing model ####################################
 
@@ -135,8 +139,8 @@ class UnetSC(Model):
 
 class UnetFunc():
     def __init__(self, filters=[32,64,128,256,512], finalActivation='sigmoid', activation='relu',
-                nOutput=1, kernelSize=(3,3), pSize=(2,2), dropout=0,
-                 normalize=True, padding='same', upTypeName='upsampling', dtype='float32'):
+                nOutput=1, kernelSize=(3,3), pSize=(2,2), dropout=0, normalize=True, padding='same', 
+                upTypeName='upsampling', dtype='float32'):
 
         self.filters = filters
         self.activation = activation
@@ -153,23 +157,40 @@ class UnetFunc():
 
     def convBlock(self, x, f, contraction=True):
 
-        x = Conv2D(filters=f, kernel_size=self.kernelSize, activation=self.activation, padding=self.padding)(x)
+        #x = Conv2D(filters=f, kernel_size=self.kernelSize, activation=self.activation, 
+                    #padding=self.padding)(x)
+        x = Conv2D(filters=f, kernel_size=self.kernelSize,padding=self.padding, 
+                   kernel_initializer='glorot_uniform',l2(0.01))(x)
         x = BatchNormalization()(x) if self.normalize else x
-        x = Dropout(self.dropout)(x) if contraction else x
-        x = Conv2D(filters=f, kernel_size=self.kernelSize, activation=self.activation, padding=self.padding)(x)
+        x = LeakyReLU(0.1)(x)
+        #x = Dropout(self.dropout)(x) if contraction else x
+        #x = Conv2D(filters=f, kernel_size=self.kernelSize, activation=self.activation,                         padding=self.padding)(x)
+        x = Conv2D(filters=f,kernel_size=self.kernelSize,padding=self.padding,
+                   kernel_initializer='glorot_uniform',l2(0.01))(x)
         x = BatchNormalization()(x) if self.normalize else x
-        x = Dropout(self.dropout)(x) if contraction else x
-
+        x = LeakyReLU(0.1)(x)
+        #x = Dropout(self.dropout)(x) if contraction else x
+         
+        #x = Conv2D(filters=f, kernel_size=self.kernelSize,
+        #           padding=self.padding,kernel_initializer='glorot_uniform')(x)
+        #x = BatchNormalization()(x) if self.normalize else x
+        #x = LeakyReLU(0.1)(x)
+        #x = Dropout(self.dropout)(x) if contraction else x
         return x
 
 
     def bridge(self, x, f, kSize=(3, 3)):
 
-        x = Conv2D(f, kSize, padding=self.padding)(x)
+        x = Conv2D(f, kSize, padding=self.padding,
+                   kernel_initializer='glorot_uniform',l2(0.01))(x)
         x = BatchNormalization()(x) if self.normalize else x
-        x = Conv2D(f, kSize, padding=self.padding)(x)
+        x = Conv2D(f, kSize, padding=self.padding,
+                   kernel_initializer='glorot_uniform',l2(0.01))(x)
         x = BatchNormalization()(x) if self.normalize else x
 
+        #x = Conv2D(f, kSize, padding=self.padding,
+                   #kernel_initializer='glorot_uniform')(x)
+        #x = BatchNormalization()(x) if self.normalize else x
         return x
 
 
@@ -186,7 +207,6 @@ class UnetFunc():
         bridge = self.bridge(p4, self.filters[4])
 
         return e1,e2,e3,e4,bridge
-
 
 
     def decoder(self, e1,e2,e3,e4, bridge):
@@ -210,7 +230,6 @@ class UnetFunc():
         if self.upTypeName=='upsampling':
             d3 = UpSampling2D((2,2))(d4)
         elif self.upTypeName=='transpose':
-            print('TRANSPOSEEEEEEEEEEEEEEEEEEEEEEEE')
             d3 = Conv2DTranspose(self.filters[2], self.kernelSize, activation='relu', strides=(2,2), padding='same')(d4)
 
         d3 = Concatenate()([e2, d3])
@@ -227,12 +246,23 @@ class UnetFunc():
         return d2
 
 
-    def unet(self):
+    def build(self):
 
         tensorInput = Input((None, None, 3))
         e1,e2,e3,e4,bridge = self.encoder(tensorInput)
         d2 = self.decoder(e1,e2,e3,e4, bridge)
         finalMap = Conv2D(self.nOutput, (1, 1), strides=(1,1), activation=self.finalActivation)(d2)
+        
+        '''
+        finalMap = CrfRnnLayer(image_dims=(height, width),
+                             num_classes=2,
+                             theta_alpha=160.,
+                             theta_beta=3.,
+                             theta_gamma=3.,
+                             num_iterations=10,
+                             name='crfrnn')([d2,tensorInput])
+        '''
+
         model = Model(tensorInput, finalMap)
 
         return model

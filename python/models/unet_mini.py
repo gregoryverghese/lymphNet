@@ -92,7 +92,7 @@ class Decoder(layers.Layer):
         return d1
 
 
-class UnetMini(Model):
+class UnetMiniSC(Model):
     def __init__(self, filters=[32,64,128, 256], finalActivation='sigmoid', activation='relu',
                     nOutput=1, kSize=(3,3), pSize=(2,2), dropout=0, normalize=True, padding='same', dtype='float32'):
         super(UnetMini, self).__init__()
@@ -110,7 +110,7 @@ class UnetMini(Model):
 #################################### functional model ####################################
 
 
-class UnetMini():
+class UnetMiniFunc():
     def __init__(self, filters=[32,64,128,256], finalActivation='sigmoid', activation='relu',
                 nOutput=1, kernelSize=(3,3), pSize=(2,2), dropout=0, normalize=True, padding='same', dtype='float32'):
 
@@ -177,7 +177,7 @@ class UnetMini():
 
 
 
-    def unetmini(self):
+    def build(self):
 
         tensorInput = Input((None, None, 3))
         e1,e2,e3,bridge = self.encoder(tensorInput)

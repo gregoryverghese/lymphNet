@@ -2,3 +2,9 @@
 /archive/*
 /models/*
 /images/*
+*.pyc
+*.swp
+*.sh
+*.png
+*.csv
+*.txt

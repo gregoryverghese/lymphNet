@@ -309,7 +309,7 @@ class AttenUnetFunc():
         return d1
 
 
-    def attenunet(self):
+    def build(self):
 
         tensorInput = Input((None, None, 3))
         e1,e2,e3,e4,bridge = self.encoder(tensorInput)

@@ -44,6 +44,32 @@ def readTFRecord(serialized, imgDims=256):
     return image, mask
 
 
+def readTF2(serialized):
+
+    dataMap = {'image': tf.io.FixedLenFeature((), tf.string),
+               'mask': tf.io.FixedLenFeature((), tf.string),
+               'xDim': tf.io.FixedLenFeature((), tf.int64),
+               'yDim': tf.io.FixedLenFeature((), tf.int64), 
+               'label': tf.io.FixedLenFeature((),
+               tf.string)}
+
+    example = tf.io.parse_single_example(serialized, dataMap)
+    image = tf.image.decode_png(example['image'])
+    mask = tf.image.decode_png(example['mask'])
+    xDim = example['xDim']
+    yDim = example['yDim']
+    label = example['label']
+
+    print('xDim: {}, yDim:{}'.format(xDim, yDim))
+
+    image = tf.reshape(image, (xDim, yDim, 3)) 
+    mask = tf.reshape(mask, (xDim, yDim, 3)) 
+    image = tf.cast(image, tf.float32)
+    mask = tf.cast(mask, tf.float32)
+
+    return image, mask, label
+
+
 def getRecordNumber(tfrecords):
     '''
     return the number of images across

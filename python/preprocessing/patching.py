@@ -104,9 +104,10 @@ class WSITiling():
                 x = int(w-(size*.5))
                 y = int(h-(size*.5))
                 patch = scan.read_region((x, y), self.magLevel, 
-                                         (self.tileDim, self.tileDim))
+                                        (self.tileDim, self.tileDim))
                 mask = img[h-int(size*0.5):h+int(size*0.5),w-int(size*0.5):w+int(size*0.5)]
-
+                
+                ################################################################################
                 for v in list(annotations.values())[0]:
                     p = Path(v)
                     contains = p.contains_point([w, h])
@@ -121,27 +122,43 @@ class WSITiling():
                        except:
                            print(e)
                            continue
+                #################################################################################
+
 
                        imgpath = os.path.join(self.outPath,self.imageDir)
                        maskpath = os.path.join(self.outPath, self.maskDir)
                        filename = os.path.basename(ndpi)[:-5]+'_'+str(w)+'_'+str(h)
                        patch.save(os.path.join(imgpath, filename+'.png'))
-                       cv2.imwrite(os.path.join(maskpath, filename + '_masks.png'))
-                       break    
+                       cv2.imwrite(os.path.join(maskpath, filename + '_masks.png'),mask)
+                       break  
+
         ##########################Code to create sparse dataset##############################
-        #patch = scan.read_region((int(w), int(h)), self.magLevel, #(self.tileDim, self.tileDim))
-        #mask = img[h:h+int(self.tileDim*self.magFactor), #w:w+int(self.tileDim*self.magFactor)]  
+                '''
+                patch = scan.read_region((int(w), int(h)), self.magLevel, (self.tileDim, self.tileDim))
+                mask = img[h:h+int(self.tileDim*self.magFactor), w:w+int(self.tileDim*self.magFactor)]  
                 
-        #if np.mean(patch) < 200 and (mask.shape == 
-            #(self.tileDim*self.magFactor, self.tileDim*self.magFactor)):
-            #print((w, h))
-            #patch = patch.convert('RGB')
-            #patch = patch.resize((self.resizeDim, self.resizeDim)) if self.resizeDim!=self.tileDim else patch
-            #ToDo: deal with edge cases where patch is greater than
-            #mask dimensions
-       #######################################################################################
+                if np.mean(patch) < 200 and (mask.shape == (self.tileDim*self.magFactor, self.tileDim*self.magFactor)):
+                    print((w, h))
 
+                    try:
+                        mask = cv2.resize(mask,(self.resizeDim,self.resizeDim))
+                    except:
+                        print(e)
+                        continue
 
+                    patch = patch.convert('RGB')
+                    patch = patch.resize((self.resizeDim, self.resizeDim)) if self.resizeDim!=self.tileDim else patch
+                    #ToDo: deal with edge cases where patch is greater than
+                    #mask dimensions
+        #######################################################################################
+        
+                    imgpath = os.path.join(self.outPath,self.imageDir)
+                    maskpath = os.path.join(self.outPath, self.maskDir)
+                    filename = os.path.basename(ndpi)[:-5]+'_'+str(w)+'_'+str(h)
+                    patch.save(os.path.join(imgpath, filename+'.png'))
+                    cv2.imwrite(os.path.join(maskpath, filename + '_masks.png'),mask)
+         
+                    '''
     def filterPatches(self, p, w, h, tolerance=0.75):
         '''
         removes patches from given class set if area 
@@ -321,8 +338,7 @@ class WSITiling():
             return None, None
 
         print('dict is not empty')
-        annotations = {self.classKey[k]: [[[int(i['x']), int(i['y'])] for i in v2] 
-                                for k2, v2 in v.items()]for k, v in jsonAnnotations.items()}
+        annotations = {self.classKey[k]: [[[int(i['x']), int(i['y'])] for i in v2] for k2, v2 in v.items()]for k, v in jsonAnnotations.items()}
 
         if self.drawBorder:
             boundaries = self.drawBoundary(annotations)
@@ -343,8 +359,14 @@ class WSITiling():
         print('ndpiFiles: {}'.format(ndpiFiles))  
 
         for i, ndpi in enumerate(ndpiFiles):
+            if i>64:
+                continue
             print('{}: loading {} '.format(i, ndpi), flush=True)
-            scan = openslide.OpenSlide(ndpi)
+            try:
+                scan = openslide.OpenSlide(ndpi)
+            except Exception as e:
+                print(e)
+                continue
 
             for program in self.software:
                 print('loading software: {}'.format(program))

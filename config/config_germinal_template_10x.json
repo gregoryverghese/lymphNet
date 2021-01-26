@@ -3,14 +3,27 @@
 "tasktype": "binary",
 "magnification": "10x", 
 "loss": ["weightedBinaryCrossEntropy"], 
-"modelname": "$model_germ_10x_adam_$loss_$augment", 
+"modelname": "$model_germ_10x_adam_$loss_$augment_data_1024_32", 
 "ratio": 0.9,
-"batchSize": 4,
+"batchSize": 8,
 "imageDims": 1024,
 "epoch": 100, 
+"normalize": 
+ 	{
+	"methods":["Scale"],
+	"parameters":
+	 	{
+		"channelMeans":[0.633, 0.383, 0.649],
+		"channelStd":[0.143, 0.197, 0.19]
+	        }
+	},
 "augmentation": 
 	{
-	"methods": [["Flip","Rotate90","Color"]],
+	"methods": [["Flip","Rotate90","Color"],
+		   ["Flip","Rotate90","Color"],
+		   ["Flip","Rotate90","Color"],
+		   ["Flip","Rotate90","Color"],
+                   ["Flip","Rotate90","Color"]],
 	"parameters":
 		{
 		"saturation":[0.5,1.2],
@@ -21,13 +34,13 @@
 		"rotateProb":0.5,
 		"colorProb":0.5
 		}
-	},	
+	},
 "nClasses": 1, 
-"weights": [8.8], 
+"weights": [32], 
 "dropout":[0],
 "model": 
 	{
-	"network":"multiscale",
+	"network":"unet",
         "parameters":
 		{
 		"filters":[32,64,128,256,512],
@@ -50,7 +63,7 @@
 		                             "power": 3, 
 		                             "initLr": 0.001
 					     }
-				},
+	                        },
 	              "keras":"piecewise",
 		      "decayparams": {
 			             "boundaries":[30, 60],
@@ -59,28 +72,30 @@
 		      		}
 			}, 
 "metric": "diceCoef", 
-"normalize":"True", 
+"batchnormalize":"True", 
 "padding":"same", 
 "multi":
 	{
 	"flag":true,
-	"num": 4
+	"num":1
 	},  
-"modelapi":"subclass", 
-"api":"custom",
-"activationthreshold":0.5,
+"modelapi":"functional", 
+"trainingapi":"custom",
+"activationthreshold":0.95,
 "stopthresholds": 
 	{
 	"first":
 		{
-		"metric":0.8,
+		"metric":0.85,
 		"epochs":50
 		},
 		"second":
 		{
-		"metric":0.75,
+		"metric":0.825,
 		"epochs":75
 		}
 	},
-"step":1024,
-"upTypeName":"upsampling"}
+"step":2048,
+"upTypeName":"upsampling"
+}
+

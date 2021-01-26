@@ -3,29 +3,45 @@
 "tasktype": "binary",
 "magnification": "2.5x", 
 "loss": ["weightedBinaryCrossEntropy"], 
-"modelname": "$model_germ_2.5x_adam_$loss_$augment", 
+"modelname": "$model_germ_2.5x_adam_$loss_$augment_data_256_32", 
 "ratio": 0.9,
 "batchSize": 32,
 "imageDims": 256,
-"epoch": 3, 
+"epoch": 50, 
+"normalize": 
+ 	{
+	"methods":["Scale"],
+	"parameters":
+	 	{
+		"channelMeans":[0.633, 0.383, 0.649],
+		"channelStd":[0.143, 0.197, 0.19]
+	        }
+	},
 "augmentation": 
 	{
-	"methods": [["Flip","Rotate90"],["Flip","Rotate90"],["Flip","Rotate90", "Color"], ["Flip","Rotate90", "Color"]],
+	"methods": [["Flip","Rotate90","Color"],
+		   ["Flip","Rotate90","Color"],
+		   ["Flip","Rotate90","Color"],
+		   ["Flip","Rotate90","Color"],
+                   ["Flip","Rotate90","Color"],
+	           ["Flip","Rotate90","Color"],
+                   ["Flip","Rotate90","Color"],
+                   ["Flip","Rotate90","Color"],
+                   ["Flip","Rotate90","Color"],
+                   ["Flip","Rotate90","Color"]],
 	"parameters":
 		{
 		"saturation":[0.5,1.2],
 		"brightness":0.25,
-		"hue":0.05,
+		"hue":0.5,
 		"contrast":[0.8,1.5],
 		"flipProb":0.5,
 		"rotateProb":0.5,
-		"colorProb":0.5,
-		"channelMeans":[0,0,0],
-		"channelStd":[1,1,1]
+		"colorProb":0.5
 		}
 	},	
 "nClasses": 1, 
-"weights": [4.4], 
+"weights": [5.02], 
 "dropout":[0],
 "model": 
 	{
@@ -52,7 +68,7 @@
 		                             "power": 3, 
 		                             "initLr": 0.001
 					     }
-				},
+	                        },
 	              "keras":"piecewise",
 		      "decayparams": {
 			             "boundaries":[30, 60],
@@ -61,7 +77,7 @@
 		      		}
 			}, 
 "metric": "diceCoef", 
-"normalize":"True", 
+"batchnormalize":"True", 
 "padding":"same", 
 "multi":
 	{
@@ -69,18 +85,18 @@
 	"num":4
 	},  
 "modelapi":"functional", 
-"api":"custom",
-"activationthreshold":0.5,
+"trainingapi":"custom",
+"activationthreshold":0.95,
 "stopthresholds": 
 	{
 	"first":
 		{
-		"metric":0.75,
+		"metric":0.85,
 		"epochs":50
 		},
 		"second":
 		{
-		"metric":0.7,
+		"metric":0.825,
 		"epochs":75
 		}
 	},

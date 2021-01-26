@@ -46,7 +46,7 @@ class FCN():
         return conv7, pool4, pool3, inputImg
 
 
-    def getFCN8(self):
+    def build(self):
 
         conv7, pool4, pool3, inputImg = self.encoder()
         conv7Up = keras.layers.Conv2DTranspose(self.nClasses, kernel_size=(4,4), strides=(4,4), use_bias=False)(conv7)

@@ -13,14 +13,14 @@ color = [(255,0,0), (0,0,255),(255,0,0)]
 #feature = ['germinal', 'sinus']
 feature = 'germinal'
 ndpiPath = '/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/wsi/Guys/all/testing/*'
-annotationsPath ='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/wsi/Guys/all/testing'
-outPath='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/patches/segmentation/2.5x/one/testing'
+annotationsPath='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/wsi/Guys/sum_swap_toms/annotations'
+outPath='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/patches/segmentation/10x/one/testing'
 #outPath = '/home/verghese/scratch'
 configPath = '/home/verghese/breastcancer_ln_deeplearning/scripts/config/config_tf.json'
 testingPath = '/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/data/wsi/Guys/all/testing/*'
 #testingPath = '/home/verghese/scratch'
-magFactor = 16
-mag = 4
+magFactor = 4
+mag = 2
 
 def getRegions(xmlFileName):
 

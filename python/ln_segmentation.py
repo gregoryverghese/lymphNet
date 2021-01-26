@@ -25,14 +25,17 @@ from prettytable import PrettyTable
 from tensorflow import keras
 from skimage.transform import resize
 from skimage import img_as_bool
+SM_FRAMEWORK=tf.keras
+import segmentation_models as sm
 from tensorflow.keras import backend as K
 from tensorflow.keras.losses import binary_crossentropy
-from keras.callbacks import LearningRateScheduler
+from tensorflow.keras.callbacks import LearningRateScheduler
 from tensorflow.keras.utils import multi_gpu_model
 
 import distributed_train
 from models import fcn8
 from models import unet
+from models import mobile
 from models import resunet
 from models import resunet_a
 from models import unet_mini
@@ -50,8 +53,106 @@ __author__ = 'Gregory Verghese'
 __email__='gregory.verghese@kcl.ac.uk'
 
 
-def main(args, modelname):
+FUNCMODELS={
+            'unet':unet.UnetFunc,
+            'unetmini':unet_mini.UnetMiniFunc,
+            'attention':atten_unet.AttenUnetFunc,
+            'multiscale':multiscale.MultiScaleUnetFunc,
+            'resunet':resunet.ResUnetFunc,
+            'fcn8':unet.UnetFunc,
+            'mobile':mobile.MobileUnetFunc
+              }
 
+
+SUBCLASSMODELS={
+              'unet':unet.UnetSC,
+              'unetmini':unet_mini.UnetMiniSC,
+              'attention':atten_unet.AttenUnetSC,
+              'multiscale':multiscale.MultiScaleUnetSC,
+              'resunet':resunet.ResUnetFunc,
+              'fcn8':unet.UnetFunc
+               }            
+
+
+def prepareDatasets(recordsPath, recordsDir,batchSize,imgDims,augParams,
+                   augment,tasktype,normalize,normalizeParams):
+
+    #load data as data.Dataset for each of train, validation and test. Counts 
+    #the number of images in each record and calculate the number of steps 
+    #in one training iteration for each batch using batchsize and image number.
+    trainFiles = glob.glob(os.path.join(recordsPath,recordsDir,'train','*.tfrecords'))
+    validFiles = glob.glob(os.path.join(recordsPath,recordsDir, 'validation','*.tfrecords'))
+    testFiles = glob.glob(os.path.join(recordsPath,recordsDir, 'test','*.tfrecords'))
+
+    trainNum = tfrecord_read.getRecordNumber(trainFiles)
+    validNum = tfrecord_read.getRecordNumber(validFiles)
+    testNum = tfrecord_read.getRecordNumber(testFiles)
+
+    trainSteps = np.ceil(trainNum/batchSize) if trainNum<batchSize else np.floor(trainNum/batchSize)
+    validSteps = np.ceil(validNum/batchSize) if validNum<batchSize else np.floor(validNum/batchSize)
+    testSteps = np.ceil(testNum/batchSize) if testNum<batchSize else np.floor(testNum/batchSize)
+
+    table = PrettyTable(['\nTrainNum', 'ValidNum', 'TestNum', 
+                         'TrainSteps', 'ValidSteps', 'TestSteps'])
+    table.add_row([trainNum, validNum, testNum, trainSteps, validSteps, testSteps])
+    print(table)
+
+    trainDataset = tfrecord_read.getShards(trainFiles, imgDims=imgDims, batchSize=batchSize, 
+                                           dataSize=trainNum,augParams=augParams, 
+                                           augmentations=augment, taskType=tasktype,
+                                           normalize=normalize, normalizeParams=normalizeParams)
+
+    validDataset = tfrecord_read.getShards(validFiles, imgDims=imgDims, batchSize=batchSize,
+                                           dataSize=validNum, taskType=tasktype, normalize=normalize,
+                                           normalizeParams=normalizeParams)
+
+    testDataset = tfrecord_read.getShards(testFiles, batchSize=batchSize,imgDims=imgDims,
+                                          dataSize=testNum, test=True, taskType=tasktype,
+                                          normalize=normalize, normalizeParams=normalizeParams)
+
+    return trainDataset,validDataset,testDataset,trainSteps,validSteps,testSteps
+  
+
+def getOptimizer(optimizername, decaySchedule, trainSteps):
+    
+    #get optimizer and decay schedule if applicable
+    if decaySchedule['keras'] is not None:
+        boundaries = [b*trainSteps for b in decaySchedule['decayparams']['boundaries']]
+        values = decaySchedule['decayparams']['values']
+        lr_schedule = tf.keras.optimizers.schedules.PiecewiseConstantDecay(boundaries,values)
+    elif decaySchedule['custom']['method'] is not None:
+        scheduleKwargs = decaySchedule['custom']['decayparams']
+        scheduler = getattr(decay_schedules, decaySchedule['custom']['method'])(**scheduleKwargs)
+        callbacks += [LearningRateScheduler(scheduler)]
+        scheduler.plot(epoch, modelName + ': ' + decaySchedule + ' learning rate')
+
+    if optimizername=='adam':
+        optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
+    elif optimizername=='Nadam':
+        optimizer = keras.optimizers.NAdam(**optKwargs)
+    elif optimizername=='SGD':
+        optimizer=keras.optimizers.SGD(**optKwargs)
+    else:
+        raise ValueError('No optimizer selected, please update config file')
+
+    return optimizer
+
+
+def getLoss(loss, weights):
+    
+    if loss=='weightedBinaryCrossEntropy':
+        lossObject = WeightedBinaryCrossEntropy(weights[0])
+    elif loss=='weightedCategoricalCrossEntropy':
+        lossObject = WeightedCategoricalCrossEntropy(weights)
+    elif loss=='diceloss':
+        lossObject = DiceLoss()
+    else:
+        raise ValueError('No loss requested, please update config file')
+
+    return lossObject
+
+
+def main(args, modelname):
     '''
     sets up analysis based on config file. Choose following design choices:
 
@@ -70,7 +171,7 @@ def main(args, modelname):
     Returns:
         result: returns avg dice and iou score
     '''
-
+    
     recordsPath = args['recordpath']
     recordsDir = args['recordDir']
     outPath = args['outpath']
@@ -112,10 +213,12 @@ def main(args, modelname):
     activationthreshold =  params['activationthreshold']
     step = params['step']
     upTypeName = params['upTypeName']
-    
+    trainingapi=params['trainingapi']
+
     currentDate = str(datetime.date.today())
     currentTime = datetime.datetime.now().strftime('%H:%M')
-
+    
+    ############################setup paths##########################
     outModelPath = os.path.join(outPath,'models',currentDate)
     try:
         os.mkdir(outModelPath)
@@ -128,69 +231,45 @@ def main(args, modelname):
     except Exception as e:
         print(e)
     
-    #load data as data.Dataset for each of train, validation and test. Counts 
-    #the number of images in each record and calculate the number of steps 
-    #in one training iteration for each batch using batchsize and image number.
-    trainFiles = glob.glob(os.path.join(recordsPath,recordsDir,'train','*.tfrecords'))
-    validFiles = glob.glob(os.path.join(recordsPath,recordsDir, 'validation','*.tfrecords'))
-    testFiles = glob.glob(os.path.join(recordsPath,recordsDir, 'test','*.tfrecords'))
-
-    trainNum = tfrecord_read.getRecordNumber(trainFiles)
-    validNum = tfrecord_read.getRecordNumber(validFiles)
-    testNum = tfrecord_read.getRecordNumber(testFiles)
-
-    trainSteps = np.ceil(trainNum/batchSize) if trainNum<batchSize else np.floor(trainNum/batchSize)
-    validSteps = np.ceil(validNum/batchSize) if validNum<batchSize else np.floor(validNum/batchSize)
-    testSteps = np.ceil(testNum/batchSize) if testNum<batchSize else np.floor(testNum/batchSize)
+    #predition paths
 
     if weights is None:
         weights = calculateWeights('test', 'test', 'test', nClasses)
+
+    data=prepareDatasets(recordsPath,recordsDir,batchSize,imgDims,augparams,
+                         augment,tasktype,normalize,normalizeParams)
+   
+    trainDataset,validDataset,testDataset,trainSteps,validSteps,testSteps=data
 
     print('\n'*4+'-'*25 + 'Breast Cancer Lymph Node Deep learning segmentation project' +'-'*25+'\n'*2 + \
           'network:{} \
           \nfeatures:{} \
           \nmagnification:{} \
           \nloss:{} \
-          \naugmentation:{} \n'.format(modelname, feature, magnification, loss, augment))
-         
-    table = PrettyTable(['\nTrainNum', 'ValidNum', 'TestNum', 
-                         'TrainSteps', 'ValidSteps', 'TestSteps', 'Weights'])
-
-    table.add_row([trainNum, validNum, testNum, trainSteps, validSteps, testSteps, weights])
-    print(table)
-
-    trainDataset = tfrecord_read.getShards(trainFiles, imgDims=imgDims, batchSize=batchSize, 
-                                           dataSize=trainNum,augParams=augparams, 
-                                           augmentations=augment, taskType=tasktype,
-                                           normalize=normalize, normalizeParams=normalizeParams)
-
-    validDataset = tfrecord_read.getShards(validFiles, imgDims=imgDims, batchSize=batchSize,
-                                           dataSize=validNum, taskType=tasktype, normalize=normalize,
-                                           normalizeParams=normalizeParams)
-
-    testdataset = tfrecord_read.getShards(testFiles, batchSize=batchSize,imgDims=imgDims,
-                                          dataSize=testNum, test=True, taskType=tasktype,
-                                          normalize=normalize, normalizeParams=normalizeParams)
+          \weights:{} \
+          \naugmentation:{} \n'.format(modelname, feature, magnification, 
+                                       loss, augment, weights))
 
     #get the number of gpus available and initiate a distribute mirror strategy
     devices = tf.config.experimental.list_physical_devices('GPU')
     devices = [x.name.replace('/physical_device:', '') for x in devices] 
     #devices = ['/device:GPU:{}'.format(i) for i in range(multiDict['num'])]
 
+    nnParams={
+               'filters':filters,
+               'finalActivation':finalActivation,
+               'nOutput':nClasses,
+               'upTypeName':upTypeName
+                }
+
+
     strategy = tf.distribute.MirroredStrategy(devices)
     with strategy.scope():
-        
-        #get loss functions
-        if loss=='weightedBinaryCrossEntropy':
-            posWeight = weights[0]
-            lossObject = WeightedBinaryCrossEntropy(posWeight)
-        elif loss=='weightedCategoricalCrossEntropy':
-            lossObject = WeightedCategoricalCrossEntropy(weights)
-        elif loss=='diceloss':
-            lossObject = DiceLoss()
-        else:
-            raise ValueError('No loss requested, please update config file')
-        
+    #if trainingapi=='keras':
+        #lossObject=getLoss(loss, weights)
+        #optimizer=getOptimizer(optimizername,decaySchedule, trainSteps)
+
+    
         #get optimizer and decay schedule if applicable
         if decaySchedule['keras'] is not None:
             boundaries = [b*trainSteps for b in decaySchedule['decayparams']['boundaries']]
@@ -211,85 +290,51 @@ def main(args, modelname):
         else:
             raise ValueError('No optimizer selected, please update config file')
 
-        #choose a neural network model and a subclass or functional style
-        if modelname == 'fcn8':
-            with tf.device('/cpu:0'):
-                if api == 'functional':
-                    fcn = FCN()
-                    model = fcn.getFCN8()
-                elif api=='subclass':
-                    model = FCN()
 
-        elif modelname == 'unet':
-            with tf.device('/cpu:0'):
-                if api=='functional':
-                    unetModel = unet.UnetFunc(filters=filters,finalActivation=finalActivation, 
-                                              nOutput=nClasses, upTypeName=upTypeName)
-                    model = unetModel.unet()
-                elif api=='subclass':
-                    model = unet.UnetSC(filters=filters,finalActivation=finalActivation, 
-                                        nOutput=nClasses, upTypeName=upTypeName)
-                    model.build((1, imgDims, imgDims, 3))
-
-        elif modelname == 'unetmini':
-            with tf.device('/cpu:0'):
-                if api == 'functional':
-                    unetminiModel = UnetMini(filters=filters)
-                    model = unetminiModel.unetmini()
-                elif api=='subclass':
-                    model = UnetMini(filters)
-
-        elif modelname == 'resunet':
-            with tf.device('/cpu:0'):
-                if api=='functional':
-                    resunetModel =  resunet.ResUnet(filters)
-                    model = resunetModel.ResUnetFunc()
-                elif api=='subclass':
-                    model = resunet.ResUnetSC(filters)
-
-        elif modelname == 'resunet-a':
-            with tf.device('/cpu:0'):
-                if api=='functional':
-                    resunetModel =  resunet_a.ResUnetA(filters)
-                    model = resunetModel.ResUnetAFunc()
-                elif api=='subclass':
-                    model = resunet_a.ResUnetASC(filters)
-
-        elif modelname == 'attention':
-            with tf.device('/cpu:0'):
-                if api == 'functional':
-                    attenModel=atten_unet.AttenUnetFunc(filters,finalActivation=finalActivation,
-                                            nOutput=nClasses,upTypeName=upTypeName)
-                    model = attenModel.attenunet()
-                elif api=='subclass':
-                    model = atten_unet.AttenUnetSC(filters, finalActivation=finalActivation, 
-                                                   nOutput=nClasses, upTypeName=upTypeName)
-
-        elif modelname == 'multiscale':
-            with tf.device('/cpu:0'):
-                if api== 'functional':
-                    multiModel = multiscale.MultiScaleFunc(filters)
-                elif api=='subclass':
-                    model = multiscale.MultiScaleUnetSC(filters, finalActivation=finalActivation, 
-                                                        nOutput=nClasses, upTypeName=upTypeName)
+        if loss=='weightedBinaryCrossEntropy':
+            lossObject = WeightedBinaryCrossEntropy(weights[0])
+        elif loss=='weightedCategoricalCrossEntropy':
+            lossObject = WeightedCategoricalCrossEntropy(weights)
+        elif loss=='diceloss':
+            lossObject = DiceLoss()
         else:
-            raise ValueError('No model requested, please update config file')
+            raise ValueError('No loss requested, please update config file')
 
+        with tf.device('/cpu:0'):
+            if api=='functional':
+                model=FUNCMODELS[modelname](**nnParams)
+            elif api=='subclass':
+                model=SUBCLASSMODELS[modelname](**nnParams)
+
+            model=model.build()
+            #model = sm.Unet('vgg19', input_shape=(None, None, 3))
+            if model is None:
+                raise ValueError('No model requested, please update config file')
+        print(model)
         table = PrettyTable(['Model', 'Loss', 'Optimizer', 'Devices','DecaySchedule'])
         table.add_row([modelname, loss, optimizername, len(devices),decaySchedule['keras']])
         print(table)
-        #print('\n'*5 + 'Stopping threshold: {}'.format(stopthresholds))
-
-        #call distributed training script to allow for training on multiple gpus
-        trainDistDataset = strategy.experimental_distribute_dataset(trainDataset)
-        validDistDataset = strategy.experimental_distribute_dataset(validDataset)
+        
+        if trainingapi=='custom':
+            #call distributed training script to allow for training on multiple gpus
+            trainDistDataset = strategy.experimental_distribute_dataset(trainDataset)
+            validDistDataset = strategy.experimental_distribute_dataset(validDataset)
                                                   
-        train = distributed_train.DistributeTrain(epoch, model,  optimizer, lossObject, batchSize, 
-                                                  strategy, trainSteps, validSteps, imgDims, 
-                                                  stopthresholds, modelName, currentDate, currentTime, tasktype)
+            train = distributed_train.DistributeTrain(epoch, model, optimizer, 
+                                                      lossObject, batchSize, strategy, 
+                                                      trainSteps, validSteps, imgDims, 
+                                                      stopthresholds, modelName, currentDate, 
+                                                      currentTime, tasktype)
 
-        model, history = train.forward(trainDistDataset, validDistDataset)
-    
+            model, history = train.forward(trainDistDataset, validDistDataset)
+            
+    if trainingapi=='keras':
+
+        #model = multi_gpu_model(model, gpus=multiDict['num'])
+        model.compile(optimizer=optimizer,loss=lossObject,metrics=[diceCoef])
+        model.fit(trainDataset, epochs=epoch, steps_per_epoch=trainSteps, validation_data=validDataset)
+
+
     #save models down to model folder along with training history
     if api == 'subclass':
         model.save(os.path.join(outModelPath, modelName + '_' + currentTime), save_format='tf')
@@ -339,5 +384,53 @@ if __name__ == '__main__':
     ap.add_argument('-cf', '--configfile', help='file containing parameters')
 
     args = vars(ap.parse_args())
+     
+    recordsPath = args['recordpath']
+    recordsDir = args['recordDir']
+    outPath = args['outpath']
+    checkpointPath = args['checkpointpath']
+    configFiles = args['configfile']
 
-    trainSegmentationModel(args)
+    with open(configFiles) as jsonFile:
+        params = json.load(jsonFile)
+
+    feature = params['feature']
+    tasktype = params['tasktype']
+    #model = params['model']['network']
+    filters = params['model']['parameters']['filters']
+    finalActivation = params['model']['parameters']['finalActivation']
+    optimizername = params['optimizer']['method']
+    loss =  params['loss']
+    #dropout = params['dropout']
+    batchSize = params['batchSize']
+    epoch = params['epoch']
+    augment = params['augmentation']["methods"]
+    augparams = params['augmentation']['parameters']
+    weights = params['weights']
+    metric = params['metric']
+    modelName = params['modelname']
+    optKwargs = params['optimizer']['parameters']
+    decaySchedule = params['optimizer']['decaymethod']
+    normalize = params['normalize']['methods']
+    normalizeParams= params['normalize']['parameters']
+    padding = params['padding']
+    multiDict = params['multi']
+    multi = multiDict['flag']
+    imgDims = params['imageDims']
+    nClasses = params['nClasses']
+    api = params['modelapi']
+    magnification = params['magnification']
+    stopthresholds = params['stopthresholds']
+    activationthreshold =  params['activationthreshold']
+    step = params['step']
+    upTypeName = params['upTypeName']
+    trainingapi=params['trainingapi']
+
+    trainSegmentationModel(feature,tasktype,magnification,modelName,filters,
+                           nClasses,finalActivation,optimizername,loss,
+                           batchSize,epoch,augment,augparams,weights,metric,
+                           decaySchedule,optKwargs,normalize,normalizeParams,
+                           padding,multi,imgDims,api,stopthresholds,
+                           activavtionthreshold,step,upTypeName,trainingapi,
+                           recordsPath,recordsDir,outPath,checkpointPath,
+                           configFiles)

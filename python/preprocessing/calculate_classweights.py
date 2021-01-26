@@ -22,6 +22,7 @@ def calculateWeights(maskPath, outPath, fileName, numClasses):
 
     masks = glob.glob(os.path.join(maskPath,'*'))
     for f in masks:
+        print(f)
         mask = cv2.imread(f)
         labels = mask.reshape(-1)
         classes = np.unique(labels, return_counts=True)

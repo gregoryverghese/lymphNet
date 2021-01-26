@@ -226,7 +226,7 @@ class ResUnetFunc():
         return d4
 
 
-    def Resunet(self):
+    def build(self):
 
         inputs = keras.layers.Input((None, None, 3))
 

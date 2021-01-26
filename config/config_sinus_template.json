@@ -3,11 +3,11 @@
 "tasktype": "binary",
 "magnification": "2.5x", 
 "loss": ["weightedBinaryCrossEntropy"], 
-"modelname": "$model_sinus_2.5x_adam_$loss_$augment_data_256_32", 
+"modelname": "$model_sinus_2.5x_adam_$loss_$augment_data4_256", 
 "ratio": 0.9,
 "batchSize": 128,
 "imageDims": 256,
-"epoch": 100, 
+"epoch": 50, 
 "normalize": 
  	{
 	"methods":["Scale"],
@@ -19,9 +19,9 @@
 	},
 "augmentation": 
 	{
-	"methods": [[], 
-                    ["Flip","Rotate90"], 
-                    ["Flip","Rotate90"], 
+	"methods": [["Flip","Rotate90", "Color"], 
+                    ["Flip","Rotate90", "Color"], 
+                    ["Flip","Rotate90", "Color"], 
                     ["Flip","Rotate90", "Color"], 
                     ["Flip","Rotate90", "Color"]
                    ],
@@ -37,7 +37,7 @@
 		}
 	},	
 "nClasses": 1, 
-"weights": [3.15], 
+"weights": [3.4], 
 "dropout":[0],
 "model": 
 	{
@@ -81,18 +81,18 @@
 	"num":4
 	},  
 "modelapi":"functional", 
-"api":"custom",
-"activationthreshold":0.5,
+"trainingapi":"custom",
+"activationthreshold":0.75,
 "stopthresholds": 
 	{
 	"first":
 		{
-		"metric":0.9,
+		"metric":0.8,
 		"epochs":50
 		},
 		"second":
 		{
-		"metric":0.9,
+		"metric":0.7,
 		"epochs":75
 		}
 	},

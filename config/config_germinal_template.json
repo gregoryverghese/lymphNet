@@ -5,12 +5,12 @@
 "loss": ["weightedBinaryCrossEntropy"], 
 "modelname": "$model_germ_2.5x_adam_$loss_$augment_data_256_32", 
 "ratio": 0.9,
-"batchSize": 128,
+"batchSize": 64,
 "imageDims": 256,
-"epoch": 200, 
+"epoch": 50, 
 "normalize": 
  	{
-	"methods":["Scale", "StandardizeDataset"],
+	"methods":["Scale"],
 	"parameters":
 	 	{
 		"channelMeans":[0.633, 0.383, 0.649],
@@ -19,7 +19,16 @@
 	},
 "augmentation": 
 	{
-	"methods": [["Flip","Rotate90","Color"]],
+	"methods": [["Flip","Rotate90","Color"],
+		   ["Flip","Rotate90","Color"],
+		   ["Flip","Rotate90","Color"],
+		   ["Flip","Rotate90","Color"],
+                   ["Flip","Rotate90","Color"],
+	           ["Flip","Rotate90","Color"],
+	           ["Flip","Rotate90","Color"],
+	           ["Flip","Rotate90","Color"],
+	           ["Flip","Rotate90","Color"],
+	           ["Flip","Rotate90","Color"]],
 	"parameters":
 		{
 		"saturation":[0.5,1.2],
@@ -32,7 +41,7 @@
 		}
 	},	
 "nClasses": 1, 
-"weights": [4.4], 
+"weights": [5.02], 
 "dropout":[0],
 "model": 
 	{
@@ -76,18 +85,18 @@
 	"num":4
 	},  
 "modelapi":"functional", 
-"api":"custom",
-"activationthreshold":0.5,
+"trainingapi":"custom",
+"activationthreshold":0.95,
 "stopthresholds": 
 	{
 	"first":
 		{
-		"metric":0.95,
+		"metric":0.85,
 		"epochs":50
 		},
 		"second":
 		{
-		"metric":0.95,
+		"metric":0.825,
 		"epochs":75
 		}
 	},
