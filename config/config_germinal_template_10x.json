@@ -3,14 +3,14 @@
 "tasktype": "binary",
 "magnification": "10x", 
 "loss": ["weightedBinaryCrossEntropy"], 
-"modelname": "$model_germ_10x_adam_$loss_$augment_data_1024_32", 
+"modelname": "$model_germ_10x_adam_$loss_$augment_data_1024_l2", 
 "ratio": 0.9,
 "batchSize": 8,
 "imageDims": 1024,
-"epoch": 100, 
+"epoch": 50, 
 "normalize": 
  	{
-	"methods":["Scale"],
+	"methods":[],
 	"parameters":
 	 	{
 		"channelMeans":[0.633, 0.383, 0.649],
@@ -36,7 +36,7 @@
 		}
 	},
 "nClasses": 1, 
-"weights": [32], 
+"weights": [4.8], 
 "dropout":[0],
 "model": 
 	{
@@ -91,7 +91,7 @@
 		},
 		"second":
 		{
-		"metric":0.825,
+		"metric":0.88,
 		"epochs":75
 		}
 	},

@@ -194,15 +194,15 @@ def getFiles(imagePath, maskPath, outPath, config, shardSize=0.1):
     doConversion(trainImgs, trainMasks, trainShardNum, tNum, outPath, 'train')
     print('Number of train shards: {}'.format(trainShardNum))
 
-    validShardNum, vNum = getShardNumber(validImgs, validMasks, shardSize=0.005)
+    validShardNum, vNum = getShardNumber(validImgs, validMasks, shardSize=0.1)
     doConversion(validImgs, validMasks, validShardNum, vNum, outPath, 'validation')
     print('Number of validation shards: {}'.format(validShardNum))
 
 
-    testShardNum, tstNum = getShardNumber(validImgs, validMasks, shardSize=0.005)
-    doConversion(validImgs, validMasks, validShardNum, vNum, outPath, 'test')
-    #testShardNum, tstNum = getShardNumber(testImgs, testMasks,shardSize=0.005)
-    #doConversion(testImgs, testMasks, testShardNum, tstNum, outPath, 'test')
+    #testShardNum, tstNum = getShardNumber(validImgs, validMasks, shardSize=0.005)
+    #doConversion(validImgs, validMasks, validShardNum, vNum, outPath, 'test')
+    testShardNum, tstNum = getShardNumber(testImgs, testMasks,shardSize=0.1)
+    doConversion(testImgs, testMasks, testShardNum, tstNum, outPath, 'test')
     print('Number of test shards: {}'.format(testShardNum))
     
 

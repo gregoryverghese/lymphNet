@@ -10,7 +10,8 @@ import tensorflow.keras
 import tensorflow.keras.backend as K
 from tensorflow.keras.models import Model
 from tensorflow.keras import layers
-from tensorflow.keras.layers import Conv2D, UpSampling2D, Input, Concatenate, concatenate, Conv2DTranspose
+from tensorflow.keras.regularizers import l2,l1_l2
+from tensorflow.keras.layers import Conv2D, UpSampling2D, Input, Concatenate, concatenate, Conv2DTranspose, ReLU
 from tensorflow.keras.layers import Activation, Dropout, BatchNormalization, MaxPooling2D, Add, Multiply, Input
 
 
@@ -126,7 +127,7 @@ class AttenUnetSC(Model):
         if self.upTypeName == 'upsampling':
             self.up3 = UpSampling2D((2, 2))
         elif self.upTypeName == 'transpose':
-            print('TRANSPOSEEEEEEEEEEEEEEEEEEE')
+            print('using transpose')
             self.up3 = Conv2DTranspose(filters[2], kSize, activation='relu', strides=(2,2), padding='same')
 
         self.conc3 = Concatenate()
@@ -189,8 +190,9 @@ class AttenUnetSC(Model):
 
 
 class AttenUnetFunc():
-    def __init__(self, filters=[16,32,64,128,256], finalActivation='sigmoid', activation='relu', kSize=(3,3),
-                 nOutput=1, padding='same', dropout=0, dilation=(1,1), normalize=True, upTypeName='upsampling', dtype='float32'):
+    def __init__(self, filters=[16,32,64,128,256], finalActivation='sigmoid', 
+                 activation='relu', kSize=(3,3), nOutput=1, padding='same', dropout=0, 
+                 dilation=(1,1), normalize=True, upTypeName='upsampling', dtype='float32'):
 
         self.filters = filters
         self.activation = activation
@@ -205,12 +207,17 @@ class AttenUnetFunc():
 
     def convBlock(self, x, f, contraction=True):
 
-        x = Conv2D(filters=f, kernel_size=self.kernelSize, activation=self.activation, padding=self.padding)(x)
+
+        x = Conv2D(filters=f, kernel_size=self.kernelSize,padding=self.padding,
+                   kernel_initializer='glorot_uniform',kernel_regularizer=l1_l2())(x)
         x = BatchNormalization()(x) if self.normalize else x
-        x = Dropout(self.dropout)(x) if contraction else x
-        x = Conv2D(filters=f, kernel_size=self.kernelSize, activation=self.activation, padding=self.padding)(x)
+        x = ReLU()(x)
+        #x = Dropout(0.1)(x) if contraction else x
+        x = Conv2D(filters=f, kernel_size=self.kernelSize,padding=self.padding,
+                  kernel_initializer='glorot_uniform',kernel_regularizer=l1_l2())(x)
         x = BatchNormalization()(x) if self.normalize else x
-        x = Dropout(self.dropout)(x) if contraction else x
+        x = ReLU()(x)
+        #x = Dropout(0.1)(x) if contraction else x
 
         return x
 

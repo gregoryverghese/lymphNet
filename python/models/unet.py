@@ -7,10 +7,10 @@ unet.py: unet model in functional and subclass forms
 import tensorflow as tf
 from tensorflow.keras import layers
 from tensorflow.keras import Model
-from keras.regularziers import l2
-from tensorflow.keras.layers import Conv2D, UpSampling2D, BatchNormalization
+from tensorflow.keras.regularizers import l2,l1
+from tensorflow.keras.layers import Conv2D, UpSampling2D,BatchNormalization,GaussianNoise
 from tensorflow.keras.layers import MaxPooling2D, Dropout, Activation, Concatenate
-from tensorflow.keras.layers import Add, Multiply, Input, Conv2DTranspose, LeakyReLU
+from tensorflow.keras.layers import Add, Multiply, Input, Conv2DTranspose,LeakyReLU, ReLU
 #from crfrnn_layer import CrfRnnLayer
 
 #################################### subclassing model ####################################
@@ -70,7 +70,6 @@ class UnetSC(Model):
         if upTypeName=='upsampling':
             self.up2 = UpSampling2D((2, 2))
         elif upTypeName=='transpose':
-            print('TRANSPOSEEEEEEEEE')
             self.up2 = Conv2DTranspose(filters[3], kSize, activation='relu',strides=(2,2), padding='same')
 
         self.conc2 = Concatenate()
@@ -155,21 +154,26 @@ class UnetFunc():
         self.dtype = dtype
 
 
-    def convBlock(self, x, f, contraction=True):
+    def convBlock(self, x, f, dilation,contraction=True):
 
         #x = Conv2D(filters=f, kernel_size=self.kernelSize, activation=self.activation, 
                     #padding=self.padding)(x)
         x = Conv2D(filters=f, kernel_size=self.kernelSize,padding=self.padding, 
-                   kernel_initializer='glorot_uniform',l2(0.01))(x)
+                   kernel_initializer='glorot_uniform')(x)
         x = BatchNormalization()(x) if self.normalize else x
-        x = LeakyReLU(0.1)(x)
-        #x = Dropout(self.dropout)(x) if contraction else x
-        #x = Conv2D(filters=f, kernel_size=self.kernelSize, activation=self.activation,                         padding=self.padding)(x)
+        x = GaussianNoise(0.3)(x)
+        x = ReLU()(x)
+        #x = LeakyReLU(0.1)(x)
+        #x = Dropout(0.2)(x) if contraction else x
+        #x = Conv2D(filters=f, kernel_size=self.kernelSize, activation=self.activation,                        
+                   #padding=self.padding)(x)
         x = Conv2D(filters=f,kernel_size=self.kernelSize,padding=self.padding,
-                   kernel_initializer='glorot_uniform',l2(0.01))(x)
+                   kernel_initializer='glorot_uniform', dilation_rate=dilation)(x)
         x = BatchNormalization()(x) if self.normalize else x
-        x = LeakyReLU(0.1)(x)
-        #x = Dropout(self.dropout)(x) if contraction else x
+        x = GaussianNoise(0.3)(x)
+        #x = LeakyReLU(0.1)(x)
+        x = ReLU()(x)
+        #x = Dropout(0.2)(x) if contraction else x
          
         #x = Conv2D(filters=f, kernel_size=self.kernelSize,
         #           padding=self.padding,kernel_initializer='glorot_uniform')(x)
@@ -181,11 +185,11 @@ class UnetFunc():
 
     def bridge(self, x, f, kSize=(3, 3)):
 
-        x = Conv2D(f, kSize, padding=self.padding,
-                   kernel_initializer='glorot_uniform',l2(0.01))(x)
+        x = Conv2D(f,kSize,padding=self.padding,
+                   kernel_initializer='glorot_uniform')(x)
         x = BatchNormalization()(x) if self.normalize else x
-        x = Conv2D(f, kSize, padding=self.padding,
-                   kernel_initializer='glorot_uniform',l2(0.01))(x)
+        x = Conv2D(f, kSize,padding=self.padding,
+                   kernel_initializer='glorot_uniform')(x)
         x = BatchNormalization()(x) if self.normalize else x
 
         #x = Conv2D(f, kSize, padding=self.padding,
@@ -196,15 +200,16 @@ class UnetFunc():
 
     def encoder(self, inputTensor):
 
-        e1 = self.convBlock(inputTensor, self.filters[0])
+        e1 = self.convBlock(inputTensor, self.filters[0], 1)
         p1 = MaxPooling2D((2,2))(e1)
-        e2 = self.convBlock(p1, self.filters[1])
+        e2 = self.convBlock(p1, self.filters[1],1)
         p2 = MaxPooling2D((2,2))(e2)
-        e3 = self.convBlock(p2, self.filters[2])
+        e3 = self.convBlock(p2, self.filters[2],1)
         p3 = MaxPooling2D((2,2))(e3)
-        e4 = self.convBlock(p3, self.filters[3])
+        e4 = self.convBlock(p3, self.filters[3],1)
         p4 = MaxPooling2D((2,2))(e4)
-        bridge = self.bridge(p4, self.filters[4])
+        #bridge = self.bridge(p4, self.filters[4])
+        bridge=self.convBlock(p4, self.filters[4],1)
 
         return e1,e2,e3,e4,bridge
 
@@ -217,7 +222,7 @@ class UnetFunc():
             d5 = Conv2DTranspose(self.filters[4],self.kernelSize,activation='relu', strides=(2,2), padding='same')(bridge)
 
         d5 = Concatenate()([e4, d5])
-        d5 = self.convBlock(d5, self.filters[3], contraction=False)
+        d5 = self.convBlock(d5, self.filters[3], 1,contraction=False)
 
         if self.upTypeName=='upsampling':
             d4 = UpSampling2D((2,2))(d5)
@@ -225,7 +230,7 @@ class UnetFunc():
             d4 = Conv2DTranspose(self.filters[3], self.kernelSize, activation='relu', strides=(2,2),padding='same')(d5)
 
         d4 = Concatenate()([e3, d4])
-        d4 = self.convBlock(d4, self.filters[2], contraction=False)
+        d4 = self.convBlock(d4, self.filters[2], 1,contraction=False)
         
         if self.upTypeName=='upsampling':
             d3 = UpSampling2D((2,2))(d4)
@@ -233,7 +238,7 @@ class UnetFunc():
             d3 = Conv2DTranspose(self.filters[2], self.kernelSize, activation='relu', strides=(2,2), padding='same')(d4)
 
         d3 = Concatenate()([e2, d3])
-        d3 = self.convBlock(d3, self.filters[1], contraction=False)
+        d3 = self.convBlock(d3, self.filters[1], 1,contraction=False)
 
         if self.upTypeName=='upsampling':
             d2 = UpSampling2D((2,2))(d3)
@@ -241,7 +246,7 @@ class UnetFunc():
             d2 = Conv2DTranspose(self.filters[1], self.kernelSize,activation='relu', strides=(2,2), padding='same')(d3)
 
         d2 = Concatenate()([e1, d2])
-        d2 = self.convBlock(d2, self.filters[0], contraction=False)
+        d2 = self.convBlock(d2, self.filters[0], 1,contraction=False)
 
         return d2
 

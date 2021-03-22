@@ -199,9 +199,11 @@ class MultiScaleUnetFunc():
         x = MaxPooling2D((pool))(x)
         x = BatchNormalization()(x)
         x = ReLU()(x)
+        #x = Dropout(0.2)(x)
         x = Conv2D(f, kernel_size=(3,3), strides=self.stride, padding=self.padding, dilation_rate=dilation)(x)
         x = BatchNormalization()(x)
         x = ReLU()(x)
+        #x = Dropout(0.2)(x)
 
         return x
 

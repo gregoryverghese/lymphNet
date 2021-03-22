@@ -108,14 +108,14 @@ class Augment():
         '''
         if tf.random.uniform(()) > self.colorProb:
             x = tf.image.random_hue(x, self.hueLimits)
-        if tf.random.uniform(()) > self.colorProb:
-            x = tf.image.random_saturation(x, self.saturationLimits[0],
-                                           self.saturationLimits[1])
+        #if tf.random.uniform(()) > self.colorProb:
+            #x = tf.image.random_saturation(x, self.saturationLimits[0],
+             #                              self.saturationLimits[1])
         if tf.random.uniform(()) > self.colorProb:
             x = tf.image.random_brightness(x, self.brightnessLimits)
-        if tf.random.uniform(()) > self.colorProb:
-            x = tf.image.random_contrast(x, self.contrastLimits[0],
-                                         self.contrastLimits[1])
+        #if tf.random.uniform(()) > self.colorProb:
+            #x = tf.image.random_contrast(x, self.contrastLimits[0],
+                                         #self.contrastLimits[1])
 
         return x, y
 

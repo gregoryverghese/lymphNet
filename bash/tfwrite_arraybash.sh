@@ -7,9 +7,9 @@
 #$ -N 'arrayJobs' 
 
 for f in 'g'; do
-    for x in '10x'; do
-        for s in '1024'; do
-            for o in '256'; do
+    for x in '2.5x'; do
+        for s in '256'; do
+            for o in '32'; do
 	        echo $f
                 echo $s
                 echo $x

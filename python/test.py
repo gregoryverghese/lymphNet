@@ -29,9 +29,7 @@ def getPatches(slide, w, h, size, mag, magFactor):
             patch = patch.convert('RGB')
             yield np.array(patch), x, y
 
-
 def predict(model,p,xsize,ysize, threshold):
-
     probs=model.predict(p)
     pred=(probs > threshold).astype(np.int32)
     pred=(pred[0,:,:,:]).astype(np.uint8)
@@ -71,12 +69,11 @@ def buildSlidePrediction(germModel,sinusModel,slide,mag,
 
     for p,x,y in getPatches(slide, wNew, hNew, patchsize, mag, magFactor):
         pnew = tf.cast(tf.expand_dims(p,axis=0), tf.float32)
-        pnew = applyNormalization(pnew, normalize=methods,channelMeans=mean,channelStd=std)
+        #pnew = applyNormalization(pnew, normalize=methods,channelMeans=mean,channelStd=std)
         xnew, ynew = int(x/xfactor), int(y/yfactor)
-
+        
         germPred=predict(germModel, pnew,xsize,ysize,gThreshold)
         sinusPred=predict(sinusModel, pnew,xsize,ysize,sThreshold)
-
         germinal[ynew:ynew+ysize,xnew:xnew+xsize]=germPred[:,:]
         sinus[ynew:ynew+ysize,xnew:xnew+xsize]=sinusPred[:,:]
         p=cv2.resize(p, (xsize,ysize), interpolation=cv2.INTER_AREA)
@@ -103,14 +100,15 @@ def test(savePath, wsiPath, germModelPath, sinusModelPath,
 
     mean=[0.64,0.39,0.65]
     std=[0.15,0.21,0.18]
-    methods=['Scale', 'StandardizeDataset']
+    methods=[]
     germModel=load_model(germModelPath)
     sinusModel=load_model(sinusModelPath)
-
+    print(germModel)
+    print(sinusModel)
     patients=[p for p in glob.glob(os.path.join(wsiPath, '*'))]
     numPatients = len(patients)
     
-    print(patients)
+    #print(patients)
     totalImages=[]
     for path, subdirs, files in os.walk(wsiPath):
         for name in files:
@@ -124,12 +122,12 @@ def test(savePath, wsiPath, germModelPath, sinusModelPath,
     table = PrettyTable(['Patient Number','WSI Number', 'Avg WSI/Patient'])
     table.add_row([numPatients, numImages, avgImgsPatient])
     print(table)
-
     for p in patients:
+
         patientId = os.path.basename(p)
         
-        if '62. 90513' not in patientId:
-            continue
+        #if '62. 90513' not in patientId:
+            #continue
         #pId=int(patientId[0:2])
         pId=int(patientId.split('.')[0])
         print(pId)

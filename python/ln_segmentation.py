@@ -41,6 +41,7 @@ from models import resunet_a
 from models import unet_mini
 from models import atten_unet
 from models import multiscale
+from models import multi_atten
 from data import tfrecord_read
 from utilities import decay_schedules
 from utilities.evaluation import diceCoef
@@ -58,6 +59,7 @@ FUNCMODELS={
             'unetmini':unet_mini.UnetMiniFunc,
             'attention':atten_unet.AttenUnetFunc,
             'multiscale':multiscale.MultiScaleUnetFunc,
+            'multiatten':multi_atten.MultiAttenFunc,
             'resunet':resunet.ResUnetFunc,
             'fcn8':unet.UnetFunc,
             'mobile':mobile.MobileUnetFunc

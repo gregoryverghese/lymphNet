@@ -100,13 +100,10 @@ class WSITiling():
         for w in range(boundaries[0][0], boundaries[0][1], step):
             for h in range(boundaries[1][0], boundaries[1][1], step):
 
-                size = self.tileDim*0.5*self.magFactor
                 x = int(w-(size*.5))
                 y = int(h-(size*.5))
-                patch = scan.read_region((x, y), self.magLevel, 
-                                        (self.tileDim, self.tileDim))
+                patch = scan.read_region((x, y), self.magLevel,(self.tileDim, self.tileDim))
                 mask = img[h-int(size*0.5):h+int(size*0.5),w-int(size*0.5):w+int(size*0.5)]
-                
                 ################################################################################
                 for v in list(annotations.values())[0]:
                     p = Path(v)
@@ -136,7 +133,7 @@ class WSITiling():
                 '''
                 patch = scan.read_region((int(w), int(h)), self.magLevel, (self.tileDim, self.tileDim))
                 mask = img[h:h+int(self.tileDim*self.magFactor), w:w+int(self.tileDim*self.magFactor)]  
-                
+               
                 if np.mean(patch) < 200 and (mask.shape == (self.tileDim*self.magFactor, self.tileDim*self.magFactor)):
                     print((w, h))
 
@@ -307,7 +304,6 @@ class WSITiling():
             self.classKey = {"GC":1, "sinus":2}
 
         print('Getting annotations from json')
-
         jsonFiles = os.path.join(jsonPath, os.path.basename(ndpi)[:-5])+'.json'
         print('jsonFile: {}'.format(jsonFiles))
 
@@ -359,7 +355,7 @@ class WSITiling():
         print('ndpiFiles: {}'.format(ndpiFiles))  
 
         for i, ndpi in enumerate(ndpiFiles):
-            if i>64:
+            if i<0:
                 continue
             print('{}: loading {} '.format(i, ndpi), flush=True)
             try:
