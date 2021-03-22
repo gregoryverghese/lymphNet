@@ -1,5 +1,5 @@
 *.json
-/archive/*
+archive/*
 /models/*
 /images*
 *.pyc
@@ -9,3 +9,4 @@
 *.csv
 *.txt
 *dev
+
