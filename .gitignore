@@ -1,7 +1,7 @@
 *.json
 /archive/*
 /models/*
-/images/*
+/images*
 *.pyc
 *.swp
 *.sh
