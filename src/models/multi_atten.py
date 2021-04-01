@@ -30,11 +30,13 @@ class MultiAttenFunc():
                    padding=self.padding,dilation_rate=dilation,kernel_regularizer=l2(0.01))(x)
         x = MaxPooling2D((pool))(x)
         x = BatchNormalization()(x)
+        x = GaussianNoise(0.2)(x)
         x = Activation('relu')(x)
         #x = Dropout(0.1)(x)
         x = Conv2D(f, kernel_size=(3,3), strides=self.stride,
                    padding=self.padding,dilation_rate=dilation,kernel_regularizer=l2(0.01))(x)
         x = BatchNormalization()(x)
+        x = GaussianNoise(0.2)(x)
         x = Activation('relu')(x)
         #x = Dropout(0.1)(x)
 
