@@ -2,7 +2,8 @@
 #-*- coding: utf-8 -*-
 
 '''
-predict.py: segmentation prediction on wsi images
+predict.py: segmentation prediction on 10 lymph nodes
+selected for testing
 '''
 
 import os
@@ -182,18 +183,15 @@ class WSIPredictions(object):
             dice: float dice score
             iou: float iou score
         '''
-
         _,x,y,_ = K.int_shape(image)
         xStep = self.step if x>self.step else x
         yStep = self.step if y>self.step else y
-
         #split image into patches if x,y 
         #greater than step size
         patches=[]
         for i in range(0, y, yStep):
             row=[image[:,j:j+xStep,i:i+yStep,:] for j in range(0, x, xStep)]
             patches.append(row)
-
         probs=[]
         for i in range(len(patches)):
             row=[self.model.predict(img) for img in patches[i]]
@@ -201,8 +199,6 @@ class WSIPredictions(object):
             
         probs=np.dstack([np.hstack(p) for p in probs])
         prediction=tf.cast((probs>self.threshold), tf.float32)
-
-        print('here we are', np.unique(mask), np.unique(prediction))    
         dice = [diceCoef(mask[:,:,:,i] ,prediction[:,:,:,i]) 
                for i in range(mask.shape[-1])]
         iou = [iouScore(mask[:,:,:,i], prediction[:,:,:,i]) 
@@ -228,56 +224,45 @@ class WSIPredictions(object):
 
 
     def getTestPredictions(self,dataset, outPath):
-        
         diceLst = []
         iouLst = []
         names = []
-        print(self.normalize)
-
-        no=['U_100188_15_B_NA_15_L1',
-            'U_100233_17_X_LOW_9_L2',
-            'U_100233_17_X_LOW_9_L2',
-            'U_90444_4_X_LOW_4_L1',
-            'U_90183_5_X_LOW_4_L1',
-            '100188_01_R']
-
+        #no=['U_100188_15_B_NA_15_L1',
+            #'U_100233_17_X_LOW_9_L2',
+            #'U_100233_17_X_LOW_9_L2',
+            #'U_90444_4_X_LOW_4_L1',
+            #'U_90183_5_X_LOW_4_L1',
+            #'100188_01_R']
         for data in dataset:
-
             image = tf.cast(data[0], tf.float32)
             mask = tf.cast(data[1], tf.float32)
             label = (data[2].numpy()[0]).decode('utf-8')
-
-            if label in no:
-                continue
-
+            #if label in no:
+                #continue
             names.append(label)
             print('name',label)
             if len(self.normalize)>0:
                 image,mask = self.__applyNormalization(image,mask)
             
-            print('what is going on', np.unique(mask))
             if self.tasktype=='multi':
                 mask = tf.cast(mask[:,:,:,0], tf.int32)
                 mask = tf.one_hot(mask, depth=3, dtype=tf.float32)
             elif self.tasktype=='binary':
                 mask = mask[:,:,:,2:3]
             
-            print('shapessssss',image.shape,mask.shape)
             dice,iou,prediction = self.predict(image, mask)
-            print('shape:{},Image:{},dice:{}'.format(K.int_shape(image),label,dice))
- 
+            print('shape:{},Image:{},dice:{}'.format(K.int_shape(image),label,dice)) 
             prediction = prediction.numpy().astype(np.uint8)[0,:,:,:]
             mask  = mask.numpy().astype(np.uint8)[0,:,:,:]
-            
+
             if self.tasktype=='multi':
                 prediction = oneHotToMask(prediction)
             
             outpath = os.path.join(outPath, label +'_pred.png')
             cv2.imwrite(outpath, prediction*int(255))
-
             diceLst.append(dice)
             iouLst.append(iou)
-        print(diceLst)
+
         return diceLst, iouLst, names
 
 

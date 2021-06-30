@@ -14,9 +14,11 @@ from keras import backend as K
 
 def diceCoef(yTrue, yPred, axIdx=[1,2,3], smooth=1):
     
+    #print(tf.unique(yTrue))
+    print('before',K.int_shape(yTrue))
     yTrue = tf.expand_dims(yTrue, axis=-1)
     yPred = tf.expand_dims(yPred, axis=-1)
-
+    print('after',K.int_shape(yTrue))
 
     yPred = tf.cast(yPred, tf.float32)
     yTrue = tf.cast(yTrue, tf.float32) 

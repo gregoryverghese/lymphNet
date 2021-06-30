@@ -86,8 +86,8 @@
 	{
 	"first":
 		{
-		"metric":0.85,
-		"epochs":50
+		"metric":0.83,
+		"epochs":25
 		},
 		"second":
 		{

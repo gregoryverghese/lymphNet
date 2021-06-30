@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 '''
-test.py
+test.py: script loads trained models and applies them to
+unlabelled WSIs. WSIs are split into smaller patches and
+then stitched back together
 '''
 
 import os
@@ -123,26 +125,13 @@ def test(savePath, wsiPath, germModelPath, sinusModelPath,
     table.add_row([numPatients, numImages, avgImgsPatient])
     print(table)
     for p in patients:
-
         patientId = os.path.basename(p)
-        
-        #if '62. 90513' not in patientId:
-            #continue
-        #pId=int(patientId[0:2])
         pId=int(patientId.split('.')[0])
-        print(pId)
-        #if pId>19 or pId<2:
-         #   print(pId)
-          #  continue
-
-
-        print(pId, patientId)
         #os.system('mkdir -p ' + os.path.join(savePath,patientId))
         try:
             os.mkdir(os.path.join(savePath,patientId))
         except Exception as e:
             pass
-
         images = glob.glob(os.path.join(p, '*'))
         numImage = len(images)
         sizeDict={'w':[],'h':[],'hfinal':[],'wfinal':[]}
@@ -155,8 +144,6 @@ def test(savePath, wsiPath, germModelPath, sinusModelPath,
                 print(e)
                 print('patient:{}:name{}'.format(patientId,name))
                 continue
-            #if '13.03.90689 C L1.2' not in name:
-                #continue 
             #sizeDict={'w':[],'h':[],'hfinal':[],'wfinal':[]}
             germinal, sinus, temp, size = buildSlidePrediction(germModel,sinusModel,slide, 
                                                    mag,magFactor,gThreshold,sThreshold,patchsize,methods,mean,std)
@@ -172,7 +159,7 @@ def test(savePath, wsiPath, germModelPath, sinusModelPath,
             print('sinus values: {}'.format(np.unique(sinus, return_counts=True)))
             germinal[:,:,0]=0
             germinal[:,:,2]=0
-            print('germ', np.unique(germinal, return_counts=True))
+            print('germ values', np.unique(germinal, return_counts=True))
 
             final=germinal+sinus
             final=final.astype(np.uint8)
@@ -181,7 +168,6 @@ def test(savePath, wsiPath, germModelPath, sinusModelPath,
             cv2.imwrite(os.path.join(savePath,patientId,name+'_image.png'),temp)
             cv2.imwrite(os.path.join(savePath,patientId,name+'_imagesinus.png'),sinus*255)
             cv2.imwrite(os.path.join(savePath,patientId,name+'_imagegerm.png'),germinal*255)
-            print(final.shape)
 
         sizeDf=pd.DataFrame(sizeDict)
         sizeDf.to_csv(os.path.join(savePath, 'dimensions.csv'))

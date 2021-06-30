@@ -1,5 +1,10 @@
 #!/usr/local/env python3
 
+'''measure.py: Slide, LymphNode, Germinal and Sinuses
+classes used to detect the predicted features and 
+quantify them using contouring methods
+'''
+
 import os
 import glob
 
