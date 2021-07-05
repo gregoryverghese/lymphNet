@@ -16,7 +16,7 @@ import argparse
 import tensorflow as tf
 import pandas as pd
 
-from ln_segmentation import main
+from main import main
 
 __author__ = 'Gregory Verghese'
 __email__ = 'gregory.verghese@kcl.ac.uk'

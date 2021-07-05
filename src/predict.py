@@ -184,8 +184,10 @@ class WSIPredictions(object):
             iou: float iou score
         '''
         _,x,y,_ = K.int_shape(image)
-        xStep = self.step if x>self.step else x
-        yStep = self.step if y>self.step else y
+        #xStep = self.step if x>self.step else x
+        #yStep = self.step if y>self.step else y
+        xStep=256
+        yStep=256
         #split image into patches if x,y 
         #greater than step size
         patches=[]

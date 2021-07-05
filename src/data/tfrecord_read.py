@@ -92,8 +92,7 @@ def getRecordNumber(tfrecords):
     return num
 
 
-def getShards(tfrecords, dataSize, batchSize, imgDims, augParams={}, augmentations=[], 
-              test=False, taskType='binary', normalize=[], normalizeParams={}):	
+def getShards(tfrecords, dataSize, batchSize, imgDims, datasetName,augParams={}, augmentations=[], taskType='binary', normalize=[], normalizeParams={}):	
     '''
     return tf.record.dataset containing image mask tensor along with requested 
 transfomations/augmentations. Info on https://www.tensorflow.org/api_docs/python/tf/data/Dataset
@@ -122,7 +121,6 @@ transfomations/augmentations. Info on https://www.tensorflow.org/api_docs/python
     dataset = dataset.map(lambda x, y: (tf.reshape(x,(imgDims, imgDims, 3)), tf.reshape(y,(imgDims, imgDims, 3))))
     dataset = dataset.map(lambda x, y: (tf.cast(x,tf.float16), tf.cast(y,tf.float16)))
     
-    datasetName='train' if not test else 'test'
     print(datasetName+' dataset')
     print('-'*15)
 
@@ -167,15 +165,18 @@ transfomations/augmentations. Info on https://www.tensorflow.org/api_docs/python
         channelStd = normalizeParams['channelStd']
 
         norm = Normalize(channelMeans, channelStd)
-        for n in normalize:
+        print('\n'*2+'Applying following normalization methods for '+
+              datasetName+' dataset \n')
+        for i, n in enumerate(normalize):
+            print('{}','{}'.format(i,n))
             dataset = dataset.map(getattr(norm, 'get'+ n), num_parallel_calls=4)
-
-        columns=['means', 'std']
-        values=[channelMeans, channelStd]
-        table = PrettyTable(columns)
-        table.add_row(values)
-        print(table)
-        print('\n')
+        if 'StandardizeDataset' in normalize:
+            columns=['means', 'std']
+            values=[channelMeans, channelStd]
+            table = PrettyTable(columns)
+            table.add_row(values)
+            print(table)
+            print('\n')
     
     else:
         print('No normalization being applied to data')
@@ -188,7 +189,7 @@ transfomations/augmentations. Info on https://www.tensorflow.org/api_docs/python
     #batch train and validation datasets (do not use dataset.repeat())
     #since we build our own custom training loop as opposed to model.fit
     #if model.fit used order of shuffle,cache and batch important
-    if not test:
+    if datasetName!='Test':
         dataset = dataset.cache()
         #dataset = dataset.repeat()
         dataset = dataset.shuffle(dataSize, reshuffle_each_iteration=True)
