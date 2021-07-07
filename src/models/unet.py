@@ -161,7 +161,7 @@ class UnetFunc():
         x = Conv2D(filters=f, kernel_size=self.kernelSize,padding=self.padding, 
                    kernel_initializer='glorot_uniform')(x)
         x = BatchNormalization()(x) if self.normalize else x
-        x = GaussianNoise(0.3)(x)
+        #x = GaussianNoise(0.3)(x)
         x = ReLU()(x)
         #x = LeakyReLU(0.1)(x)
         #x = Dropout(0.2)(x) if contraction else x
@@ -170,7 +170,7 @@ class UnetFunc():
         x = Conv2D(filters=f,kernel_size=self.kernelSize,padding=self.padding,
                    kernel_initializer='glorot_uniform', dilation_rate=dilation)(x)
         x = BatchNormalization()(x) if self.normalize else x
-        x = GaussianNoise(0.3)(x)
+        #x = GaussianNoise(0.3)(x)
         #x = LeakyReLU(0.1)(x)
         x = ReLU()(x)
         #x = Dropout(0.2)(x) if contraction else x

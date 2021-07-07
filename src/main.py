@@ -108,7 +108,7 @@ def prepareDatasets(recordsPath, recordsDir,batchSize,imgDims,augParams,
                                            normalizeParams=normalizeParams,datasetName='Valid')
 
     testDataset = tfrecord_read.getShards(testFiles, batchSize=batchSize,imgDims=imgDims,
-                                          dataSize=testNum, test=True, taskType=tasktype,
+                                          dataSize=testNum, taskType=tasktype,
                                           normalize=normalize,normalizeParams=normalizeParams,datasetName='Test')
 
     return trainDataset,validDataset,testDataset,trainSteps,validSteps,testSteps
@@ -182,15 +182,15 @@ def main(args, modelname):
     
     ############################setup paths##########################
     outModelPath = os.path.join(outPath,'models')
-    os.makedir(outModelPath,exist_ok=True)
+    os.makedirs(outModelPath,exist_ok=True)
     outModelPath = os.path.join(outPath,'models',currentDate)
-    os.makedir(outModelPath,exist_ok=True)
+    os.makedirs(outModelPath,exist_ok=True)
     outCurvePath = os.path.join(outPath,'curves')
-    os.makedir(outCurvePath,exist_ok=True)
+    os.makedirs(outCurvePath,exist_ok=True)
     outCurvePath = os.path.join(outPath,'curves',currentDate)
-    os.makedir(outCurvePath,exist_ok=True)
+    os.makedirs(outCurvePath,exist_ok=True)
     outPredictPath=os.path.join(outPath,'predictions')
-    os.makedir(outPredictPath,exist_ok=True)
+    os.makedirs(outPredictPath,exist_ok=True)
 
     if weights is None:
         weights = calculateWeights('test', 'test', 'test', nClasses)
