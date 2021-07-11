@@ -26,18 +26,27 @@ annotations_paths=glob.glob(os.path.join(annotations_path,'*'))
 
 for p in wsi_paths:
     name=os.path.basename(p)[:-5]
+    print(name)
     ann_path=[a for a in annotations_paths if name in a]
+    print(ann_path)
     ann_obj=Annotations(ann_path,source=['imagej','qupath'])
     ann_obj.generate_annotations()
     ann_obj.filter_labels(['GC', 'sinus', 'GERMINAL CENTRE', 'SINUS'])
-    annotations=ann_obj._annotations
-    wsi=Slide(p,annotations=annotations,draw_border=True)
-    wsi.get_border()
-    mask=wsi._slide_mask
-    mask=cv2.resize(mask, (1000,1000))
-    rgb_mask=mask2rgb(mask)
-    cv2.imwrite(os.path.join(WSI_MASK_PATH,name+'.png'),wsi_mask)
+    ann_obj.encode_keys()
     
+    
+    annotations=ann_obj._annotations
+    print(annotations.keys())
+    wsi=Slide(p,annotations=annotations)
+    wsi.get_border()
+    mask=wsi.slide_mask
+    plt.imshow(mask)
+    cv2.imwrite(os.path.join(WSI_MASK_PATH,name+'.png'),mask)
+    
+    ################Get germinal centres#####################
+    
+    ann_obj=Annotations(ann_path,source=['imagej','qupath'])
+    ann_obj.generate_annotations()
     ann_obj.filter_labels(['GC', 'GERMINAL CENTRE'])
     annotations=ann_obj._annotations
     new_annotations=annotations
@@ -51,7 +60,11 @@ for p in wsi_paths:
     num=patches.generate_patches(STEP, mask_flag=True)
     print('num patches: {}'.format(num))
     patches.save(GERMINAL_PATH,mask_flag=True)
-
+    
+    #################=Get sinuses###############
+    
+    ann_obj=Annotations(ann_path,source=['imagej','qupath'])
+    ann_obj.generate_annotations()
     ann_obj.filter_labels(['sinus', 'SINUS'])
     annotations=ann_obj._annotations
     new_annotations=annotations
@@ -60,11 +73,29 @@ for p in wsi_paths:
         new_annotations['sinus']=annotations['sinus']+annotations['SINUS']
     new_annotations={i: v for i, v in enumerate(new_annotations.values())}
     wsi_sinus=Slide(p,annotations=new_annotations,draw_border=True)
+    print(new_annotations)
     wsi_sinus.get_border()
+    print("border",wsi_sinus._border)
     patches=Patching(wsi_sinus,mag_level=MAG_LEVEL,size=SIZE)
     num=patches.generate_patches(STEP, mask_flag=True)
     print('num patches: {}'.format(num))
     patches.save(SINUS_PATH,mask_flag=True)
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
     #s=Stitching(os.path.join(PATCH_PATH,'masks'),mag_level=MAG_LEVEL,name=name)
