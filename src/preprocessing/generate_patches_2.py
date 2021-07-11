@@ -10,11 +10,11 @@ import seaborn as sns
 from patching import Annotations,Slide,Patching,Stitching
 from utilities import mask2rgb
 
-STEP=32
+STEP=512
 MAG_LEVEL=2
-SIZE=(256,256)
+SIZE=(1500,1500)
 
-WSI_MASK_PATH='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-torch/data/masks'
+SI_MASK_PATH='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-torch/data/masks'
 GERMINAL_PATH='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-torch/data/patches/10x/germinal'
 SINUS_PATH='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-torch/data/patches/10x/sinus'
 
