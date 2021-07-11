@@ -10,3 +10,5 @@ archive/*
 *.txt
 *dev
 *.DS_Store
+*.ipynb
+*.png
