@@ -12,3 +12,6 @@ archive/*
 *.DS_Store
 *.ipynb
 *.png
+*.ndpi
+*.json
+*.xml
