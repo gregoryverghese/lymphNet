@@ -51,7 +51,7 @@ class CategoricalXEntropy(tf.keras.losses.Loss):
 
 
 
-def get_criterion()
+def get_criterion():
     if x=='cross_entropy':
         criterion=BinaryXEntropy
     elif x=='dice_loss':

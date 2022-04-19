@@ -25,7 +25,7 @@ from skimage import img_as_bool
 from tensorflow.keras import backend as K
 from tensorflow.keras.losses import binary_crossentropy
 from tensorflow.keras.callbacks import LearningRateScheduler
-from tensorflow.keras.utils import multi_gpu_model
+#from tensorflow.keras.utils import multi_gpu_model
 
 from distributed_train import DistributeTrain 
 from models import fcn8,unet,mobile,resunet,resunet_a,unet_mini,atten_unet
@@ -89,7 +89,7 @@ def data_loader(path,config):
 
     #normalize
     norm_methods=config['normalize']['methods']
-    norm_parameters=config['normalize']['parameters'])
+    norm_parameters=config['normalize']['parameters']
     train_loader.normalize(norm_methods,norm_parameters)
     
     #load validation files
@@ -221,7 +221,9 @@ if __name__ == '__main__':
     ap.add_argument('-cf', '--config_file', help='config file with parameters')
     ap.add_argument('-mn', '--model_name', help='neural network model')
     args = ap.parse_args()
+  
 
+    print(args)
     #get current date and time for model name
     curr_date=str(datetime.date.today())
     curr_time=datetime.datetime.now().strftime('%H:%M')

@@ -17,32 +17,35 @@ from utilities.augmentation import Augment, Normalize
 
 
 class TFRecordLoader():
-    def __init__(self,tfrecords,dims,name,taskType,batchSize):
+    def __init__(self,tfrecords,name,tile_dims,task_type,batch_size):
  
         self.tfrecords=tfrecords
-        self.dims=dims
+        self.tile_dims=tile_dims
         self.name=name
-        self.taskType=taskType
-        self.batchSize=batchSize
+        self.task_type=task_type
+        self.batch_size=batch_size
         self.dataset=None
-        self.size=None
+        self.tile_nums=None
         print(self.name+' dataset')
-        print('-'*15)
+        #print('-'*15)
 
 
     @property
     def steps(self):
-        steps = np.floor(self.size/self.batchSize) if self.size>self.batchSize else 1
+        if self.tile_nums>self.batch_size:
+            steps=np.floor(self.tile_nums/self.batch_size)
+        else:
+            steps=1
         return steps
       
 
-    def _readTFRecord(self, serialized):
+    def _read_tfr_record(self, serialized):
         '''
         read tfrecord image/mask files
         :param serialized: tfrecord file
         :return image: image tensor (HxWxC)
         :return mask: mask tensor (HxWxC)
-        '''   
+        '''
         data = {
             'image': tf.io.FixedLenFeature((), tf.string),
             'mask': tf.io.FixedLenFeature((), tf.string)
@@ -56,7 +59,7 @@ class TFRecordLoader():
         return image, mask
 
 
-    def recordSize(self):
+    def record_size(self):
         '''
         return total image count across all tfrecord files (whole dataset)
         :param tfrecords: tfrecord file paths
@@ -70,7 +73,7 @@ class TFRecordLoader():
         dataset = dataset.map(self._readTFRecord, num_parallel_calls=4)
         for i, d in enumerate(dataset):
             pass
-        self.size=i
+        self.tile_nums=i
     
 
     def augment(self,methods,params):
@@ -95,53 +98,55 @@ class TFRecordLoader():
             #dataset = dataset.map(lambda x, y: (tf.clip_by_value(x, 0, 1), y),  num_parallel_calls=4)
         
 
-
     def normalize(self,methods,params):
-        norm = Normalize(params['channelMeans'],params['channelStd'])
+        channel_means=params['channelMeans']
+        channel_std=params['channelStd']
+        norm = Normalize(channel_means,channel_std)
         print('\n'*2+'Applying following normalization methods to '+ self.name+' dataset \n')
         for i, n in enumerate(methods):
             print('{}','{}'.format(i,n))
             self.dataset = self.dataset.map(getattr(norm, 'get'+ n), num_parallel_calls=4)
         if 'StandardizeDataset' in methods:
             columns=['means', 'std']
-            values=[channelMeans, channelStd]
+            values=[channel_means, channel_std]
             table = PrettyTable(columns)
             table.add_row(values)
             print(table)
             print('\n')
     
 
-    def load(self,batchSize): 
+    def load(self,batch_size): 
         '''
         generate tf.record.dataset containing  image+ mask tensors with 
         transfomations/augmentations.
         tastType: string multi or binary
         :returns dataset: tfrecord.data.dataset
         '''
-        self.batchSize=batchSize
+        self.batch_size=batch_size
         AUTO = tf.data.experimental.AUTOTUNE
         ignoreDataOrder = tf.data.Options()
         ignoreDataOrder.experimental_deterministic = False
         dataset = tf.data.Dataset.list_files(self.tfrecords)
         dataset = dataset.with_options(ignoreDataOrder)
         dataset = dataset.interleave(lambda x: tf.data.TFRecordDataset(x), cycle_length=16, num_parallel_calls=AUTO)
-        dataset = dataset.map(self._readTFRecord, num_parallel_calls=AUTO)
-        f = lambda x, y: (tf.cast(tf.reshape(x,(self.dims,self.dims,3)),tf.float16),tf.cast(tf.reshape(y,(self.dims,self.dims,3)),tf.float16))
-        dataset = dataset.map(f)
+        dataset = dataset.map(self._read_tfr_record, num_parallel_calls=AUTO)
+        #f1=tf.cast(tf.reshape(x,(self.tile_dims,self.tile_dims,3)),tf.float16)
+        dataset= dataset.map(lambda x, y: (tf.cast(tf.reshape(x,(self.tile_dims,self.tile_dims,3)),tf.float16),tf.cast(tf.reshape(x,(self.tile_dims,self.tile_dims,3)),tf.float16)))
+        #dataset = dataset.map(f2)
         dataset = dataset.map(lambda x, y: (x, y[:,:,0:1]), num_parallel_calls=4)
-        if self.taskType=='multi':
+        if self.task_type=='multi':
             dataset = dataset.map(lambda x, y: (x, tf.one_hot(tf.cast(y[:,:,0], tf.int32), depth=3, dtype=tf.float32)), num_parallel_calls=4)
         #batch train and validation datasets (do not use dataset.repeat())
         #since we build our own custom training loop as opposed to model.fit
         #if model.fit used order of shuffle,cache and batch important
-        if self.name!='Test':
+        if self.name!='test':
             dataset = dataset.cache()
             #dataset = dataset.repeat()
-            dataset = dataset.shuffle(self.size, reshuffle_each_iteration=True)
-            dataset = dataset.batch(batchSize, drop_remainder=True)
+            dataset = dataset.shuffle(self.tile_nums, reshuffle_each_iteration=True)
+            dataset = dataset.batch(self.batch_size, drop_remainder=True)
             dataset = dataset.prefetch(AUTO)
         else:
-            dataset = dataset.batch(batchSize)
+            dataset = dataset.batch(self.batch_size)
         self.dataset=dataset
 
 
