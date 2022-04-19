@@ -3,40 +3,35 @@
 "tasktype": "binary",
 "magnification": "10x", 
 "loss": ["weightedBinaryCrossEntropy"], 
-"modelname": "$model_germ_10x_adam_$loss_$augment_data_1024_l2", 
+"modelname":"$model_$feature_$magnification_$optimizer_$loss_$augment_$dim_$step_$epoch_$uptypename_$threshold", 
 "ratio": 0.9,
 "batchSize": 8,
-"imageDims": 1024,
-"epoch": 50, 
+"imageDims": 1536,
+"epoch": 75, 
 "normalize": 
  	{
-	"methods":[],
-	"parameters":
-	 	{
+	"methods":["Scale"],
+	"parameters":{
 		"channelMeans":[0.633, 0.383, 0.649],
 		"channelStd":[0.143, 0.197, 0.19]
 	        }
 	},
 "augmentation": 
 	{
-	"methods": [["Flip","Rotate90","Color"],
-		   ["Flip","Rotate90","Color"],
-		   ["Flip","Rotate90","Color"],
-		   ["Flip","Rotate90","Color"],
-                   ["Flip","Rotate90","Color"]],
-	"parameters":
+	"methods": [["Flip","Rotate90","Color"]],
+        "parameters":
 		{
 		"saturation":[0.5,1.2],
-		"brightness":0.25,
+		"brightness":0.4,
 		"hue":0.05,
 		"contrast":[0.8,1.5],
 		"flipProb":0.5,
 		"rotateProb":0.5,
 		"colorProb":0.5
 		}
-	},
+	},	
 "nClasses": 1, 
-"weights": [4.8], 
+"weights": [5.02], 
 "dropout":[0],
 "model": 
 	{
@@ -77,7 +72,7 @@
 "multi":
 	{
 	"flag":true,
-	"num":1
+	"num":4
 	},  
 "modelapi":"functional", 
 "trainingapi":"custom",
@@ -86,16 +81,15 @@
 	{
 	"first":
 		{
-		"metric":0.83,
-		"epochs":25
+		"metric":0.85,
+		"epochs":40
 		},
 		"second":
 		{
-		"metric":0.88,
+		"metric":0.825,
 		"epochs":75
 		}
 	},
 "step":2048,
 "upTypeName":"upsampling"
 }
-

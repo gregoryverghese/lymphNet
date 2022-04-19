@@ -16,28 +16,25 @@ from prettytable import PrettyTable
 from utilities.augmentation import Augment, Normalize 
 
 
-
 class TFRecordLoader():
-    def __init__(self,
-                 tfrecords,
-                 dims,
-                 name,
-                 taskType='binary',
-                 augmentation=[],
-                 augParams={},
-                 normalize=[],
-                 normalizeParams={}):
-
+    def __init__(self,tfrecords,dims,name,taskType,batchSize):
+ 
         self.tfrecords=tfrecords
         self.dims=dims
         self.name=name
         self.taskType=taskType
-        self.augmentations=augmentation
-        self.augParams=augParams
-        self.normalize=normalize
-        self.normalizeParams=normalizeParams
-        self.num=self.recordSize()
+        self.batchSize=batchSize
+        self.dataset=None
+        self.size=None
+        print(self.name+' dataset')
+        print('-'*15)
 
+
+    @property
+    def steps(self):
+        steps = np.floor(self.size/self.batchSize) if self.size>self.batchSize else 1
+        return steps
+      
 
     def _readTFRecord(self, serialized):
         '''
@@ -73,73 +70,64 @@ class TFRecordLoader():
         dataset = dataset.map(self._readTFRecord, num_parallel_calls=4)
         for i, d in enumerate(dataset):
             pass
-        return i
-
+        self.size=i
     
-    def _augment(self):
-        aug = Augment(self.augParams['hue'], 
-                      self.augParams['saturation'], 
-                      self.augParams['contrast'], 
-                      self.augParams['brightness'], 
-                      self.augParams['rotateProb'], 
-                      self.augParams['flipProb'], 
-                      self.m,augParams['colorProb'])
+
+    def augment(self,methods,params):
+        aug = Augment(params['hue'], 
+                      params['saturation'], 
+                      params['contrast'], 
+                      params['brightness'], 
+                      params['rotateProb'], 
+                      params['flipProb'], 
+                      params['colorProb'])
         print('\n'*2+'Applying following Augmentations to'+self.name+' dataset \n')
-        for i, a in enumerate(self.augmentations):
+        for i, a in enumerate(methods):
             print('{}: {}'.format(i, a))
-        columns = [c for c in list(self.augParams.keys())]
-        values = [v for v in list(self.augParams.values())]
+        columns = [c for c in list(params.keys())]
+        values = [v for v in list(params.values())]
         table = PrettyTable(columns)
         table.add_row(values)
         print(table)
         print('\n')
-        for f in self.augmentations:
-            dataset = dataset.map(getattr(aug, 'get'+f), num_parallel_calls=4)
+        for f in methods:
+            self.dataset=self.dataset.map(getattr(aug, 'get'+f), num_parallel_calls=4)
             #dataset = dataset.map(lambda x, y: (tf.clip_by_value(x, 0, 1), y),  num_parallel_calls=4)
+        
 
 
-    def _normalize(self):
-        norm = Normalize(self.normalizeParams['channelMeans'],self.normalizeParams['channelStd'])
+    def normalize(self,methods,params):
+        norm = Normalize(params['channelMeans'],params['channelStd'])
         print('\n'*2+'Applying following normalization methods to '+ self.name+' dataset \n')
-        for i, n in enumerate(self.normalize):
+        for i, n in enumerate(methods):
             print('{}','{}'.format(i,n))
-            dataset = dataset.map(getattr(norm, 'get'+ n), num_parallel_calls=4)
-        if 'StandardizeDataset' in self.normalize:
+            self.dataset = self.dataset.map(getattr(norm, 'get'+ n), num_parallel_calls=4)
+        if 'StandardizeDataset' in methods:
             columns=['means', 'std']
             values=[channelMeans, channelStd]
             table = PrettyTable(columns)
             table.add_row(values)
             print(table)
             print('\n')
+    
 
-
-    def getShards(self,batchSize): 
+    def load(self,batchSize): 
         '''
         generate tf.record.dataset containing  image+ mask tensors with 
         transfomations/augmentations.
         tastType: string multi or binary
         :returns dataset: tfrecord.data.dataset
         '''
+        self.batchSize=batchSize
         AUTO = tf.data.experimental.AUTOTUNE
         ignoreDataOrder = tf.data.Options()
         ignoreDataOrder.experimental_deterministic = False
         dataset = tf.data.Dataset.list_files(self.tfrecords)
         dataset = dataset.with_options(ignoreDataOrder)
         dataset = dataset.interleave(lambda x: tf.data.TFRecordDataset(x), cycle_length=16, num_parallel_calls=AUTO)
-        dataset = dataset.map(readTFRecord, num_parallel_calls=AUTO)
-        f = lambda x: tf.cast(tf.reshape(x,(self.dims,self.dims, 3)),tf.float16)
-        dataset = dataset.map(lambda x, y: (f, f))
-        print(self.name+' dataset')
-        print('-'*15)
-        if len(self.augmentations)>0:
-            self._augment()
-        else:
-            print('No data augmentation')
-
-        if len(self.normalize)>0:
-            self._normalize()
-        else:
-            print('No data normalization')
+        dataset = dataset.map(self._readTFRecord, num_parallel_calls=AUTO)
+        f = lambda x, y: (tf.cast(tf.reshape(x,(self.dims,self.dims,3)),tf.float16),tf.cast(tf.reshape(y,(self.dims,self.dims,3)),tf.float16))
+        dataset = dataset.map(f)
         dataset = dataset.map(lambda x, y: (x, y[:,:,0:1]), num_parallel_calls=4)
         if self.taskType=='multi':
             dataset = dataset.map(lambda x, y: (x, tf.one_hot(tf.cast(y[:,:,0], tf.int32), depth=3, dtype=tf.float32)), num_parallel_calls=4)
@@ -149,12 +137,12 @@ class TFRecordLoader():
         if self.name!='Test':
             dataset = dataset.cache()
             #dataset = dataset.repeat()
-            dataset = dataset.shuffle(dataSize, reshuffle_each_iteration=True)
+            dataset = dataset.shuffle(self.size, reshuffle_each_iteration=True)
             dataset = dataset.batch(batchSize, drop_remainder=True)
             dataset = dataset.prefetch(AUTO)
         else:
             dataset = dataset.batch(batchSize)
-        return dataset
+        self.dataset=dataset
 
 
 if  __name__ == '__main__':

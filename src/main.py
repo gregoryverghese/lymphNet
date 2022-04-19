@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 '''
 ln_segmentation.py: main module that sets up analysis, models
@@ -25,12 +24,10 @@ from prettytable import PrettyTable
 from tensorflow import keras
 from skimage.transform import resize
 from skimage import img_as_bool
-SM_FRAMEWORK=tf.keras
-import segmentation_models as sm
 from tensorflow.keras import backend as K
 from tensorflow.keras.losses import binary_crossentropy
 from tensorflow.keras.callbacks import LearningRateScheduler
-from tensorflow.keras.utils import multi_gpu_model
+#from tensorflow.keras.utils import multi_gpu_model
 
 import distributed_train
 from models import fcn8
@@ -42,17 +39,14 @@ from models import unet_mini
 from models import atten_unet
 from models import multiscale
 from models import multi_atten
-from data import tfrecord_read
+from models import deeplabv3
+from data.tfrecord_read import TFRecordLoader
 from utilities import decay_schedules
 from utilities.evaluation import diceCoef
 from predict import WSIPredictions, PatchPredictions
-#from utilities.utilities import getTrainMetric
+from utilities.utils import getTrainCurves
 from preprocessing.calculate_classweights import calculateWeights
 from utilities.custom_loss_classes import WeightedBinaryCrossEntropy, DiceLoss, WeightedCategoricalCrossEntropy
-
-__author__ = 'Gregory Verghese'
-__email__='gregory.verghese@kcl.ac.uk'
-
 
 FUNCMODELS={
             'unet':unet.UnetFunc,
@@ -62,8 +56,9 @@ FUNCMODELS={
             'multiatten':multi_atten.MultiAttenFunc,
             'resunet':resunet.ResUnetFunc,
             'fcn8':unet.UnetFunc,
-            'mobile':mobile.MobileUnetFunc
-              }
+            'mobile':mobile.MobileUnetFunc,
+            'deeplabv3plus':deeplabv3.DeepLabV3Plus
+            }
 
 
 SUBCLASSMODELS={
@@ -76,159 +71,63 @@ SUBCLASSMODELS={
                }            
 
 
-def prepareDatasets(recordsPath, recordsDir,batchSize,imgDims,augParams,
-                   augment,tasktype,normalize,normalizeParams):
+def dataLoader(path,config):
+    trainPath = os.path.join(path,'train','*.tfrecords')
+    trainFiles = glob.glob(trainPath)
+    trainLoader=TFRecordLoader(trainFiles,config['imageDims'],'train',config['tasktype'])    
+    validPath = os.path.join(path,'validation','*.tfrecords')
+    validFiles = glob.glob(validPath)
+    validLoader=TFRecordLoader(validFiles,config['imageDims'],'valid',config['tasktype'])
+    return trainLoader,validLoader
 
-    #load data as data.Dataset for each of train, validation and test. Counts 
-    #the number of images in each record and calculate the number of steps 
-    #in one training iteration for each batch using batchsize and image number.
-    trainFiles = glob.glob(os.path.join(recordsPath,recordsDir,'train','*.tfrecords'))
-    validFiles = glob.glob(os.path.join(recordsPath,recordsDir, 'validation','*.tfrecords'))
-    testFiles = glob.glob(os.path.join(recordsPath,recordsDir, 'test','*.tfrecords'))
 
-    trainNum = tfrecord_read.getRecordNumber(trainFiles)
-    validNum = tfrecord_read.getRecordNumber(validFiles)
-    testNum = tfrecord_read.getRecordNumber(testFiles)
-
-    trainSteps = np.ceil(trainNum/batchSize) if trainNum<batchSize else np.floor(trainNum/batchSize)
-    validSteps = np.ceil(validNum/batchSize) if validNum<batchSize else np.floor(validNum/batchSize)
-    testSteps = np.ceil(testNum/batchSize) if testNum<batchSize else np.floor(testNum/batchSize)
-
-    table = PrettyTable(['\nTrainNum', 'ValidNum', 'TestNum', 
-                         'TrainSteps', 'ValidSteps', 'TestSteps'])
-    table.add_row([trainNum, validNum, testNum, trainSteps, validSteps, testSteps])
-    print(table)
-
-    trainDataset = tfrecord_read.getShards(trainFiles, imgDims=imgDims, batchSize=batchSize, 
-                                           dataSize=trainNum,augParams=augParams,augmentations=augment,
-                                           taskType=tasktype,normalize=normalize,normalizeParams=normalizeParams,datasetName='Train')
-
-    validDataset = tfrecord_read.getShards(validFiles, imgDims=imgDims, batchSize=batchSize,
-                                           dataSize=validNum, taskType=tasktype, normalize=normalize,
-                                           normalizeParams=normalizeParams,datasetName='Valid')
-
-    testDataset = tfrecord_read.getShards(testFiles, batchSize=batchSize,imgDims=imgDims,
-                                          dataSize=testNum, taskType=tasktype,
-                                          normalize=normalize,normalizeParams=normalizeParams,datasetName='Test')
-
-    return trainDataset,validDataset,testDataset,trainSteps,validSteps,testSteps
-  
-
-def main(args, modelname):
+def main(args):
     '''
-    sets up analysis based on config file. Choose following design choices:
+    sets up analysis based on config file. Following design choices:
 
     1. model
     2. optimizer and optimizer decay
     3. loss function
 
-    Calls scripts to load data stored as tfrecords, training and prediction
-    scripts. The trained model is passed to  predict on either individual 
-    patches or/and whole regions of wsi. Parameters and the config
-    file specific to this analysis are saved down along with the model.
+    load tfrecords data, calls custom training and prediction scripts. 
+    Parameters and model are saved down
     
-    Args:
-        args: contains command line arguments
-        modelname: string containing modelname
-    Returns:
-        result: returns avg dice and iou score
-    '''
-    
-    recordsPath = args['recordpath']
-    recordsDir = args['recordDir']
-    outPath = args['outpath']
-    checkpointPath = args['checkpointpath']
-    configFiles = args['configfile']
-
-    with open(configFiles) as jsonFile:
-        params = json.load(jsonFile)
-
-    feature = params['feature']
-    tasktype = params['tasktype']
-    #model = params['model']['network']
-    filters = params['model']['parameters']['filters']
-    finalActivation = params['model']['parameters']['finalActivation']
-    optimizername = params['optimizer']['method']
-    loss =  params['loss']
-    #dropout = params['dropout']
-    batchSize = params['batchSize']
-    epoch = params['epoch']
-    ratio = params['ratio']
-    augment = params['augmentation']["methods"]
-    augparams = params['augmentation']['parameters']
-    weights = params['weights']
-    loss =  params['loss']
-    metric = params['metric']
-    modelName = params['modelname']
-    optKwargs = params['optimizer']['parameters']
-    decaySchedule = params['optimizer']['decaymethod']
-    normalize = params['normalize']['methods']
-    normalizeParams= params['normalize']['parameters']
-    padding = params['padding']
-    multiDict = params['multi']
-    multi = multiDict['flag']
-    imgDims = params['imageDims']
-    nClasses = params['nClasses']
-    api = params['modelapi']
-    magnification = params['magnification']
-    stopthresholds = params['stopthresholds']
-    activationthreshold =  params['activationthreshold']
-    step = params['step']
-    upTypeName = params['upTypeName']
-    trainingapi=params['trainingapi']
+    :param args: command line arguments
+    :returns result: avg dice and iou score
+    '''    
+    with open(args['configfile']) as jsonFile:
+        config = json.load(jsonFile)
 
     currentDate = str(datetime.date.today())
     currentTime = datetime.datetime.now().strftime('%H:%M')
-    
-    ############################setup paths##########################
-    outModelPath = os.path.join(outPath,'models')
-    os.makedirs(outModelPath,exist_ok=True)
-    outModelPath = os.path.join(outPath,'models',currentDate)
-    os.makedirs(outModelPath,exist_ok=True)
-    outCurvePath = os.path.join(outPath,'curves')
-    os.makedirs(outCurvePath,exist_ok=True)
-    outCurvePath = os.path.join(outPath,'curves',currentDate)
-    os.makedirs(outCurvePath,exist_ok=True)
-    outPredictPath=os.path.join(outPath,'predictions')
-    os.makedirs(outPredictPath,exist_ok=True)
+    path = os.path.join(args['recordpath'],args['recordDir'])
+    trainLoader,validLoader=dataLoader(path,config)
 
-    if weights is None:
-        weights = calculateWeights('test', 'test', 'test', nClasses)
+    print('\n'*4+'-'*25 + 'Lymphnode segmentation' +'-'*25+'\n'*2)
+    test='unet'
+    print(f'network:{test} \
+          \nfeature:{config["feature"]} \
+          \nmag:{config["magnification"]} \
+          \nloss:{config["loss"]} \
+          \nweights:{config["weights"]} \
+          \naugmentation:{config["augmentation"]}')
 
-    data=prepareDatasets(recordsPath,recordsDir,batchSize,imgDims,augparams,
-                         augment,tasktype,normalize,normalizeParams)
-   
-    trainDataset,validDataset,testDataset,trainSteps,validSteps,testSteps=data
-
-    print('\n'*4+'-'*25 + 'Breast Cancer Lymph Node Deep learning segmentation project' +'-'*25+'\n'*2 + \
-          'network:{} \
-          \nfeatures:{} \
-          \nmagnification:{} \
-          \nloss:{} \
-          \weights:{} \
-          \naugmentation:{} \n'.format(modelname, feature, magnification, 
-                                       loss, augment, weights))
-
-    #get the number of gpus available and initiate a distribute mirror strategy
+    #num gpus available
     devices = tf.config.experimental.list_physical_devices('GPU')
     devices = [x.name.replace('/physical_device:', '') for x in devices] 
     #devices = ['/device:GPU:{}'.format(i) for i in range(multiDict['num'])]
 
-    nnParams={
-               'filters':filters,
-               'finalActivation':finalActivation,
+    nnParams={ #'filters':filters,
+               #'finalActivation':finalActivation,
                'nOutput':nClasses,
-               'upTypeName':upTypeName
+               'dims':imgDims
+               #'upTypeName':upTypeName
                 }
 
+    #trainDataset=trainDataLoader.getShards(config['batchSize'])
 
     strategy = tf.distribute.MirroredStrategy(devices)
     with strategy.scope():
-    #if trainingapi=='keras':
-        #lossObject=getLoss(loss, weights)
-        #optimizer=getOptimizer(optimizername,decaySchedule, trainSteps)
-
-    
         #get optimizer and decay schedule if applicable
         if decaySchedule['keras'] is not None:
             boundaries = [b*trainSteps for b in decaySchedule['decayparams']['boundaries']]
@@ -248,7 +147,6 @@ def main(args, modelname):
             optimizer=keras.optimizers.SGD(**optKwargs)
         else:
             raise ValueError('No optimizer selected, please update config file')
-
 
         if loss=='weightedBinaryCrossEntropy':
             lossObject = WeightedBinaryCrossEntropy(weights[0])
@@ -308,20 +206,20 @@ def main(args, modelname):
     #patchpredict = PatchPredictions(model, modelName, batchSize, currentTime, currentDate, activationthreshold)
     #patchpredict(testdataset, os.path.join(outPath, 'predictions'))
 
-    outpath='/home/verghese/breastcancer_ln_deeplearning/output/predictions/wsi'
+    #outpath='/home/verghese/breastcancer_ln_deeplearning/output/predictions/wsi'
     wsipredict = WSIPredictions(model, modelName, feature,
                                 magnification,step, step,
                                 activationthreshold, currentTime,
                                 currentDate, tasktype, normalize,
-                                normalizeParams)
+             valuation.py                    normalizeParams)
 
-    result = wsipredict(os.path.join(recordsPath, 'tfrecords_wsi'), outpath)
+    result = wsipredict(os.path.join(recordsPath, 'tfrecords_wsi'), outPath)
     #ToDo: replace generic trainmetric with metric name from config file
     getTrainCurves(history,'trainloss','valloss',outCurvePath,modelName+'_'+currentTime)
     getTrainCurves(history,'trainmetric', 'valmetric', outCurvePath,modelName+'_'+currentTime)
 
     #finally save the config for this file with the model and predictions
-    configPath=os.path.join(configPath,modelName+'_'+currentTime+'_config.json')
+    configPath=os.path.join(outModelPath,modelName+'_'+currentTime+'_config.json')
     with open(configPath, 'w') as jsonFile:
         json.dump(params, jsonFile)
 
@@ -339,15 +237,16 @@ if __name__ == '__main__':
     ap.add_argument('-mn', '--modelname', help='name of neural network model')
 
     args = vars(ap.parse_args())
-     
-    recordsPath = args['recordpath']
-    recordsDir = args['recordDir']
-    outPath = args['outpath']
-    checkpointPath = args['checkpointpath']
-    configFiles = args['configfile']
+    
+    outModelPath = os.path.join(args['outpath'],'models')
+    os.makedirs(outModelPath,exist_ok=True)
+    outModelPath = os.path.join(args['outpath'],'models',currentDate)
+    os.makedirs(outModelPath,exist_ok=True)
+    outCurvePath = os.path.join(args['outpath'],'curves')
+    os.makedirs(outCurvePath,exist_ok=True)
+    outCurvePath = os.path.join(args['outpath'],'curves',currentDate)
+    os.makedirs(outCurvePath,exist_ok=True)
+    outPredictPath=os.path.join(args['outpath'],'predictions')
+    os.makedirs(outPredictPath,exist_ok=True)
 
-    with open(configFiles) as jsonFile:
-        params = json.load(jsonFile)
-
-    modelname=args['modelname']
-    main(args,modelname)
+    main(args)

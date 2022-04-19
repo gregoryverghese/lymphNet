@@ -21,7 +21,7 @@ def getFiles(filesPath, ext):
 
 
 def analyseNodes(wsiPath,maskPath,savePath):
-    cancerPts='/home/verghese/cancer-points-training'
+    cancerPts='/home/verghese/cancer-points'
     print(maskPath)
     print('analysing lymph nodes...',flush=True)
     totalImages=getFiles(wsiPath,'ndpi')
@@ -29,7 +29,7 @@ def analyseNodes(wsiPath,maskPath,savePath):
     totalMasks=getFiles(maskPath,'png')
     print('Mask N: {}'.format(len(totalMasks),flush=True))
     cancerPoints=getFiles(cancerPts,'.csv')
-    all_ln_status=pd.read_csv('/home/verghese/ln_status_3.csv',index_col=['image_name'])
+    all_ln_status=pd.read_csv('/home/verghese/ln_status.csv',index_col=['image_name'])
 
     totalMasks=[t for t in totalMasks if 'image' not in t]
     names=[]
@@ -38,6 +38,7 @@ def analyseNodes(wsiPath,maskPath,savePath):
     germNum=[]
     avgGermSizes=[]
     avgGermAreas=[]
+    avgGermAreas2=[]
     germTotalAreas2=[]
     germTotalAreas=[]
     sinusNum=[]
@@ -50,28 +51,24 @@ def analyseNodes(wsiPath,maskPath,savePath):
     minGerm=[]
     shapes=[]
     statusLst=[]
-    patients=[]
-    ln_statuses=[]
+    subcapsular=[]
 
     print('total number of images', len(totalImages))
     print('total number of masks', len(totalMasks))
 
     for maskF in totalMasks:
         name=os.path.basename(maskF)[:-4]
-        patient=maskF.split('/')[-2]
+        #if '100250' not in name:
+            #continue
         print('image name: {}'.format(name))
-        print('patient name:{}'.format(patient))
-        
         try:
             wsiF=[s for s in totalImages if name in s][0]
         except Exception as e:
-            print('missing wsi')
             continue
         
         try:
             ln_status=int(all_ln_status.loc[name]['ln_status'])
         except Exception as e:
-            print('missing ln status')
             continue
         if ln_status==0:
             cancerCoords=[]
@@ -84,7 +81,6 @@ def analyseNodes(wsiPath,maskPath,savePath):
                 points=points[points['probability']>0.85]
                 cancerCoords=list(zip(list(points['x']),list(points['y'])))
             else:
-                print('check_names:{}'.format(patient))
                 cancerCoords=[]
 
         mask = cv2.imread(maskF)
@@ -136,6 +132,7 @@ def analyseNodes(wsiPath,maskPath,savePath):
         for i, ln in enumerate(slide._lymphNodes):
             #####checking cancer section#######
             slide_contour=slide.contours[i]
+            print('lengthhhhhhhhhh',len(cancerCoords))
             if len(cancerCoords)>0:
                 check=[cv2.pointPolygonTest(slide_contour,pt,False) for pt in cancerCoords]
                 check=list(filter(lambda x: x>0,check))
@@ -157,8 +154,92 @@ def analyseNodes(wsiPath,maskPath,savePath):
             numSinuses=ln.sinuses.detectSinuses()
             ln.germinals.measureSizes()
             ln.germinals.measureAreas()
-            plotS=ln.sinuses.visualiseSinus()
-            plotG=ln.germinals.visualiseGerminals()
+            #plotS=ln.sinuses.visualiseSinus()
+            #plotG=ln.germinals.visualiseGerminals()
+
+            sinus_mask=ln.sinuses.sinusMask
+            ann_mask=ln.sinuses.annMask
+
+            ################## measure subcapsular sinus ################
+            
+            pixelDist=9
+            sigmaColor=100
+            sigmaSpace=100
+            minThresh=0
+            maxThresh=255
+            #threshType=cv2.THRESH_BINARY+cv2.THRESH_OTSU
+            threshType=cv2.THRESH_TRUNC+cv2.THRESH_OTSU
+            slide_image=ln.sinuses.ln.image
+            
+            BILATERAL1_ARGS={"d":9,"sigmaColor":100,"sigmaSpace":100}
+            BILATERAL2_ARGS={"d":90,"sigmaColor":10,"sigmaSpace":100}
+            THRESH1_ARGS={"thresh":0,"maxval":255,"type":cv2.THRESH_TRUNC+cv2.THRESH_OTSU}
+            THRESH2_ARGS={"thresh":0,"maxval":255,"type":cv2.THRESH_OTSU}
+
+            gray=cv2.cvtColor(slide_image,cv2.COLOR_BGR2GRAY)
+            blur1=cv2.bilateralFilter(np.bitwise_not(gray),**BILATERAL1_ARGS)
+            blur2=cv2.bilateralFilter(np.bitwise_not(blur1),**BILATERAL2_ARGS)
+            blur_final=255-blur2
+            #plt.imshow(blur_final)
+            #plt.show()
+            _,thresh=cv2.threshold(blur_final,minThresh,maxThresh,threshType)
+            _,thresh=cv2.threshold(thresh,**THRESH2_ARGS)
+            #plt.imshow(thresh)
+            #plt.show()
+            contours_2,_=cv2.findContours(thresh,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_NONE)
+            print(len(contours_2))
+            contours_2 = list(filter(lambda x: cv2.contourArea(x) > 5000, contours_2))
+            new=cv2.drawContours(slide_image,contours_2,-1,(0,0,255),2)
+            #plt.figure(figsize=(20,20))
+            #plt.imshow(new)
+            #plt.show()
+            
+            test=np.zeros_like(slide_image)
+            cv2.drawContours(test, contours_2, -1, (255,0,0), -1)
+
+            kernel=np.ones((5,5),np.uint)
+            erode=cv2.erode(test,kernel,(-1,-1),iterations=6)
+            #plt.imshow(erode)
+            #plt.show()
+            erode_2=erode.copy()
+            erode_2[:,:,0][erode[:,:,2]==255]=255
+            erode_2[:,:,2][erode[:,:,2]==255]=0
+            #plt.imshow(erode_2)
+            np.unique(erode_2[:,:,2])
+            new=test.copy()
+            new[:,:,0][erode_2[:,:,0]==255]=255
+            new[:,:,1][erode_2[:,:,0]==255]=255
+            new[:,:,2][erode_2[:,:,0]==255]=255
+
+            plt.figure(figsize=(10,10))
+            plt.imshow(new)
+            plt.show() 
+
+            slide_image[:,:,0][erode_2[:,:,0]==255]=255
+            slide_image[:,:,1][erode_2[:,:,0]==255]=255
+            slide_image[:,:,2][erode_2[:,:,0]==255]=255
+            #plt.figure(figsize=(20,20))
+            #plt.imshow_(slide_image)
+            #plt.show()
+            
+            mask_sinus=ln.sinuses.ln.mask
+            mask_sinus[mask_sinus!=0]=128
+            #plt.imshow(mask_sinus)
+            #plt.show()
+            print(mask_sinus.shape)
+            print('values',np.unique(mask_sinus))
+
+            mask_sinus[erode_2[:,:,0]==255]=255
+            #plt.figure(figsize=(10,10))
+            #plt.imshow(mask_sinus)
+            subcapsular_area=len(mask_sinus[mask_sinus==128])*(ln.slide.wScale*ln.slide.hScale)
+            
+            print(mask_sinus[mask_sinus==128])
+            
+            print('checking shape',mask_sinus.shape)
+            print('checking shape',len(mask_sinus))
+            
+            ##############################################################
 
             sinus_mask=ln.sinuses.sinusMask
             germinal_mask=ln.germinals.mask
@@ -208,6 +289,11 @@ def analyseNodes(wsiPath,maskPath,savePath):
             else:
                 areas
 
+            if ln.germinals._num==0:
+                avgGermArea=0
+            else:
+                avgGermArea=ln.germinals.totalArea2/ln.germinals._num
+
             avgGermArea2=np.mean(areas)
             maxGermArea2=np.max(areas)
             minGermArea2=np.min(areas)
@@ -226,6 +312,7 @@ def analyseNodes(wsiPath,maskPath,savePath):
             germTotalAreas.append(np.round(germArea*1e6,2))
             germTotalAreas2.append(np.round(germArea2*1e6,2))
             avgGermAreas.append(np.round(avgGermArea2*1e6,4))
+            avgGermAreas2.append(np.round(avgGermArea*1e6,4))
             maxGerm.append(np.round(maxGermArea2*1e6,4))
             minGerm.append(np.round(minGermArea2*1e6,4))
             shapes.append(germShape)
@@ -233,36 +320,36 @@ def analyseNodes(wsiPath,maskPath,savePath):
             totalSinusArea.append(np.round(sinusArea*1e6,2))
             centDist.append(np.round(np.mean(germDistCent)))
             boundDist.append(np.round(np.mean(germDistBoundary)))
-            patients.append(patient)
-            ln_statuses.append(ln_status)
+            subcapsular.append(subcapsular_area)
+
 
     stats={
-        'patient':patients,
         'name':names,
-        'ln_status':ln_statuses,
         'ln_idx':lnIdx,
         'ln_area':lnAreas,
         'germ_number':germNum,
         'avg_germ_width':avgGermW,
         'avg_germ_height':avgGermH,
-        'total_germ_area':germTotalAreas,
+        #'total_germ_area':germTotalAreas,
         'total_germ_area2':germTotalAreas2,
-        'section_status':statusLst,
+        'ln_status':statusLst,
         'avg_germ_area': avgGermAreas,
+        'avg_germ_area2': avgGermAreas2,
         'avg_germ_shape':shapes,
         'max_germ_area': maxGerm,
         'min_germ_area': minGerm,
         'germ_distance_to_centre':centDist,
         'germ_distance_to_boundary':boundDist,
         'sinus_number': sinusNum,
-        'total_sinus_area':totalSinusArea
+        'total_sinus_area':totalSinusArea,
+        'subcapsularArea': subcapsular
 
     }
 
     for k,v in stats.items():
         print(k, len(v))
         statsDf=pd.DataFrame(stats)
-    statsDf.to_csv('/home/verghese/node_details_cancer_90552.csv')
+    statsDf.to_csv('/home/verghese/node_details_subcapsular.csv')
 
 
 

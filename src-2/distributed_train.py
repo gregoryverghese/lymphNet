@@ -15,11 +15,11 @@ import numpy as np
 import tensorflow.keras.backend as K
 from tensorflow.keras.utils import Progbar
 
-from utilities.custom_loss_classes import WeightedBinaryCrossEntropy
+from utilities.custom_loss_classes import BinaryXEntropy
 from utilities.evaluation import diceCoef
 
 __author__ = 'Gregory Verghese'
-__email__ = 'gregory.e.verghese@kcl.ac.uk'
+__email__ = 'gregory.verghese@kcl.ac.uk'
 
 #import memory_saving_gradients
 #tf.__dict__["gradients"] = memory_saving_gradients.gradients_speed
@@ -33,24 +33,10 @@ class DistributeTrain():
     pass with chosen optimizer. Loss and dice are calculated per
     gpu (known as replica) and combined at the end.
     '''
+    def __init__(self, model, optimizer, lossObject, epoch, batchSize, strategy, trainSteps, testNum, 
+                 imgDims, threshold, modelName, currentTime, currentDate, tasktype):
 
-    def __init__(self, 
-                 model, 
-                 optimizer, 
-                 lossObject,
-                 batchSize,
-                 epoch, 
-                 strategy, 
-                 trainSteps, 
-                 testNum, 
-                 imgDims, 
-                 threshold, 
-                 modelName, 
-                 currentTime, 
-                 currentDate, 
-                 tasktype):
-
-        self.epochs = epochs
+        self.epochs = epoch
         self.batchSize = batchSize
         self.strategy = strategy
         self.loss_object = lossObject

@@ -26,6 +26,7 @@ def resizeImage(dim, factor=2048, threshold=0, op=operator.gt):
     return newDim
 
 
+
 def getTrainCurves(history, tMetricName, vMetricName, outPath, modelname):
     sns.set_style('dark')
     trainMetric = history[tMetricName]
