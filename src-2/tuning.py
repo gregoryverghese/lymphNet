@@ -32,13 +32,13 @@ def tuning(args):
     
     date = str(datetime.date.today())
     currentTime = datetime.datetime.now().strftime('%H:%M')
-    resultsPath = os.path.join(args['outpath'], 'summaries')
+    resultsPath = os.path.join(args.out_path, 'summaries')
 
     indexes = []
     results = []
 
-    modelname = args['modelname']
-    configTemplate = args['configfile']
+    modelname = args.model_name
+    configTemplate = args.config_file
 
     #open config template file and get parameters
     with open(configTemplate) as jsonFile:
@@ -76,10 +76,11 @@ def tuning(args):
           
           #save down analysis specific config file
           configFile = os.path.join(os.path.split(configTemplate)[0], name+'.json')
-          args['configfile'] = configFile
+          args.config_file = configFile
           with open(configFile, 'w') as jsonFile:
               json.dump(jsonDict, jsonFile)
-
+          print(args) 
+          print(args.config_file)
           result = main(args)
           indexes.append(name)
           results.append(result)
@@ -93,15 +94,14 @@ def tuning(args):
 if __name__ == '__main__':
 
     ap = argparse.ArgumentParser()
-    ap.add_argument('-rp', '--recordpath', required=True, help='path to tfrecords')
-    ap.add_argument('-rd', '--recordDir', required=True, help='directory for the tfrecords dataset')
-    ap.add_argument('-op', '--outpath', required=True, help='output path for predictions')
-    ap.add_argument('-cp', '--checkpointpath', required=True, help='path for checkpoint files')
-    ap.add_argument('-cf', '--configfile', help='file containing parameters')
-    ap.add_argument('-mn', '--modelname', help='name of neural network model')
-    
-    args = vars(ap.parse_args())
+    ap.add_argument('-rp', '--record_path', required=True, help='path to tfrecords')
+    ap.add_argument('-rd', '--record_dir', required=True, help='directory for the tfrecords dataset')
+    ap.add_argument('-op', '--out_path', required=True, help='output path for predictions')
+    ap.add_argument('-cp', '--checkpoint_path', required=True, help='path for checkpoint files')
+    ap.add_argument('-cf', '--config_file', help='file containing parameters')
+    ap.add_argument('-mn', '--model_name', help='name of neural network model') 
+    args = ap.parse_args()
     
     devices  = tf.config.experimental.list_physical_devices('GPU')
-
+    print(devices)
     tuning(args)
