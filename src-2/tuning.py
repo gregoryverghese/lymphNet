@@ -33,6 +33,7 @@ def tuning(args):
     date = str(datetime.date.today())
     currentTime = datetime.datetime.now().strftime('%H:%M')
     resultsPath = os.path.join(args.out_path, 'summaries')
+    experiment_name=date+'_'+currentTime
 
     indexes = []
     results = []
@@ -81,7 +82,7 @@ def tuning(args):
               json.dump(jsonDict, jsonFile)
           print(args) 
           print(args.config_file)
-          result = main(args)
+          result = main(args,experiment_name)
           indexes.append(name)
           results.append(result)
 

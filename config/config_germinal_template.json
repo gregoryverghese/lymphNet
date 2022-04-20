@@ -87,7 +87,7 @@
 		"second":
 		{
 		"metric":0.825,
-		"epochs":75
+		"epochs":60
 		}
 	},
 "step":2048,

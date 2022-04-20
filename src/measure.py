@@ -15,6 +15,7 @@ import numpy as np
 class Slide():
     def __init__(self, slide, mask,w,h,wNew=1,hNew=1,
                  pixWidth=0.23e-6, pixHeight=0.23e-6):
+
         self.slide=slide
         self.mask=mask  
         self.w=w
@@ -37,6 +38,8 @@ class Slide():
     def lymphNodeArea():
         pass
     
+
+   
     def extractLymphNodes(self, germLabel, sinusLabel, pixelDist=9, sigmaColor=100,
                           sigmaSpace=100, minThresh=0, maxThresh=255,
                           threshType=cv2.THRESH_BINARY+cv2.THRESH_OTSU):

@@ -107,7 +107,7 @@ def data_loader(path,config):
     return train_loader,valid_loader
 
 
-def main(args):
+def main(args,name):
     '''
     sets up analysis based on config file. Following design choices:
 
@@ -132,83 +132,79 @@ def main(args):
     devices = tf.config.experimental.list_physical_devices('GPU')
     devices = [x.name.replace('/physical_device:', '') for x in devices] 
     #devices = ['/device:GPU:{}'.format(i) for i in range(multiDict['num'])]
-    train_loader,valid_loader=data_loader(path,config)
-    
 
-
-    """
     nnParams={'filters':config['model']['parameters']['filters'],
               'finalActivation':config['model']['parameters']['finalActivation'],
               'nOutput':config['nClasses'],
               #'dims':config['imageDims'],
               'upTypeName':config['upTypeName']
                 }
-    modelname='attention'
+    #modelname='attention'
     strategy = tf.distribute.MirroredStrategy(devices)
     with strategy.scope():
         boundaries=[30, 60]
         values=[0.001,0.0005,0.0001]
         lr_schedule = tf.keras.optimizers.schedules.PiecewiseConstantDecay(boundaries,values)
         optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
-        lossObject = BinaryXEntropy(config['weights'][0])
+        criterion = BinaryXEntropy(config['weights'][0])
         with tf.device('/cpu:0'):
-                model=FUNCMODELS[modelname](**nnParams)
+                model=FUNCMODELS[args.model_name](**nnParams)
                 model=model.build()
         #table = PrettyTable(['Model', 'Loss', 'Optimizer', 'Devices','DecaySchedule'])
         #table.add_row([modelname, loss, optimizername, len(devices),decaySchedule['keras']])
         #print(table)
         #call distributed training script to allow for training on multiple gpus
-        trainDistDataset = strategy.experimental_distribute_dataset(trainLoader.dataset)
-        validDistDataset = strategy.experimental_distribute_dataset(validLoader.dataset)
+        train_dataset = strategy.experimental_distribute_dataset(train_loader.dataset)
+        valid_dataset = strategy.experimental_distribute_dataset(valid_loader.dataset)
         train = DistributeTrain(model, 
                                 optimizer, 
-                                lossObject,
+                                criterion,
                                 config['batchSize'],
                                 config['epoch'],
                                 strategy, 
-                                trainLoader.steps, 
-                                validLoader.steps, 
+                                train_loader.steps, 
+                                valid_loader.steps, 
                                 config['imageDims'], 
                                 config['stopthresholds'], 
-                                config['modelname'], 
-                                currentDate, 
-                                currentTime, 
+                                config['modelname'],
+                                name,
                                 config['tasktype'])
 
-        model, history = train.forward(trainDistDataset, validDistDataset)    
-        model.save(os.path.join(outModelPath, modelName + '_' + currentTime + '.h5'))
-    with open(os.path.join(outModelPath,  modelName+'_'+ currentTime + '_history'), 'wb') as f:
-        pickle.dump(history, f)
+        model, history = train.forward(train_loader.dataset,valid_loader.dataset)
+
+        #model.save(os.path.join(outModelPath, modelName + '_' + currentTime + '.h5'))
+    #with open(os.path.join(outModelPath,  modelName+'_'+ currentTime + '_history'), 'wb') as f:
+        #pickle.dump(history, f)
 
     #call predict on individual patches and entire annotated wsi region
     #patchpredict = PatchPredictions(model, modelName, batchSize, currentTime, currentDate, activationthreshold)
     #patchpredict(testdataset, os.path.join(outPath, 'predictions'))
     
     #outpath='/home/verghese/breastcancer_ln_deeplearning/output/predictions/wsi'
-    wsipredict = WSIPredictions(model, 
-                                modelName, 
-                                feature,
-                                magnification,
-                                step, 
-                                step,
-                                activationthreshold, 
-                                currentTime,
-                                currentDate, 
-                                tasktype, 
-                                normalize,
-                                normalizeParams)
+    #wsipredict = WSIPredictions(model, 
+                                #modelName, 
+                                #feature,
+                                #magnification,
+                                #step, 
+                                #step,
+                                #activationthreshold, 
+                                #currentTime,
+                                #currentDate, 
+                                #tasktype, 
+                                #normalize,
+                                #normalizeParams)
 
-    result = wsipredict(os.path.join(recordsPath, 'tfrecords_wsi'), outPath)
+    #result = wsipredict(os.path.join(recordsPath, 'tfrecords_wsi'), outPath)
     #ToDo: replace generic trainmetric with metric name from config file
-    getTrainCurves(history,'trainloss','valloss',outCurvePath,modelName+'_'+currentTime)
-    getTrainCurves(history,'trainmetric', 'valmetric', outCurvePath,modelName+'_'+currentTime)
+    #getTrainCurves(history,'trainloss','valloss',outCurvePath,modelName+'_'+currentTime)
+    #getTrainCurves(history,'trainmetric', 'valmetric', outCurvePath,modelName+'_'+currentTime)
 
     #finally save the config for this file with the model and predictions
-    configPath=os.path.join(outModelPath,modelName+'_'+currentTime+'_config.json')
-    with open(configPath, 'w') as jsonFile:
-        json.dump(params, jsonFile)
+    #configPath=os.path.join(outModelPath,modelName+'_'+currentTime+'_config.json')
+    #with open(configPath, 'w') as jsonFile:
+    #json.dump(params, jsonFile)
 
-    return result
+    #return result
 """
 
 if __name__ == '__main__':
@@ -243,4 +239,4 @@ if __name__ == '__main__':
     os.makedirs(out_predict_path,exist_ok=True)
 
     main(args,name)
-
+"""

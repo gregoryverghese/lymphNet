@@ -32,7 +32,6 @@ class Slide():
         self.hNew=hNew
         self.pixWidth=pixWidth
         self.pixHeight=pixHeight
-        self.contours=None
         self._lymphNodes=None
 
     @property
@@ -73,6 +72,7 @@ class Slide():
         mask=np.zeros(self.slide.shape)
         gray=cv2.cvtColor(im_fill,cv2.COLOR_BGR2GRAY)
         #generate the blur
+        print(Slide.bilateral1_args)
         blur1=cv2.bilateralFilter(np.bitwise_not(gray),**Slide.bilateral1_args)
         #step2: make the pixeldist and sigma space larger so that the content can be linked together
         blur2=cv2.bilateralFilter(np.bitwise_not(blur1),**Slide.bilateral2_args)
@@ -87,7 +87,6 @@ class Slide():
         #find contours
         contours,_=cv2.findContours(thresh,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_NONE)
         contours=list(filter(lambda x: cv2.contourArea(x) > 9000, contours))
-        self.contours=contours
         self._lymphNodes=[self._createLymphNode(c, thresh, germLabel,sinusLabel) for c in contours]
         self._lymphNodes=list(filter(lambda x: x is not None, self._lymphNodes))
         return len(self._lymphNodes)
@@ -192,6 +191,7 @@ class Germinals():
     def measureAreas(self, pixels=False):
 
         self._areas=list(map(cv2.contourArea, self._germinals))
+       # print('AREAS', self._areas)
         if not pixels:
             f = lambda x: (x*self.ln.slide.wScale*self.ln.slide.hScale)
             self._areas=list(map(f, self._areas))
@@ -203,8 +203,10 @@ class Germinals():
         areas=self.measureAreas(pixels=True)
         f = lambda x: cv2.arcLength(x,True)
         perimeters = list(map(f, self._germinals))
+        print(',easire;',list(perimeters),areas)
         f = lambda x: (4*np.pi*x[0])/np.square(x[1])
         c= list(map(f,zip(areas,perimeters)))
+        print('circularity', c)
         return c
 
 

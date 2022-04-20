@@ -209,12 +209,12 @@ class AttenUnetFunc():
 
 
         x = Conv2D(filters=f, kernel_size=self.kernelSize,padding=self.padding,
-                   kernel_initializer='glorot_uniform')(x)
+                   kernel_initializer='glorot_uniform',kernel_regularizer=l1_l2())(x)
         x = BatchNormalization()(x) if self.normalize else x
         x = ReLU()(x)
         #x = Dropout(0.1)(x) if contraction else x
         x = Conv2D(filters=f, kernel_size=self.kernelSize,padding=self.padding,
-                  kernel_initializer='glorot_uniform')(x)
+                  kernel_initializer='glorot_uniform',kernel_regularizer=l1_l2())(x)
         x = BatchNormalization()(x) if self.normalize else x
         x = ReLU()(x)
         #x = Dropout(0.1)(x) if contraction else x

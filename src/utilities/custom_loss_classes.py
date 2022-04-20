@@ -14,7 +14,7 @@ class DiceLoss(tf.keras.losses.Loss):
         super(DiceLoss, self).__init__(reduction=reduction)
         self.smooth = smooth
 
-    def call(self, yTrue, yPred):
+    def call(self, yPred, yTrue):
 
         yPred = tf.cast(yPred, tf.float32)
         yTrue = tf.cast(yTrue, tf.float32)

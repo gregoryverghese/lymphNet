@@ -19,7 +19,7 @@ from utilities.custom_loss_classes import WeightedBinaryCrossEntropy
 from utilities.evaluation import diceCoef
 
 __author__ = 'Gregory Verghese'
-__email__ = 'gregory.e.verghese@kcl.ac.uk'
+__email__ = 'gregory.verghese@kcl.ac.uk'
 
 #import memory_saving_gradients
 #tf.__dict__["gradients"] = memory_saving_gradients.gradients_speed
@@ -34,21 +34,10 @@ class DistributeTrain():
     gpu (known as replica) and combined at the end.
     '''
 
-    def __init__(self, 
-                 model, 
-                 optimizer, 
-                 lossObject,
-                 batchSize,
-                 epoch, 
-                 strategy, 
-                 trainSteps, 
-                 testNum, 
-                 imgDims, 
-                 threshold, 
-                 modelName, 
-                 currentTime, 
-                 currentDate, 
-                 tasktype):
+    def __init__(self, epochs, model, optimizer, lossObject,
+                 batchSize, strategy, trainSteps, testNum, 
+                 imgDims, threshold, modelName, currentTime, 
+                 currentDate, tasktype):
 
         self.epochs = epochs
         self.batchSize = batchSize
@@ -79,7 +68,6 @@ class DistributeTrain():
 
         loss = self.loss_object(label, predictions)
         loss = tf.reduce_sum(loss) * (1. / (self.imgDims*self.imgDims*self.batchSize))
-        #loss = tf.reduce_sum(loss) * (1. / (self.batchSize))
 
         return loss * (1/self.strategy.num_replicas_in_sync)
 

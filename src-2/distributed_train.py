@@ -34,7 +34,7 @@ class DistributeTrain():
     gpu (known as replica) and combined at the end.
     '''
     def __init__(self, model, optimizer, lossObject, epoch, batchSize, strategy, trainSteps, testNum, 
-                 imgDims, threshold, modelName, currentTime, currentDate, tasktype):
+                 imgDims, threshold, modelName, name, tasktype):
 
         self.epochs = epoch
         self.batchSize = batchSize
@@ -48,9 +48,8 @@ class DistributeTrain():
         self.imgDims = imgDims
         self.history = {'trainloss': [], 'trainmetric':[], 'valmetric': [],'valloss':[]}
         self.threshold = threshold
-        self.modelName = modelName
-        self.currentTime = currentTime
-        self.currentDate = currentDate
+        self.modelName = modelName,
+        self.name=name
         self.tasktype = tasktype
 
     def computeLoss(self, label, predictions):

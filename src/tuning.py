@@ -2,10 +2,10 @@
 # -*- coding: utf-8 -*-
 
 '''
-Tuning.py: hyperparameter tuning script
-
-opens config template file and iterates over sets of parameters
-Executes hyperparameter tuning by calling models  with different sets of parameters
+Tuning.py: opens config file and iterates over 
+combination of parameters used for training.
+Executes hyperparameter tuning by calling sets of
+models with different sets of parameters
 '''
 
 import os
@@ -19,15 +19,19 @@ import pandas as pd
 from main import main
 
 __author__ = 'Gregory Verghese'
-__email__ = 'gregory.e.verghese@kcl.ac.uk'
+__email__ = 'gregory.verghese@kcl.ac.uk'
 
 N=20
 
 def tuning(args):
 
     '''
-    generates series of config files to tune different parameters
-    :param args: command line arguments
+    collects sets of parameters which form combinations
+    for each analysis from config template file and 
+    initiates the training for each analysis. Saves down
+    results in csv file
+    Args:
+        command line arguments for script
     '''
     
     date = str(datetime.date.today())
@@ -53,6 +57,7 @@ def tuning(args):
     #Loop over parameters (augmentation and loss functions)
     for a in augmentation:
        for l in losses:
+    
           with open(configTemplate) as jsonFile:
               jsonDict = json.load(jsonFile)
 
@@ -80,7 +85,7 @@ def tuning(args):
           with open(configFile, 'w') as jsonFile:
               json.dump(jsonDict, jsonFile)
 
-          result = main(args)
+          result = main(args, modelname)
           indexes.append(name)
           results.append(result)
 
