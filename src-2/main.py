@@ -79,7 +79,7 @@ def data_loader(path,config):
                                 config['tasktype'],
                                 config['batchSize'])
     train_loader.record_size()
-    print(f'n={train_loader.size}')
+    print(f'n={train_loader.tile_nums}')
     
     #augment
     aug_methods=config['augmentation']['methods']
@@ -102,7 +102,7 @@ def data_loader(path,config):
                                config['batchSize'])
 
     valid_loader.record_size()
-    print(f'n={valid_loader.size}')
+    print(f'n={valid_loader.tile_nums}')
     valid_loader.load(1)
     return train_loader,valid_loader
 
