@@ -70,7 +70,7 @@ class TFRecordLoader():
         dataset = tf.data.Dataset.list_files(self.tfrecords)
         dataset = dataset.with_options(option_no_order)
         dataset = dataset.interleave(tf.data.TFRecordDataset, cycle_length=4, num_parallel_calls=4)
-        dataset = dataset.map(self._readTFRecord, num_parallel_calls=4)
+        dataset = dataset.map(self._read_tfr_record, num_parallel_calls=4)
         for i, d in enumerate(dataset):
             pass
         self.tile_nums=i
