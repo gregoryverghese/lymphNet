@@ -25,7 +25,7 @@ __email__ = 'gregory.verghese@kcl.ac.uk'
 #tf.__dict__["gradients"] = memory_saving_gradients.gradients_speed
 
 
-class DistributeTrain():
+class DistributedTraining():
     '''
     Multi-gpu training: performs each forward pass of the network 
     and performs backward pass with chosen optimizer. Loss and dice 
@@ -56,7 +56,7 @@ class DistributeTrain():
         self.strategy = strategy
         self.metric = diceCoef
         self.img_dims = img_dims
-        self.history = {'trainloss': [], 'trainmetric':[], 'valmetric': [],'valloss':[]}
+        self.history = {'train_loss': [], 'train_metric':[], 'val_metric':[],'val_loss':[]}
         self.stop_criteria = stop_criteria
         self.threshold = threshold
         self.model_name = model_name
@@ -70,7 +70,7 @@ class DistributeTrain():
         :param predictions: network predictoon tf tensor (BxWxH)
         :returns loss: loss per replica
         '''
-        loss = self.loss_object(label, predictions)
+        loss = self.criterion(label, predictions)
         loss = tf.reduce_sum(loss) * (1. / (self.img_dims*self.img_dims*self.batch_size))
         #loss = tf.reduce_sum(loss) * (1. / (self.batchSize))
         return loss * (1/self.strategy.num_replicas_in_sync)
@@ -119,7 +119,7 @@ class DistributeTrain():
         '''
         x, y = inputs
         logits = self.model(x, training=False)
-        loss = self.loss_object(y, logits)
+        loss = self.criterion(y, logits)
         y_pred = tf.cast((logits > self.threshold), tf.float32)
         dice = self.compute_dice(y, y_pred)
         loss = tf.reduce_sum(loss) * (1. / (self.img_dims*self.img_dims*self.batch_size))
@@ -128,6 +128,14 @@ class DistributeTrain():
 
     #ToDo: shitty hack to include progbar in distributed train function. need a
     #way of converting tensor i to integer
+
+
+    @tf.function
+    def _run(self,batch):
+        replica_loss, replica_dice = self.strategy.run(self._train_step,args=(batch,))
+        return replica_loss, replica_dice
+
+
     def _train(self):
         '''
         iterates over each batch in the data and calulates total
@@ -138,9 +146,9 @@ class DistributeTrain():
         '''
         total_loss = 0.0
         total_dice = 0.0
-        prog = Progbar(self.trainSteps-1)
-        for i, batch in enumerate(train_data):
-            replica_loss, replica_dice = self.strategy.run(self._train_step, args=(batch,))
+        prog = Progbar(self.train_loader.steps-1)
+        for i, batch in enumerate(self.train_loader.dataset):
+            replica_loss, replica_dice = self._run(batch)
             total_loss += self.strategy.reduce(tf.distribute.ReduceOp.SUM,replica_loss, axis=None)
             total_dice += self.strategy.reduce(tf.distribute.ReduceOp.SUM,replica_dice, axis=None)
             prog.update(i) 
@@ -158,8 +166,8 @@ class DistributeTrain():
         '''
         total_loss = 0.0
         total_dice = 0.0
-        for batch in valid_data:
-            loss, dice = self.strategy.run(self.test_step, args=(batch,))
+        for batch in self.valid_loader.dataset:
+            loss, dice = self.strategy.run(self._test_step, args=(batch,))
             total_loss += self.strategy.reduce(tf.distribute.ReduceOp.SUM, loss, axis=None)
             total_dice += self.strategy.reduce(tf.distribute.ReduceOp.SUM, dice, axis=None)
         return total_loss, total_dice   
@@ -202,16 +210,17 @@ class DistributeTrain():
         for epoch in range(self.epochs):
             #trainLoss, trainDice = self.distributedTrainEpoch(trainDistDataset)
             train_loss, train_dice = self._train()
-            train_loss = float(train_loss/self.train_loader.train_steps),
-            train_dice = float(train_dice/self.train_loader.train_steps)
+            train_loss = float(train_loss/self.train_loader.steps)
+            train_dice = float(train_dice/self.train_loader.steps)
+            print(train_loss)
             with train_writer.as_default():
                 tf.summary.scalar('loss', train_loss, step=epoch)
                 tf.summary.scalar('dice', train_dice, step=epoch)
             tf.print(' Epoch: {}/{},  loss - {:.2f}, dice - {:.2f}, lr - {:.5f}'.format(epoch+1, self.epochs, train_loss, train_dice, 1), end="")
 
             test_loss, test_dice  =  self._test()
-            test_loss = float(test_loss/self.test_loader.test_steps)
-            test_dice = float(test_dice/self.test_loader.test_steps)
+            test_loss = float(test_loss/self.valid_loader.steps)
+            test_dice = float(test_dice/self.valid_loader.steps)
             with test_writer.as_default():
                 tf.summary.scalar('loss', test_loss, step=epoch)
                 tf.summary.scalar('dice', test_dice, step=epoch)
