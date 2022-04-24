@@ -27,7 +27,7 @@ from tensorflow.keras.losses import binary_crossentropy
 from tensorflow.keras.callbacks import LearningRateScheduler
 #from tensorflow.keras.utils import multi_gpu_model
 
-from distributed_train import DistributeTrain 
+from distributed_train import DistributedTraining 
 from models import fcn8,unet,mobile,resunet,resunet_a,unet_mini,atten_unet
 from models import multiscale,multi_atten,deeplabv3
 from models import deeplabv3
@@ -73,6 +73,7 @@ def data_loader(path,config):
     #load training files
     train_path = os.path.join(path,'train','*.tfrecords')
     train_files = glob.glob(train_path)
+    print('crazy')
     train_loader=TFRecordLoader(train_files,
                                 'train',
                                 config['imageDims'],
@@ -165,9 +166,9 @@ def main(args,name):
                                     config['epoch'],
                                     strategy, 
                                     config['imageDims'], 
-                                    config['stopthresholds'], 
+                                    config['stopthresholds'],
+                                    config['activationthreshold'],
                                     config['modelname'],
-                                    name,
                                     config['tasktype'])
 
         model, history = train.forward()
