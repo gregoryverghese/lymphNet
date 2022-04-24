@@ -156,21 +156,21 @@ def main(args,name):
         #call distributed training script to allow for training on multiple gpus
         train_dataset = strategy.experimental_distribute_dataset(train_loader.dataset)
         valid_dataset = strategy.experimental_distribute_dataset(valid_loader.dataset)
-        train = DistributeTrain(model, 
-                                optimizer, 
-                                criterion,
-                                config['batchSize'],
-                                config['epoch'],
-                                strategy, 
-                                train_loader.steps, 
-                                valid_loader.steps, 
-                                config['imageDims'], 
-                                config['stopthresholds'], 
-                                config['modelname'],
-                                name,
-                                config['tasktype'])
+        train = DistributedTraining(model,
+                                    train_loader,
+                                    valid_loader,
+                                    optimizer, 
+                                    criterion,
+                                    config['batchSize'],
+                                    config['epoch'],
+                                    strategy, 
+                                    config['imageDims'], 
+                                    config['stopthresholds'], 
+                                    config['modelname'],
+                                    name,
+                                    config['tasktype'])
 
-        model, history = train.forward(train_loader.dataset,valid_loader.dataset)
+        model, history = train.forward()
 
         #model.save(os.path.join(outModelPath, modelName + '_' + currentTime + '.h5'))
     #with open(os.path.join(outModelPath,  modelName+'_'+ currentTime + '_history'), 'wb') as f:
