@@ -34,8 +34,8 @@ from models import deeplabv3
 from data.tfrecord_read import TFRecordLoader
 from utilities import decay_schedules
 from utilities.evaluation import diceCoef
-from predict import WSIPredictions, PatchPredictions
-from utilities.utils import getTrainCurves
+#from predict import WSIPredictions, PatchPredictions
+from utilities.utils import get_train_curves
 from utilities.custom_loss_classes import BinaryXEntropy, DiceLoss, CategoricalXEntropy
 
 FUNCMODELS={
@@ -140,7 +140,12 @@ def main(args,name):
               #'dims':config['imageDims'],
               'upTypeName':config['upTypeName']
                 }
-    #modelname='attention'
+   
+    for i, batch in enumerate(train_loader.dataset):
+        print(batch.shape)
+        #print(np.unique(batch))
+
+    """
     strategy = tf.distribute.MirroredStrategy(devices)
     with strategy.scope():
         boundaries=[30, 60]
@@ -148,64 +153,33 @@ def main(args,name):
         lr_schedule = tf.keras.optimizers.schedules.PiecewiseConstantDecay(boundaries,values)
         optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
         criterion = BinaryXEntropy(config['weights'][0])
-        with tf.device('/cpu:0'):
-                model=FUNCMODELS[args.model_name](**nnParams)
-                model=model.build()
-        #table = PrettyTable(['Model', 'Loss', 'Optimizer', 'Devices','DecaySchedule'])
-        #table.add_row([modelname, loss, optimizername, len(devices),decaySchedule['keras']])
-        #print(table)
-        #call distributed training script to allow for training on multiple gpus
-        train_dataset = strategy.experimental_distribute_dataset(train_loader.dataset)
-        valid_dataset = strategy.experimental_distribute_dataset(valid_loader.dataset)
-        train = DistributedTraining(model,
-                                    train_loader,
-                                    valid_loader,
-                                    optimizer, 
-                                    criterion,
-                                    config['batchSize'],
-                                    config['epoch'],
-                                    strategy, 
-                                    config['imageDims'], 
-                                    config['stopthresholds'],
-                                    config['activationthreshold'],
-                                    config['modelname'],
-                                    config['tasktype'])
+        #with tf.device('/cpu:0'):
+        model=FUNCMODELS[args.model_name](**nnParams)
+        model=model.build()
 
-        model, history = train.forward()
+    train_dataset = strategy.experimental_distribute_dataset(train_loader.dataset)
+    valid_dataset = strategy.experimental_distribute_dataset(valid_loader.dataset)
+    train = DistributedTraining(model,
+                                train_loader,
+                                valid_loader,
+                                optimizer, 
+                                criterion,
+                                config['batchSize'],
+                                config['epoch'],
+                                strategy, 
+                                config['imageDims'], 
+                                config['stopthresholds'],
+                                config['activationthreshold'],
+                                config['modelname'],
+                                config['tasktype'])
 
-        #model.save(os.path.join(outModelPath, modelName + '_' + currentTime + '.h5'))
-    #with open(os.path.join(outModelPath,  modelName+'_'+ currentTime + '_history'), 'wb') as f:
-        #pickle.dump(history, f)
-
-    #call predict on individual patches and entire annotated wsi region
-    #patchpredict = PatchPredictions(model, modelName, batchSize, currentTime, currentDate, activationthreshold)
-    #patchpredict(testdataset, os.path.join(outPath, 'predictions'))
+    model, history = train.forward()
     
-    #outpath='/home/verghese/breastcancer_ln_deeplearning/output/predictions/wsi'
-    #wsipredict = WSIPredictions(model, 
-                                #modelName, 
-                                #feature,
-                                #magnification,
-                                #step, 
-                                #step,
-                                #activationthreshold, 
-                                #currentTime,
-                                #currentDate, 
-                                #tasktype, 
-                                #normalize,
-                                #normalizeParams)
+    save_experiment(model,config,history,path,name)
+    get_train_curves(history,'train_loss','val_loss',out_path,name)
+    get_train_curves(history,'train_dice', 'val_dice',out_path,name)
 
-    #result = wsipredict(os.path.join(recordsPath, 'tfrecords_wsi'), outPath)
-    #ToDo: replace generic trainmetric with metric name from config file
-    #getTrainCurves(history,'trainloss','valloss',outCurvePath,modelName+'_'+currentTime)
-    #getTrainCurves(history,'trainmetric', 'valmetric', outCurvePath,modelName+'_'+currentTime)
-
-    #finally save the config for this file with the model and predictions
-    #configPath=os.path.join(outModelPath,modelName+'_'+currentTime+'_config.json')
-    #with open(configPath, 'w') as jsonFile:
-    #json.dump(params, jsonFile)
-
-    #return result
+    return result
 """
 
 if __name__ == '__main__':
@@ -240,4 +214,4 @@ if __name__ == '__main__':
     os.makedirs(out_predict_path,exist_ok=True)
 
     main(args,name)
-"""
+
