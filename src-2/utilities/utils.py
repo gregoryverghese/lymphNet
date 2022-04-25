@@ -6,47 +6,72 @@ import numpy as np
 import operator
 import matplotlib.pyplot as plt
 
-def oneHotToMask(onehot):
 
-    nClasses =  onehot.shape[-1]
-    idx = tf.argmax(onehot, axis=-1)
-    colors = sns.color_palette('hls', nClasses)
-    multimask = tf.gather(colors, idx)
-    multimask = np.where(multimask[:,:,:]==colors[0], 0, multimask[:,:,:])
+def one_hot_to_mask(one_hot):
+    n_classes = one_hot.shape[-1]
+    idx = tf.argmax(one_hot, axis=-1)
+    colors = sns.color_palette('hls', n_classes)
+    multi_mask = tf.gather(colors, idx)
+    multi_mask = np.where(multi_mask[:,:,:]==colors[0], 0, multi_mask[:,:,:])
+   
+    return multi_mask
 
-    return multimask
 
-
-def resizeImage(dim, factor=2048, threshold=0, op=operator.gt):
+def resize_image(dim, factor=2048, threshold=0, op=operator.gt):
     boundaries = [factor*i for i in range(100000)]
     boundaries = [f for f in boundaries if op(f,threshold)]
     diff = list(map(lambda x: abs(dim-x), boundaries))
-    newDim = boundaries[diff.index(min(diff))]
+    new_dim = boundaries[diff.index(min(diff))]
 
-    return newDim
+    return new_dim
 
 
-
-def getTrainCurves(history, tMetricName, vMetricName, outPath, modelname):
+def get_train_curves(history, train_metric, valid_metric, out_path, name):
     sns.set_style('dark')
-    trainMetric = history[tMetricName]
-    valMetric = history[vMetricName]
-    epochs = range(len(trainMetric))    
     fig = plt.figure(figsize=(8,5))
-    sns.lineplot(range(len(trainMetric)),trainMetric,markers=True,dashes=False,label='Training'+tMetricName)
-    sns.lineplot(range(len(trainMetric)),valMetric,markers=True,dashes=False,label='Validation'+tMetricName)
-    plt.title('Training and validation'+tMetricName)
+    epochs = range(len(history[train_metric]))
+
+    #plot train
+    sns.lineplot(epochs,
+                 history[train_metric],
+                 markers=True,
+                 dashes=False,
+                 label='Training'+train_metric)
+    
+    #plot validation
+    sns.lineplot(range(len(train_metric)),
+                 history[valid_metric],
+                 markers=True,
+                 dashes=False,
+                 label='Validation'+valid_metric)
+
+    plt.title('Training and validation'+train_metric)
     plt.xlabel('epochs')
     plt.ylabel('loss')
     plt.legend()
     plt.grid()
-    fig.savefig(os.path.join(outPath,modelname+tMetricName+'_graph.png'))
+    fig.savefig(os.path.join(out_path,name+'_'+train_metric+'.png'))
     plt.close()
 
-def getFiles(filesPath, ext):
-    filesLst=[]
-    for path, subdirs, files in os.walk(filesPath):
+
+def get_files(files_path, ext):
+    files_lst=[]
+    for path, subdirs, files in os.walk(files_path):
         for name in files:
             if name.endswith(ext):
-                filesLst.append(os.path.join(path,name))
-    return filesLst
+                files_lst.append(os.path.join(path,name))
+    return files_lst
+
+
+def save_experiment(model,history,config,name,out_path):
+    model.save(os.path.join(out_path, name+ '.h5'))
+    with open(os.path.join(out_path, name, '_history'), 'wb') as history_file:
+        pickle.dump(history, history_file)
+
+    with open(os.path.join(out_path, name + '_config'), 'w') as config_file:
+        json.dump(config_file, json_file)
+
+
+
+
+
