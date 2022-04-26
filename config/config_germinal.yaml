@@ -1,0 +1,33 @@
+---
+feature: "germinal",
+task_type: "binary",
+magnification: "2.5x"
+loss: ["weightedBinaryCrossEntropy"]
+name: "$model_$feature_$magnification_$augment_$dim_$step_$threshold" 
+ratio: 0.9
+batch_size: 32
+image_dims: 256
+epochs: 100
+augmentation: 
+        methods": [["Flip","Rotate90","Color"]]
+        saturation: [0.5,1.2]
+	brightness: 0.4
+	hue: 0.05
+	contrast: [0.8,1.5]
+	flip_prob: 0.5
+	rotate_prob: 0.5
+	color_prob: 0.5	
+num_classes: 1 
+weights: [5.02]
+model: 
+        network: "unet",
+        filters: [32,64,128,256,512]
+	final_activation: "sigmoid"
+learning_rate: 0.001 
+gpu_num: 4
+metric: "dice_coef" 
+threshold: 0.95
+early_stopping:
+	metric: [0.85,0.8]
+        epochs: [40, 80]
+step: 2048
