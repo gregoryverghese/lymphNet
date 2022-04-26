@@ -36,10 +36,10 @@ class DistributedTraining():
                  train_loader,
                  valid_loader,
                  optimizer, 
-                 criterion,  
+                 criterion,
+                 strategy,
                  batch_size,
                  epoch,
-                 strategy, 
                  img_dims,
                  stop_criteria,
                  threshold, 
@@ -51,6 +51,7 @@ class DistributedTraining():
         self.valid_loader = valid_loader
         self.optimizer = optimizer
         self.criterion = criterion
+        self.strategy = strategy
         self.epochs = epoch
         self.batch_size = batch_size
         self.strategy = strategy
@@ -73,7 +74,8 @@ class DistributedTraining():
         loss = self.criterion(label, predictions)
         loss = tf.reduce_sum(loss) * (1. / (self.img_dims*self.img_dims*self.batch_size))
         #loss = tf.reduce_sum(loss) * (1. / (self.batchSize))
-        return loss * (1/self.strategy.num_replicas_in_sync)
+        loss = loss * (1/self.strategy.num_replicas_in_sync)
+        return loss
 
 
     def compute_dice(self, y_true, y_pred):
@@ -86,7 +88,6 @@ class DistributedTraining():
         #axIdx=[1,2,3] if self.tasktype=='binary' else [1,2]
         dice = tf.reduce_mean([self.metric(y_true[:,:,:,i], y_pred[:,:,:,i])
                                for i in range(y_true.shape[-1])])
-        #dice = self.metric(yTrue, yPred)
         dice = dice * (1 / self.strategy.num_replicas_in_sync)
         return dice
 
@@ -128,8 +129,6 @@ class DistributedTraining():
 
     #ToDo: shitty hack to include progbar in distributed train function. need a
     #way of converting tensor i to integer
-
-
     @tf.function
     def _run(self,batch):
         replica_loss, replica_dice = self.strategy.run(self._train_step,args=(batch,))
@@ -210,6 +209,7 @@ class DistributedTraining():
         for epoch in range(self.epochs):
             #trainLoss, trainDice = self.distributedTrainEpoch(trainDistDataset)
             train_loss, train_dice = self._train()
+            print(train_loss,self.train_loader.steps)
             train_loss = float(train_loss/self.train_loader.steps)
             train_dice = float(train_dice/self.train_loader.steps)
             print(train_loss)
