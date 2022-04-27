@@ -97,14 +97,17 @@ def data_loader(path,config):
     valid_path = os.path.join(path,'validation','*.tfrecords')
     valid_files = glob.glob(valid_path)
     valid_loader=TFRecordLoader(valid_files,
-                               'valid',
+                               'test',
                                config['imageDims'],
                                config['tasktype'],
-                               config['batchSize'])
+                               #config['batchSize']
+                               1)
 
     valid_loader.record_size()
     print(f'n={valid_loader.tile_nums}')
     valid_loader.load(1)
+    valid_loader.normalize(norm_methods,norm_parameters)
+
     return train_loader,valid_loader
 
 
@@ -134,18 +137,11 @@ def main(args,name):
     devices = [x.name.replace('/physical_device:', '') for x in devices] 
     #devices = ['/device:GPU:{}'.format(i) for i in range(multiDict['num'])]
 
-    nnParams={'filters':config['model']['parameters']['filters'],
-              'finalActivation':config['model']['parameters']['finalActivation'],
-              'nOutput':config['nClasses'],
-              #'dims':config['imageDims'],
-              'upTypeName':config['upTypeName']
-                }
+    #model_params={'filters':config['model']['filters']
+                  #'activation':config['model']['activation'],
+                  #'n_output':config['num_classes'}
    
-    for i, batch in enumerate(train_loader.dataset):
-        print(batch.shape)
-        #print(np.unique(batch))
-
-    """
+    
     strategy = tf.distribute.MirroredStrategy(devices)
     with strategy.scope():
         boundaries=[30, 60]
@@ -154,7 +150,8 @@ def main(args,name):
         optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
         criterion = BinaryXEntropy(config['weights'][0])
         #with tf.device('/cpu:0'):
-        model=FUNCMODELS[args.model_name](**nnParams)
+        #model=FUNCMODELS[args.model_name](**model_params)
+        model=FUNCMODELS[args.model_name]()
         model=model.build()
 
     train_dataset = strategy.experimental_distribute_dataset(train_loader.dataset)
@@ -164,9 +161,9 @@ def main(args,name):
                                 valid_loader,
                                 optimizer, 
                                 criterion,
+                                strategy, 
                                 config['batchSize'],
                                 config['epoch'],
-                                strategy, 
                                 config['imageDims'], 
                                 config['stopthresholds'],
                                 config['activationthreshold'],
@@ -214,4 +211,4 @@ if __name__ == '__main__':
     os.makedirs(out_predict_path,exist_ok=True)
 
     main(args,name)
-
+"""
