@@ -181,12 +181,15 @@ class DistributedTraining():
         :params epoch: epoch number
         :returns stop: boolean
         '''
-        if epoch > self.stop_criteria['first']['epochs']:
-            if val_dice > self.stop_criteria['first']['metric']:
-                stop = True
-        elif epoch > self.stop_criteria['second']['epochs']:
-            if val_dice > self.stop_criteria['second']['metric']:
-                stop = True
+        first_epoch=self.stop_criteria['first']['epochs']
+        first_metric=self.stop_criteria['first']['metric']
+        second_epoch=self.stop_criteria['second']['epochs']
+        second_metric=self.stop_criteria['second']['metric']
+
+        if epoch > first_epoch and val_dice > first_metric:
+            stop = True
+        elif epoch > second_epoch and val_dice > second_metric:
+            stop = True
         else:
             stop = False
         return stop
