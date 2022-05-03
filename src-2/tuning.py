@@ -21,7 +21,7 @@ from main import main
 __author__ = 'Gregory Verghese'
 __email__ = 'gregory.e.verghese@kcl.ac.uk'
 
-N=20
+N=10
 
 def tuning(args):
 

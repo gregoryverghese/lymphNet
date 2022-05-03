@@ -190,9 +190,18 @@ class AttenUnetSC(Model):
 
 
 class AttenUnetFunc():
-    def __init__(self, filters=[16,32,64,128,256], finalActivation='sigmoid', 
-                 activation='relu', kSize=(3,3), nOutput=1, padding='same', dropout=0, 
-                 dilation=(1,1), normalize=True, upTypeName='upsampling', dtype='float32'):
+    def __init__(self, 
+                 filters=[16,32,64,128,256], 
+                 finalActivation='sigmoid', 
+                 activation='relu', 
+                 kSize=(3,3), 
+                 nOutput=1, 
+                 padding='same', 
+                 dropout=0, 
+                 dilation=(1,1), 
+                 normalize=True, 
+                 upTypeName='upsampling', 
+                 dtype='float32'):
 
         self.filters = filters
         self.activation = activation

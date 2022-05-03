@@ -35,8 +35,9 @@ from data.tfrecord_read import TFRecordLoader
 from utilities import decay_schedules
 from utilities.evaluation import diceCoef
 #from predict import WSIPredictions, PatchPredictions
-from utilities.utils import get_train_curves
+from utilities.utils import get_train_curves, save_experiment
 from utilities.custom_loss_classes import BinaryXEntropy, DiceLoss, CategoricalXEntropy
+
 
 FUNCMODELS={
             'unet':unet.UnetFunc,
@@ -51,16 +52,6 @@ FUNCMODELS={
             }
 
 
-SUBCLASSMODELS={
-              'unet':unet.UnetSC,
-              'unetmini':unet_mini.UnetMiniSC,
-              'attention':atten_unet.AttenUnetSC,
-              'multiscale':multiscale.MultiScaleUnetSC,
-              'resunet':resunet.ResUnetFunc,
-              'fcn8':unet.UnetFunc
-               } 
-
-
 #LOSSFUNCTIONS={
 #              'binary-xentropy':BinaryCrossEntropy
 #              'categorical-xentropy':CategoricalCrossEntropy,
@@ -73,14 +64,13 @@ def data_loader(path,config):
     #load training files
     train_path = os.path.join(path,'train','*.tfrecords')
     train_files = glob.glob(train_path)
-    print('crazy')
     train_loader=TFRecordLoader(train_files,
                                 'train',
                                 config['imageDims'],
                                 config['tasktype'],
                                 config['batchSize'])
     train_loader.record_size()
-    print(f'n={train_loader.tile_nums}')
+    print(f'tiles: n={train_loader.tile_nums}; steps:n={train_loader.steps}')
     
     #augment
     aug_methods=config['augmentation']['methods']
@@ -104,14 +94,14 @@ def data_loader(path,config):
                                1)
 
     valid_loader.record_size()
-    print(f'n={valid_loader.tile_nums}')
+    print(f'tiles: n={valid_loader.tile_nums}; steps:n={valid_loader.steps}')
     valid_loader.load(1)
     valid_loader.normalize(norm_methods,norm_parameters)
 
     return train_loader,valid_loader
 
 
-def main(args,name):
+def main(args,config,name,save_path):
     '''
     sets up analysis based on config file. Following design choices:
 
@@ -126,11 +116,8 @@ def main(args,name):
     :returns result: avg dice and iou score
     '''
 
-    with open(args.config_file) as json_file:
-        config = json.load(json_file)
-
-    path = os.path.join(args.record_path,args.record_dir)
-    train_loader,valid_loader=data_loader(path,config)
+    data_path = os.path.join(args.record_path,args.record_dir)
+    train_loader,valid_loader=data_loader(data_path,config)
         
     #get devices
     devices = tf.config.experimental.list_physical_devices('GPU')
@@ -162,22 +149,25 @@ def main(args,name):
                                 optimizer, 
                                 criterion,
                                 strategy, 
-                                config['batchSize'],
+                                config['batch_size'],
                                 config['epoch'],
-                                config['imageDims'], 
-                                config['stopthresholds'],
-                                config['activationthreshold'],
-                                config['modelname'],
-                                config['tasktype'])
+                                config['image_dims'], 
+                                config['early_stopping'],
+                                config['threshold'],
+                                config['model_name'],
+                                config['task_type'])
 
     model, history = train.forward()
-    
-    save_experiment(model,config,history,path,name)
-    get_train_curves(history,'train_loss','val_loss',out_path,name)
-    get_train_curves(history,'train_dice', 'val_dice',out_path,name)
+        
+    save_experiment(model,config,history,save_path,name)
+    get_train_curves(history,'train_loss','val_loss',save_path,name)
+    get_train_curves(history,'train_dice', 'val_dice',save_path,name)
+
+    if predict:
+        pass
 
     return result
-"""
+
 
 if __name__ == '__main__':
 
@@ -188,17 +178,21 @@ if __name__ == '__main__':
     ap.add_argument('-cp', '--checkpoint_path', required=True, help='path for checkpoint files')
     ap.add_argument('-cf', '--config_file', help='config file with parameters')
     ap.add_argument('-mn', '--model_name', help='neural network model')
+    ap.add_argument('-p', '--predict', help='set this flag to run the trained
+                    model on test set automatically')
     args = ap.parse_args()
-  
-
-    print(args)
+    
     #get current date and time for model name
     curr_date=str(datetime.date.today())
     curr_time=datetime.datetime.now().strftime('%H:%M')
-    name=curr_date+'_'+curr_time
+
+    with open(args.config_file) as yaml_file:
+        config=yaml.load(yaml_file, Loader=yaml.FullLoader)
+
+    name=config['name']+curr_date+'_'+curr_time
 
     #set up paths for models, training curves and predictions
-    save_path = os.path.join(args.save_path,curr_date+'_'+curr_time)
+    save_path = os.path.join(args.save_path,name)
     os.makedirs(save_path,exist_ok=True)
 
     save_model_path = os.path.join(save_path,'models')
@@ -210,5 +204,5 @@ if __name__ == '__main__':
     out_predict_path=os.path.join(save_path,'predictions')
     os.makedirs(out_predict_path,exist_ok=True)
 
-    main(args,name)
-"""
+    main(args,config,name,save_path)
+
