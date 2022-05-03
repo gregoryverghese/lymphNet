@@ -156,12 +156,14 @@ def main(args,config,name,save_path):
                                 config['threshold'],
                                 config['model_name'],
                                 config['task_type'])
-
+    
     model, history = train.forward()
-        
-    save_experiment(model,config,history,save_path,name)
-    get_train_curves(history,'train_loss','val_loss',save_path,name)
-    get_train_curves(history,'train_dice', 'val_dice',save_path,name)
+    
+    model_save_path=os.path.join(save_path,'models')
+    save_experiment(model,config,history,name,save_path)
+    curve_save_path=os.path.join(save_path,'curves')
+    get_train_curves(history,'train_loss','val_loss',curve_save_path)
+    get_train_curves(history,'train_dice', 'val_dice',curve_save_path)
 
     if predict:
         pass
@@ -198,11 +200,11 @@ if __name__ == '__main__':
     save_model_path = os.path.join(save_path,'models')
     os.makedirs(save_model_path,exist_ok=True)
 
-    out_curve_path = os.path.join(save_path,'curves')
-    os.makedirs(out_curve_path,exist_ok=True)
+    save_curve_path = os.path.join(save_path,'curves')
+    os.makedirs(save_curve_path,exist_ok=True)
 
-    out_predict_path=os.path.join(save_path,'predictions')
-    os.makedirs(out_predict_path,exist_ok=True)
+    save_predict_path=os.path.join(save_path,'predictions')
+    os.makedirs(save_predict_path,exist_ok=True)
 
     main(args,config,name,save_path)
 
