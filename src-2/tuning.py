@@ -31,36 +31,36 @@ def tuning(args):
     '''
     
     date = str(datetime.date.today())
-    currentTime = datetime.datetime.now().strftime('%H:%M')
-    resultsPath = os.path.join(args.out_path, 'summaries')
-    experiment_name=date+'_'+currentTime
+    current_time = datetime.datetime.now().strftime('%H:%M')
+    results_path = os.path.join(args.save_path, 'summaries')
+    experiment_name=date+'_'+current_time
 
     indexes = []
     results = []
 
-    modelname = args.model_name
-    configTemplate = args.config_file
+    model_name = args.model_name
+    config_template = args.config_file
 
     #open config template file and get parameters
-    with open(configTemplate) as jsonFile:
-        jsonDict = json.load(jsonFile)
+    with open(config_template) as yaml_file:
+        config = yaml.load(yaml_file, Loader=yaml.FullLoader)
 
-    losses = jsonDict['loss']
+    losses = config['loss']
     #dropouts = jsonDict['dropouts']
-    augmentation = jsonDict['augmentation']['methods'] 
+    augmentation = config['augmentation']['methods'] 
     augmentation=augmentation*N
-    feature = jsonDict['feature']
-    mag = jsonDict['magnification']
+    feature = config['feature']
+    mag = config['magnification']
     #Loop over parameters (augmentation and loss functions)
     for a in augmentation:
        for l in losses:
-          with open(configTemplate) as jsonFile:
-              jsonDict = json.load(jsonFile)
+          with open(config_template) as yaml_file:
+              config = yaml.load(yaml_file)
 
-          jsonDict['loss'] = l
-          jsonDict['augmentation']['methods'] = a
-          name = jsonDict['modelname']
-          name = name.replace('$model', modelname)
+          config['loss'] = l
+          config['augmentation']['methods'] = a
+          name = config['experiment_name']
+          name = name.replace('$model', experiment_name)
           name = name.replace('$loss', l)
           #name = name.replace('$drop', str(d))
           augInitials = [i[0] for i in a]
