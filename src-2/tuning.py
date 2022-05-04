@@ -12,6 +12,7 @@ import os
 import json
 import datetime
 import argparse
+import yaml
 
 import tensorflow as tf
 import pandas as pd
@@ -47,7 +48,7 @@ def tuning(args,config,save_path,curr_date,curr_time):
           config['loss'] = l
           config['augmentation']['methods'] = a
           #generate experiment name using 
-          name = config['experiment_name']
+          name = config['name']
           name = name.replace('$model', model_name)
           name=name.replace('$feature',str(config['feature']))
           name=name.replace('$mag',str(config['magnification']))
@@ -64,9 +65,9 @@ def tuning(args,config,save_path,curr_date,curr_time):
           curve_save_path = os.path.join(save_path,'curves')
           os.makedirs(curve_save_path,exist_ok=True)
           save_predict_path=os.path.join(save_path,'predictions')
-          os.makedirs(predict_save_path,exist_ok=True)
+          os.makedirs(save_predict_path,exist_ok=True)
 
-          args.config_file = config_file
+          args.config_file = config
           #save down analysis specific config file
           #config_save_path = os.path.join(os.path.split(config_template)[0], name+'.json')
           #with open(config_save_path, 'w') as config_file:
@@ -88,12 +89,11 @@ if __name__ == '__main__':
     ap = argparse.ArgumentParser()
     ap.add_argument('-rp', '--record_path', required=True, help='path to tfrecords')
     ap.add_argument('-rd', '--record_dir', required=True, help='directory for the tfrecords dataset')
-    ap.add_argument('-op', '--out_path', required=True, help='output path for predictions')
+    ap.add_argument('-op', '--save_path', required=True, help='output path for predictions')
     ap.add_argument('-cp', '--checkpoint_path', required=True, help='path for checkpoint files')
     ap.add_argument('-cf', '--config_file', help='file containing parameters')
     ap.add_argument('-mn', '--model_name', help='name of neural network model') 
-    ap.add_argument('-p', '--predict', help='set this flag to run the trained
-                    model on test set automatically')
+    ap.add_argument('-p', '--predict', help='set this flag to run the trained model on test set automatically')
 
     args = ap.parse_args()
 
