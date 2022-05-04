@@ -10,7 +10,7 @@ import glob
 import pickle
 import random
 import argparse
-import json
+import yaml
 import datetime
 
 import cv2
@@ -66,21 +66,22 @@ def data_loader(path,config):
     train_files = glob.glob(train_path)
     train_loader=TFRecordLoader(train_files,
                                 'train',
-                                config['imageDims'],
-                                config['tasktype'],
-                                config['batchSize'])
+                                config['image_dims'],
+                                config['task_type'],
+                                config['batch_size'])
     train_loader.record_size()
     print(f'tiles: n={train_loader.tile_nums}; steps:n={train_loader.steps}')
     
     #augment
     aug_methods=config['augmentation']['methods']
-    aug_parameters=config['augmentation']['parameters']
-    train_loader.load(config['batchSize'])
+    aug_parameters=config['augmentation']
+
+    train_loader.load(config['batch_size'])
     train_loader.augment(aug_methods,aug_parameters)
 
     #normalize
     norm_methods=config['normalize']['methods']
-    norm_parameters=config['normalize']['parameters']
+    norm_parameters=config['normalize']
     train_loader.normalize(norm_methods,norm_parameters)
     
     #load validation files
@@ -88,8 +89,8 @@ def data_loader(path,config):
     valid_files = glob.glob(valid_path)
     valid_loader=TFRecordLoader(valid_files,
                                'test',
-                               config['imageDims'],
-                               config['tasktype'],
+                               config['image_dims'],
+                               config['task_type'],
                                #config['batchSize']
                                1)
 
@@ -150,7 +151,7 @@ def main(args,config,name,save_path):
                                 criterion,
                                 strategy, 
                                 config['batch_size'],
-                                config['epoch'],
+                                config['epochs'],
                                 config['image_dims'], 
                                 config['early_stopping'],
                                 config['threshold'],
@@ -180,8 +181,7 @@ if __name__ == '__main__':
     ap.add_argument('-cp', '--checkpoint_path', required=True, help='path for checkpoint files')
     ap.add_argument('-cf', '--config_file', help='config file with parameters')
     ap.add_argument('-mn', '--model_name', help='neural network model')
-    ap.add_argument('-p', '--predict', help='set this flag to run the trained
-                    model on test set automatically')
+    ap.add_argument('-p', '--predict', help='set this flag to run the trained model on test set automatically')
     args = ap.parse_args()
     
     #get current date and time for model name
