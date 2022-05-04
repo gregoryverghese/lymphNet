@@ -81,9 +81,9 @@ class TFRecordLoader():
                       params['saturation'], 
                       params['contrast'], 
                       params['brightness'], 
-                      params['rotateProb'], 
-                      params['flipProb'], 
-                      params['colorProb'])
+                      params['rotate_prob'], 
+                      params['flip_prob'], 
+                      params['color_prob'])
         print('\n'*2+'Applying following Augmentations to'+self.name+' dataset \n')
         for i, a in enumerate(methods):
             print('{}: {}'.format(i, a))
@@ -99,8 +99,8 @@ class TFRecordLoader():
         
 
     def normalize(self,methods,params):
-        channel_means=params['channelMeans']
-        channel_std=params['channelStd']
+        channel_means=params['channel_mean']
+        channel_std=params['channel_std']
         norm = Normalize(channel_means,channel_std)
         print('\n'*2+'Applying following normalization methods to '+ self.name+' dataset \n')
         for i, n in enumerate(methods):
