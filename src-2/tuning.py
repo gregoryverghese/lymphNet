@@ -23,19 +23,19 @@ __email__ = 'gregory.e.verghese@kcl.ac.uk'
 
 N=10
 
-def tuning(args,config,experiment_name,save_path):
+def tuning(args,config,save_path,curr_date,curr_time):
 
     '''
     generates series of config files to tune different parameters
     :param args: command line arguments
-    ''' 
-  
+    '''  
+
     indexes = []
     results = []
 
     model_name = args.model_name
     losses = config['loss']
-    #dropouts = jsonDict['dropouts']
+    #dropouts = config['dropouts']
     augmentation = config['augmentation']['methods'] 
     augmentation=augmentation*N
     feature = config['feature']
@@ -49,14 +49,13 @@ def tuning(args,config,experiment_name,save_path):
           #generate experiment name using 
           name = config['experiment_name']
           name = name.replace('$model', model_name)
-
           name=name.replace('$feature',str(config['feature']))
           name=name.replace('$mag',str(config['magnification']))
           aug_initials = [i[0] for i in a]
           name = name.replace('$augment', ''.join(aug_initials))
           name=name.replace('$dim',str(config['image_dims']))
           config['experiment_name'] = name
-          
+          name = name+curr_date+'_'+curr_time 
           #set up folders for experiment
           save_path = os.path.join(args.save_path,name)
           os.makedirs(save_path,exist_ok=True)
@@ -72,7 +71,8 @@ def tuning(args,config,experiment_name,save_path):
           #config_save_path = os.path.join(os.path.split(config_template)[0], name+'.json')
           #with open(config_save_path, 'w') as config_file:
               #json.dump(config, config_file)
-
+          
+          print(f'experiment name: {name}')
           result = main(args,config,name,save_path)
           indexes.append(name)
           results.append(result)
@@ -97,17 +97,14 @@ if __name__ == '__main__':
 
     args = ap.parse_args()
 
-    #get current date and time for model name
     curr_date=str(datetime.date.today())
     curr_time=datetime.datetime.now().strftime('%H:%M')
 
     with open(args.config_file) as yaml_file:
         config=yaml.load(yaml_file, Loader=yaml.FullLoader)
 
-    name=config['name']+curr_date+'_'+curr_time
-
     #set up paths for models, training curves and predictions
     save_path = os.path.join(args.save_path,curr_date)
     os.makedirs(save_path,exist_ok=True)
 
-    tuning(args,config,name,save_path)
+    tuning(args,config,save_path,curr_date,curr_time)
