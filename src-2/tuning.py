@@ -23,28 +23,17 @@ __email__ = 'gregory.e.verghese@kcl.ac.uk'
 
 N=10
 
-def tuning(args):
+def tuning(args,config,experiment_name,save_path):
 
     '''
     generates series of config files to tune different parameters
     :param args: command line arguments
-    '''
-    
-    date = str(datetime.date.today())
-    current_time = datetime.datetime.now().strftime('%H:%M')
-    results_path = os.path.join(args.save_path, 'summaries')
-    experiment_name=date+'_'+current_time
-
+    ''' 
+  
     indexes = []
     results = []
 
     model_name = args.model_name
-    config_template = args.config_file
-
-    #open config template file and get parameters
-    with open(config_template) as yaml_file:
-        config = yaml.load(yaml_file, Loader=yaml.FullLoader)
-
     losses = config['loss']
     #dropouts = jsonDict['dropouts']
     augmentation = config['augmentation']['methods'] 
@@ -52,43 +41,45 @@ def tuning(args):
     feature = config['feature']
     mag = config['magnification']
     #Loop over parameters (augmentation and loss functions)
+    #generate experiment specific config file
     for a in augmentation:
        for l in losses:
-          with open(config_template) as yaml_file:
-              config = yaml.load(yaml_file)
-
           config['loss'] = l
           config['augmentation']['methods'] = a
+          #generate experiment name using 
           name = config['experiment_name']
-          name = name.replace('$model', experiment_name)
-          name = name.replace('$loss', l)
-          #name = name.replace('$drop', str(d))
-          augInitials = [i[0] for i in a]
-          name = name.replace('$augment', ''.join(augInitials))
-          name=name.replace('$optimizer',jsonDict['optimizer']['method'])
-          name=name.replace('$epoch',str(jsonDict['epoch']))
-          name=name.replace('$dim',str(jsonDict['imageDims']))
+          name = name.replace('$model', model_name)
+
+          name=name.replace('$feature',str(config['feature']))
+          name=name.replace('$mag',str(config['magnification']))
+          aug_initials = [i[0] for i in a]
+          name = name.replace('$augment', ''.join(aug_initials))
+          name=name.replace('$dim',str(config['image_dims']))
+          config['experiment_name'] = name
           
-          name=name.replace('$uptypename',str(jsonDict['upTypeName']))
-          name=name.replace('$threshold',str(jsonDict['activationthreshold']))
-          name=name.replace('$feature',str(jsonDict['feature']))
-          name=name.replace('$magnification',str(jsonDict['magnification']))
-          jsonDict['modelname'] = name
-          
+          #set up folders for experiment
+          save_path = os.path.join(args.save_path,name)
+          os.makedirs(save_path,exist_ok=True)
+          model_save_path = os.path.join(save_path,'models')
+          os.makedirs(model_save_path,exist_ok=True)
+          curve_save_path = os.path.join(save_path,'curves')
+          os.makedirs(curve_save_path,exist_ok=True)
+          save_predict_path=os.path.join(save_path,'predictions')
+          os.makedirs(predict_save_path,exist_ok=True)
+
+          args.config_file = config_file
           #save down analysis specific config file
-          configFile = os.path.join(os.path.split(configTemplate)[0], name+'.json')
-          args.config_file = configFile
-          with open(configFile, 'w') as jsonFile:
-              json.dump(jsonDict, jsonFile)
-          print(args) 
-          print(args.config_file)
-          result = main(args,experiment_name)
+          #config_save_path = os.path.join(os.path.split(config_template)[0], name+'.json')
+          #with open(config_save_path, 'w') as config_file:
+              #json.dump(config, config_file)
+
+          result = main(args,config,name,save_path)
           indexes.append(name)
           results.append(result)
 
     #results (avg dice and IOU for each analysis are saved down in a csv file
     df = pd.DataFrame({'dice': results}, index=indexes)
-    df.to_csv(os.path.join(resultsPath,modelname+'_'+mag+'_'+feature+'_'+date+'_'+currentTime+'.csv'))
+    df.to_csv(os.path.join(save_path,'summary.csv'))
 
 
 
@@ -101,8 +92,22 @@ if __name__ == '__main__':
     ap.add_argument('-cp', '--checkpoint_path', required=True, help='path for checkpoint files')
     ap.add_argument('-cf', '--config_file', help='file containing parameters')
     ap.add_argument('-mn', '--model_name', help='name of neural network model') 
+    ap.add_argument('-p', '--predict', help='set this flag to run the trained
+                    model on test set automatically')
+
     args = ap.parse_args()
-    
-    devices  = tf.config.experimental.list_physical_devices('GPU')
-    print(devices)
-    tuning(args)
+
+    #get current date and time for model name
+    curr_date=str(datetime.date.today())
+    curr_time=datetime.datetime.now().strftime('%H:%M')
+
+    with open(args.config_file) as yaml_file:
+        config=yaml.load(yaml_file, Loader=yaml.FullLoader)
+
+    name=config['name']+curr_date+'_'+curr_time
+
+    #set up paths for models, training curves and predictions
+    save_path = os.path.join(args.save_path,curr_date)
+    os.makedirs(save_path,exist_ok=True)
+
+    tuning(args,config,name,save_path)
