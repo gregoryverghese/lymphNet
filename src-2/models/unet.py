@@ -139,131 +139,108 @@ class UnetSC(Model):
 class UnetFunc():
     def __init__(self, 
                  filters=[32,64,128,256,512], 
-                 finalActivation='sigmoid', 
+                 final_activation='sigmoid', 
                  activation='relu',
-                 nOutput=1, 
-                 kernelSize=(3,3), 
-                 pSize=(2,2),
+                 n_output=1, 
+                 kernel_size=(3,3), 
+                 pooling_size=(2,2),
                  initializer='glorot_uniform',
                  dropout=0, 
                  normalize=True, 
                  padding='same', 
-                 upTypeName='upsampling', 
+                 up_layer='upsampling', 
                  dtype='float32'):
 
         self.filters = filters
+        self.final_activation = final_activation
         self.activation = activation
-        self.finalActivation = finalActivation
-        self.nOutput = nOutput
-        self.kernelSize = kernelSize
-        self.pSize = pSize
+        self.n_output = n_output
+        self.kernel_size = kernel_size
+        self.p_size = p_size
         self.dropout=dropout
         self.normalize = normalize
         self.padding = padding
-        self.upTypeName = upTypeName
+        self.up_layer = up_layer
         self.dtype = dtype
 
 
-    def convLayer(self):
-        x = Conv2D(filters=f, 
-                   kernel_size=self.kernelSize,
-                   padding=self.padding, 
-                   kernel_initializer='glorot_uniform')
+    def conv_layer(self,f):
+        return Conv2D(
+                    filters=f, 
+                    kernel_size=self.kernel_size,
+                    padding=self.padding, 
+                    kernel_initializer=self.initializer
+                    )
+    
 
-
-
-
-    def convBlock(self, x, f, dilation,contraction=True):
-
-        x = Conv2D(filters=f, 
-                   kernel_size=self.kernelSize,
-                   padding=self.padding, 
-                   kernel_initializer='glorot_uniform')(x)
+    def conv_block(self, x, f, dilation, contraction=True):
+        x = self.conv_layer(f)(x) 
         x = BatchNormalization()(x) if self.normalize else x
         #x = GaussianNoise(0.3)(x)
         x = ReLU()(x)
         #x = LeakyReLU(0.1)(x)
         #x = Dropout(0.2)(x) if contraction else x
-        #x = Conv2D(filters=f, kernel_size=self.kernelSize, activation=self.activation,                        
-                   #padding=self.padding)(x)
-        x = Conv2D(filters=f,kernel_size=self.kernelSize,padding=self.padding,
-                   kernel_initializer='glorot_uniform', dilation_rate=dilation)(x)
+        x = self.conv_layer(f)(x)
         x = BatchNormalization()(x) if self.normalize else x
         #x = GaussianNoise(0.3)(x)
         #x = LeakyReLU(0.1)(x)
         x = ReLU()(x)
-        #x = Dropout(0.2)(x) if contraction else x
-         
-        #x = Conv2D(filters=f, kernel_size=self.kernelSize,
-        #           padding=self.padding,kernel_initializer='glorot_uniform')(x)
-        #x = BatchNormalization()(x) if self.normalize else x
         #x = LeakyReLU(0.1)(x)
-        #x = Dropout(self.dropout)(x) if contraction else x
+        #x = Dropout(0.2)(x) if contraction else x 
         return x
 
 
-    def bridge(self, x, f, kSize=(3, 3)):
+    def bridge(self, x, f):
 
-        x = Conv2D(f,kSize,padding=self.padding,
-                   kernel_initializer='glorot_uniform')(x)
+        x = self.conv_layer(f)(x)
         x = BatchNormalization()(x) if self.normalize else x
-        x = Conv2D(f, kSize,padding=self.padding,
-                   kernel_initializer='glorot_uniform')(x)
+        x = self.conv_layer(f)(x)
         x = BatchNormalization()(x) if self.normalize else x
 
-        #x = Conv2D(f, kSize, padding=self.padding,
-                   #kernel_initializer='glorot_uniform')(x)
-        #x = BatchNormalization()(x) if self.normalize else x
         return x
 
 
-    def encoder(self, inputTensor):
+    def encoder(self, x):
 
-        e1 = self.convBlock(inputTensor, self.filters[0], 1)
+        e1 = self.conv_block(x, self.filters[0], 1)
         p1 = MaxPooling2D((2,2))(e1)
-        e2 = self.convBlock(p1, self.filters[1],1)
+        e2 = self.conv_block(p1, self.filters[1],1)
         p2 = MaxPooling2D((2,2))(e2)
-        e3 = self.convBlock(p2, self.filters[2],1)
+        e3 = self.conv_block(p2, self.filters[2],1)
         p3 = MaxPooling2D((2,2))(e3)
-        e4 = self.convBlock(p3, self.filters[3],1)
+        e4 = self.conv_block(p3, self.filters[3],1)
         p4 = MaxPooling2D((2,2))(e4)
-        #bridge = self.bridge(p4, self.filters[4])
-        bridge=self.convBlock(p4, self.filters[4],1)
+        bridge=self.conv_block(p4, self.filters[4],1)
 
         return e1,e2,e3,e4,bridge
 
 
+    def up_layer(self,f)
+        if self.up_layer=='upsampling':
+            return UpSampling2D((2,2))
+        elif self.up_layer=='transpose':
+            return Conv2DTranspose(f,
+                                   self.kernel_size,
+                                   activation=self.activation, 
+                                   strides=(2,2), 
+                                   padding='same')
+
+
     def decoder(self, e1,e2,e3,e4, bridge):
 
-        if self.upTypeName=='upsampling':
-            d5 = UpSampling2D((2,2))(bridge)
-        elif self.upTypeName=='transpose':
-            d5 = Conv2DTranspose(self.filters[4],self.kernelSize,activation='relu', strides=(2,2), padding='same')(bridge)
-
+        d5 = self.up_layer(self.filters[4])(bridge)
         d5 = Concatenate()([e4, d5])
-        d5 = self.convBlock(d5, self.filters[3], 1,contraction=False)
+        d5 = self.conv_block(d5, self.filters[3], 1,contraction=False)
 
-        if self.upTypeName=='upsampling':
-            d4 = UpSampling2D((2,2))(d5)
-        elif self.upTypeName=='transpose':
-            d4 = Conv2DTranspose(self.filters[3], self.kernelSize, activation='relu', strides=(2,2),padding='same')(d5)
-
+        d4 = self.up_layer(self.filters[3])(d5)
         d4 = Concatenate()([e3, d4])
-        d4 = self.convBlock(d4, self.filters[2], 1,contraction=False)
+        d4 = self.conv_block(d4, self.filters[2], 1,contraction=False)
         
-        if self.upTypeName=='upsampling':
-            d3 = UpSampling2D((2,2))(d4)
-        elif self.upTypeName=='transpose':
-            d3 = Conv2DTranspose(self.filters[2], self.kernelSize, activation='relu', strides=(2,2), padding='same')(d4)
-
+        d3 = self.up_layer(self.filters[2])(d4)
         d3 = Concatenate()([e2, d3])
-        d3 = self.convBlock(d3, self.filters[1], 1,contraction=False)
+        d3 = self.conv_block(d3, self.filters[1], 1,contraction=False)
 
-        if self.upTypeName=='upsampling':
-            d2 = UpSampling2D((2,2))(d3)
-        elif self.upTypeName=='transpose':
-            d2 = Conv2DTranspose(self.filters[1], self.kernelSize,activation='relu', strides=(2,2), padding='same')(d3)
-
+        d2 = self.up_layer(self.filters[2])(d3)
         d2 = Concatenate()([e1, d2])
         d2 = self.convBlock(d2, self.filters[0], 1,contraction=False)
 
@@ -272,11 +249,13 @@ class UnetFunc():
 
     def build(self):
 
-        tensorInput = Input((None, None, 3))
-        e1,e2,e3,e4,bridge = self.encoder(tensorInput)
+        input_tensor = Input((None, None, 3))
+        e1,e2,e3,e4,bridge = self.encoder(input_tensor)
         d2 = self.decoder(e1,e2,e3,e4, bridge)
-        finalMap = Conv2D(self.nOutput, (1, 1), strides=(1,1), activation=self.finalActivation)(d2)
-        
+        final_tensor = Conv2D(self.n_output, 
+                             (1, 1), 
+                             strides=(1,1),
+                             activation=self.final_activation)(d2)
         '''
         finalMap = CrfRnnLayer(image_dims=(height, width),
                              num_classes=2,
@@ -286,7 +265,5 @@ class UnetFunc():
                              num_iterations=10,
                              name='crfrnn')([d2,tensorInput])
         '''
-
-        model = Model(tensorInput, finalMap)
-
+        model = Model(x, final_tensor)
         return model
