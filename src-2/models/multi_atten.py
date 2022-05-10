@@ -6,6 +6,8 @@ from tensorflow.keras.layers import Conv2D, UpSampling2D, Input, Concatenate,con
 from tensorflow.keras.layers import  Activation, Dropout, BatchNormalization, MaxPooling2D, Add, Multiply
 from tensorflow.keras.regularizers import l2
 
+
+
 class MultiAttenFunc():
     def __init__(self, filters=[32,64,128,256,512],finalActivation='sigmoid',
                  activation='relu',nOutput=1,kSize=(3,3),pSize=(2,2),pool=(1,1),padding='same',

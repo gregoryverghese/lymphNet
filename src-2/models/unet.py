@@ -12,9 +12,7 @@ from tensorflow.keras.layers import Conv2D, UpSampling2D,BatchNormalization,Gaus
 from tensorflow.keras.layers import MaxPooling2D, Dropout, Activation, Concatenate
 from tensorflow.keras.layers import Add, Multiply, Input, Conv2DTranspose,LeakyReLU, ReLU
 
-from conv_blocks import conv_layer, conv_block, up_layer
-#from crfrnn_layer import CrfRnnLayer
-
+from layers import ConvLayer,UpLayer, conv_block
 
 
 class UnetFunc():
@@ -45,7 +43,7 @@ class UnetFunc():
         self.dtype = dtype
 
 
-    @property
+   @property
     def conv_layer(self):
         return ConvLayer(
              self.kernel_size,
@@ -66,9 +64,9 @@ class UnetFunc():
 
     def bridge(self, x, f):
 
-        x = conv_layer(f)(x)
+        x = self.conv_layer(f)(x)
         x = BatchNormalization()(x) if self.normalize else x
-        x = conv_layer(f)(x)
+        x = self.conv_layer(f)(x)
         x = BatchNormalization()(x) if self.normalize else x
 
         return x
@@ -103,7 +101,7 @@ class UnetFunc():
         d3 = Concatenate()([e2, d3])
         d3 = conv_block(d3, self.filters[1], self.conv_layer)
 
-        d2 = self.up_layer(self.filters[2])(d3)
+        d2 = self.up_layer(self.filters[1])(d3)
         d2 = Concatenate()([e1, d2])
         d2 = conv_block(d2, self.filters[0], self.conv_layer)
 
@@ -128,5 +126,5 @@ class UnetFunc():
                              num_iterations=10,
                              name='crfrnn')([d2,tensorInput])
         '''
-        model = Model(x, final_tensor)
+        model = Model(input_tensor, final_tensor)
         return model
