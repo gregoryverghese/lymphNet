@@ -12,22 +12,22 @@ from tensorflow.keras.layers import Conv2D, UpSampling2D,BatchNormalization,Gaus
 from tensorflow.keras.layers import MaxPooling2D, Dropout, Activation, Concatenate
 from tensorflow.keras.layers import Add, Multiply, Input, Conv2DTranspose,LeakyReLU, ReLU
 
-from layers import ConvLayer,UpLayer, conv_block
+from .layers import ConvLayer, UpLayer, conv_block
 
 
-class UnetFunc():
+class Unet():
     def __init__(self, 
                  filters=[32,64,128,256,512], 
                  final_activation='sigmoid', 
                  activation='relu',
                  n_output=1, 
                  kernel_size=(3,3), 
-                 pooling_size=(2,2),
+                 pool=(2,2),
                  initializer='glorot_uniform',
                  dropout=0, 
                  normalize=True, 
                  padding='same', 
-                 up_layer='upsampling', 
+                 up_type='upsampling', 
                  dtype='float32'):
 
         self.filters = filters
@@ -35,15 +35,16 @@ class UnetFunc():
         self.activation = activation
         self.n_output = n_output
         self.kernel_size = kernel_size
-        self.p_size = p_size
+        self.pool = pool
+        self.initializer = initializer
         self.dropout=dropout
         self.normalize = normalize
         self.padding = padding
-        self.up_layer = up_layer
+        self.up_type = up_type
         self.dtype = dtype
 
 
-   @property
+    @property
     def conv_layer(self):
         return ConvLayer(
              self.kernel_size,
@@ -58,7 +59,7 @@ class UnetFunc():
             self.padding,
             self.initializer,
             self.activation,
-            self.layer_type,
+            self.up_type,
             )
         
 

@@ -6,7 +6,7 @@ from tensorflow.keras.layers import Conv2D, Conv2DTranspose, MaxPooling2D, Batch
 from tensorflow.keras.layers import UpSampling2D, Dropout, Input, concatenate, LeakyReLU, Concatenate, Activation
 
 
-class MobileUnetFunc():
+class MobileUnet():
     def __init__(self, filters=[16, 32, 48, 64], finalActivation='sigmoid', nOutput=1,upTypeName='upsampling'):
         self.filters = [16, 32, 48, 64]
         self.finalActivation=finalActivation

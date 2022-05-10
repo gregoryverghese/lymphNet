@@ -14,19 +14,23 @@ from tensorflow.keras.regularizers import l2,l1_l2
 from tensorflow.keras.layers import Conv2D, UpSampling2D, Input, Concatenate, concatenate, Conv2DTranspose, ReLU
 from tensorflow.keras.layers import Activation, Dropout, BatchNormalization, MaxPooling2D, Add, Multiply, Input
 
+from .layers import ConvLayer, UpLayer, conv_block
 
-class AttenUnetFunc():
+
+class AttenUnet():
     def __init__(self, 
                  filters=[32,64,128,256,512], 
                  final_activation='sigmoid', 
                  activation='relu', 
                  kernel_size=(3,3), 
                  n_output=1, 
-                 padding='same', 
+                 padding='same',
+                 pool=(2,2),
+                 initializer='glorot_uniform',
                  dropout=0, 
                  dilation=(1,1), 
                  normalize=True, 
-                 up_layer='upsampling', 
+                 up_type='upsampling', 
                  dtype='float32'):
 
         self.filters = filters
@@ -36,8 +40,10 @@ class AttenUnetFunc():
         self.normalize = normalize
         self.kernel_size = kernel_size
         self.n_output = n_output
+        self.pool = pool
+        self.initializer = initializer
         self.dropout = dropout
-        self.up_layer = up_layer
+        self.up_type = up_type
 
 
     @property
@@ -55,7 +61,7 @@ class AttenUnetFunc():
             self.padding,
             self.initializer,
             self.activation,
-            self.layer_type,
+            self.up_type,
             )
 
 
@@ -96,15 +102,15 @@ class AttenUnetFunc():
 
     def encoder(self, x):
 
-        e1 = self.convBlock(x, self.filters[0])
+        e1 = conv_block(x, self.filters[0], self.conv_layer)
         p1 = MaxPooling2D(pool_size=(2,2))(e1)
-        e2 = self.convBlock(p1, self.filters[1])
+        e2 = conv_block(p1, self.filters[1], self.conv_layer)
         p2 = MaxPooling2D(pool_size=(2,2))(e2)
-        e3 = self.convBlock(p2, self.filters[2])
+        e3 = conv_block(p2, self.filters[2], self.conv_layer)
         p3 = MaxPooling2D(pool_size=(2,2))(e3)
-        e4 = self.convBlock(p3, self.filters[3])
+        e4 = conv_block(p3, self.filters[3], self.conv_layer)
         p4 = MaxPooling2D(pool_size=(2,2))(e4)
-        bridge = self.convBlock(p4, self.filters[4])
+        bridge = conv_block(p4, self.filters[4], self.conv_layer)
 
         return e1,e2,e3,e4,bridge
 
@@ -119,19 +125,19 @@ class AttenUnetFunc():
 
         d4 = self.up_layer(self.filters[4])(bridge)
         d4 = Concatenate()([d4, a4])
-        d4 = self.conv_block(d4, self.filters[3])
+        d4 = conv_block(d4, self.filters[3], self.conv_layer)
 
         d3 = self.up_layer(self.filters[3])(d4)
         d3 = Concatenate()([d3, a3])
-        d3 = self.conv_block(d3, self.filters[2])
+        d3 = conv_block(d3, self.filters[2], self.conv_layer)
 
         d2 = self.up_layer(self.filters[2])(d3)
         d2 = Concatenate()([d2, a2])
-        d2 = self.conv_block(d2, self.filters[1])
+        d2 = conv_block(d2, self.filters[1], self.conv_layer)
 
-        d1 = self.up_layer(self.filters[1])(d3)
+        d1 = self.up_layer(self.filters[1])(d2)
         d1 = Concatenate()([d1, e1])
-        d1 = self.convBlock(d1, self.filters[0])
+        d1 = conv_block(d1, self.filters[0], self.conv_layer)
 
         return d1
 

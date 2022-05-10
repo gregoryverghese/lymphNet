@@ -12,7 +12,7 @@ import tensorflow.keras.backend as K
 from tensorflow.keras.layers import Conv2D, UpSampling2D, Input, Concatenate,concatenate, Conv2DTranspose, ReLU
 from tensorflow.keras.layers import  Activation, Dropout, BatchNormalization, MaxPooling2D, Add, Multiply
 
-from layers import multi_block, conv_block, ConvLayer, UpLayer
+from .layers import multi_block, conv_block, ConvLayer, UpLayer
 
 
 class MSUnet():
@@ -26,14 +26,16 @@ class MSUnet():
                  padding='same', 
                  stride=(1,1),  
                  dilation=1, 
+                 initializer='glorot_uniform',
                  dropout=0, 
                  normalize=True,
-                 up_layer='upsampling', 
+                 up_type='upsampling', 
                  dtype='float32'):
 
 
         self.filters = filters
         self.final_activation = final_activation
+        self.activation = activation
         self.n_output = n_output
         self.kernel_size = kernel_size
         self.pooling = pooling
@@ -42,9 +44,10 @@ class MSUnet():
         self.n_output = n_output
         self.stride = stride
         self.dilation= dilation
+        self.initializer=initializer
         self.dropout=dropout
         self.normalize = normalize
-        self.up_layer=up_layer
+        self.up_type=up_type
 
 
     @property
@@ -52,7 +55,6 @@ class MSUnet():
         return ConvLayer(
              self.kernel_size,
              self.padding,
-             self.dilation,
              self.initializer
              )
 
@@ -64,18 +66,18 @@ class MSUnet():
             self.padding,
             self.initializer,
             self.activation,
-            self.layer_type,
+            self.up_type,
             )
     
     
     def encoder(self, x):
 
         x = conv_block(x, self.filters[0],self.conv_layer)
-        e1 = self.multi_block(x, self.filters[1],self.conv_layer,self.up_layer)
-        e2 = self.multi_block(e1, self.filters[2], self.conv_layer,self.up_layer)
-        e3 = self.multi_block(e2, self.filters[3], self.conv_layer,self.up_layer)
-        e4 = self.multi_block(e3, self.filters[4], self.conv_layer,self.up_layer)
-        e5 = self.multi_block(e4, self.filters[4], self.conv_layer,self.up_layer)
+        e1 = multi_block(x, self.filters[1],self.conv_layer,self.up_layer)
+        e2 = multi_block(e1, self.filters[2], self.conv_layer,self.up_layer)
+        e3 = multi_block(e2, self.filters[3], self.conv_layer,self.up_layer)
+        e4 = multi_block(e3, self.filters[4], self.conv_layer,self.up_layer)
+        e5 = multi_block(e4, self.filters[4], self.conv_layer,self.up_layer)
 
         return x, e1,e2,e3,e4,e5
 
@@ -108,9 +110,9 @@ class MSUnet():
     def build(self):
 
         tensor_input = Input((None, None, 3))
-        x, e1,e2,e3,e4,e5 = self.encoder(tensor_Input)
+        x, e1,e2,e3,e4,e5 = self.encoder(tensor_input)
         x = self.decoder(x, e1,e2,e3,e4,e5)
-        final = Conv2D(self.nOutput, kernel_size=(1, 1), strides=1,activation=self.final_activation)(x)
+        final = Conv2D(self.n_output, kernel_size=(1, 1), strides=1,activation=self.final_activation)(x)
         model = Model(tensor_input, final)
 
         return model

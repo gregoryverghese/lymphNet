@@ -5,7 +5,7 @@ from tensorflow.keras import Model
 
 
 
-class ResUnetFunc():
+class ResUnet():
     def __init__(self, filters=[32,64,128,256,512], finalActivation='sigmoid', activation='relu', nOutput=1, dropout=0, normalize=True, padding='same'):
         self.filters = filters
         self.activation = activation

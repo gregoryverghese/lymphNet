@@ -8,7 +8,7 @@ from tensorflow.keras.regularizers import l2
 
 
 
-class MultiAttenFunc():
+class MultiAtten():
     def __init__(self, filters=[32,64,128,256,512],finalActivation='sigmoid',
                  activation='relu',nOutput=1,kSize=(3,3),pSize=(2,2),pool=(1,1),padding='same',
                  stride=1,dilation=1,dropout=0,normalize=True,upTypeName='upsampling',dtype='float32'):
