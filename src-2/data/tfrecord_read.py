@@ -84,15 +84,16 @@ class TFRecordLoader():
                       params['rotate_prob'], 
                       params['flip_prob'], 
                       params['color_prob'])
-        print('\n'*2+'Applying following Augmentations to'+self.name+' dataset \n')
+        #print('\n'*2+'Applying following Augmentations to'+self.name+' dataset \n')
+        print('augmentation...')
         for i, a in enumerate(methods):
             print('{}: {}'.format(i, a))
         columns = [c for c in list(params.keys())]
         values = [v for v in list(params.values())]
-        table = PrettyTable(columns)
-        table.add_row(values)
-        print(table)
-        print('\n')
+        #table = PrettyTable(columns)
+        #table.add_row(values)
+        #print(table)
+        #print('\n')
         for f in methods:
             self.dataset=self.dataset.map(getattr(aug, 'get'+f), num_parallel_calls=4)
             #dataset = dataset.map(lambda x, y: (tf.clip_by_value(x, 0, 1), y),  num_parallel_calls=4)
@@ -102,17 +103,18 @@ class TFRecordLoader():
         channel_means=params['channel_mean']
         channel_std=params['channel_std']
         norm = Normalize(channel_means,channel_std)
-        print('\n'*2+'Applying following normalization methods to '+ self.name+' dataset \n')
+        #print('\n'*2+'Applying following normalization methods to '+ self.name+' dataset \n')
+        print('normalize...')
         for i, n in enumerate(methods):
             print('{}','{}'.format(i,n))
             self.dataset = self.dataset.map(getattr(norm, 'get'+ n), num_parallel_calls=4)
         if 'StandardizeDataset' in methods:
             columns=['means', 'std']
             values=[channel_means, channel_std]
-            table = PrettyTable(columns)
-            table.add_row(values)
-            print(table)
-            print('\n')
+            #table = PrettyTable(columns)
+            #table.add_row(values)
+            #print(table)
+            #print('\n')
     
 
     def load(self,batch_size): 
