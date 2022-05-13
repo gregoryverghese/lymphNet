@@ -4,31 +4,49 @@ from tensorflow.keras import Model
 
 
 class UnetMini():
-    def __init__(self, filters=[32,64,128,256], finalActivation='sigmoid', activation='relu',
-                nOutput=1, kernelSize=(3,3), pSize=(2,2), dropout=0, normalize=True, padding='same', dtype='float32'):
+    def __init__(self, 
+                 filters=[32,64,128,256], 
+                 final_Activation='sigmoid', 
+                 activation='relu',
+                 n_output=1, 
+                 kernel_size=(3,3), 
+                 pool=(2,2), 
+                 initializer='glorot_uniform',
+                 dropout=0, 
+                 normalize=True, 
+                 padding='same', 
+                 dtype='float32'):
 
         self.filters = filters
         self.activation = activation
-        self.finalActivation = finalActivation
-        self.nOutput = nOutput
-        self.kernelSize = kernelSize
-        self.pSize = pSize
+        self.final_activation = final_activation
+        self.n_output = n_output
+        self.kernel_size = kernel_size
+        self.pool = pool
         self.dropout=dropout
         self.normalize = normalize
         self.padding = padding
+        self.initializer = initializer
         self.dtype = dtype
 
 
-    def convBlock(self, x, f, contraction=True):
+    @property
+    def conv_layer(self):
+        return ConvLayer(
+             self.kernel_size,
+             self.padding,
+             self.initializer
+             )
 
-        x = Conv2D(filters=f, kernel_size=self.kernelSize, activation=self.activation, padding=self.padding)(x)
-        x = BatchNormalization()(x) if self.normalize else x
-        x = Dropout(self.dropout)(x) if contraction else x
-        x = Conv2D(filters=f, kernel_size=self.kernelSize, activation=self.activation, padding=self.padding)(x)
-        x = BatchNormalization()(x) if self.normalize else x
-        x = Dropout(self.dropout)(x) if contraction else x
-
-        return x
+    @property
+    def up_layer(self):
+        return UpLayer(
+            self.kernel_size,
+            self.padding,
+            self.initializer,
+            self.activation,
+            self.up_type,
+            )
 
 
     def bridge(self, x, f, kSize=(3, 3)):
@@ -41,41 +59,42 @@ class UnetMini():
         return x
 
 
-    def encoder(self, inputTensor):
+    def encoder(self, x):
 
-        e1 = self.convBlock(inputTensor, self.filters[0])
+        e1 = conv_block(x, self.filters[0], self.conv_layer)
         p1 = MaxPooling2D((2,2))(e1)
-        e2 = self.convBlock(p1, self.filters[1])
+        e2 = conv_block(p1, self.filters[1], self.conv_layer)
         p2 = MaxPooling2D((2,2))(e2)
-        e3 = self.convBlock(p2, self.filters[2])
+        e3 = conv_block(p2, self.filters[2], self.conv_layer)
         p3 = MaxPooling2D((2,2))(e3)
-        bridge = self.bridge(p3, self.filters[3])
-
+        bridge = conv_block(p4, self.filters[3], self.conv_layer)
+ 
         return e1,e2,e3,bridge
 
 
-    def decoder(self, e1,e2,e3, bridge):
+    def decoder(self,e1,e2,e3,bridge):
 
-        d3 = UpSampling2D((2,2))(bridge)
+        d3 = self.up_layer(self.filters[3])(bridge)
         d3 = Concatenate()([e3, d3])
-        d3 = self.convBlock(d3, self.filters[2], contraction=False)
-        d2 = UpSampling2D((2,2))(bridge)
+        d3 = conv_block(d3, self.filters[2], self.conv_layer)
+        
+        d2 = self.up_layer(self.filters[2])(d4)
         d2 = Concatenate()([e2, d3])
-        d2 = self.convBlock(d2, self.filters[1], contraction=False)
-        d1 = UpSampling2D((2,2))(bridge)
+        d2 = conv_block(d3, self.filters[1], self.conv_layer)
+
+        d1 = self.up_layer(self.filters[1])(d3)
         d1 = Concatenate()([e1, d2])
-        d1 = self.convBlock(d1, self.filters[0], contraction=False)
+        d1 = conv_block(d2, self.filters[0], self.conv_layer)
 
         return d1
 
 
-
     def build(self):
 
-        tensorInput = Input((None, None, 3))
-        e1,e2,e3,bridge = self.encoder(tensorInput)
+        tensor_input = Input((None, None, 3))
+        e1,e2,e3,bridge = self.encoder(tensor_input)
         d1 = self.decoder(e1,e2,e3,bridge)
-        finalMap = Conv2D(self.nOutput, (1, 1), activation=self.finalActivation)(d1)
-        model = Model(tensorInput, finalMap)
+        final_map = Conv2D(self.n_output, (1, 1), activation=self.final_activation)(d1)
+        model = Model(tensor_input, final_map)
 
         return model

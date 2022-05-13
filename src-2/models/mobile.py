@@ -7,11 +7,15 @@ from tensorflow.keras.layers import UpSampling2D, Dropout, Input, concatenate, L
 
 
 class MobileUnet():
-    def __init__(self, filters=[16, 32, 48, 64], finalActivation='sigmoid', nOutput=1,upTypeName='upsampling'):
+    def __init__(self, filters=[16, 32, 48, 64], 
+                 final_activation='sigmoid', 
+                 n_output=1,
+                 up_type='upsampling'):
+
         self.filters = [16, 32, 48, 64]
-        self.finalActivation=finalActivation
-        self.nOutput=nOutput
-        self.upTypeName=upTypeName
+        self.final_activation=final_activation
+        self.n_output=n_output
+        self.up_type=up_type
 
 
     def build(self):

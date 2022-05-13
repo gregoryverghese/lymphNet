@@ -52,6 +52,7 @@ class Unet():
              self.initializer
              )
 
+
     @property
     def up_layer(self):
         return UpLayer(
