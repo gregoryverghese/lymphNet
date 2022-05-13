@@ -1,4 +1,6 @@
 import os
+import yaml
+import pickle
 
 import tensorflow as tf
 import seaborn as sns
@@ -26,7 +28,7 @@ def resize_image(dim, factor=2048, threshold=0, op=operator.gt):
     return new_dim
 
 
-def get_train_curves(history, train_metric, valid_metric, out_path, name):
+def get_train_curves(history,train_metric,valid_metric,save_path):
     sns.set_style('dark')
     fig = plt.figure(figsize=(8,5))
     epochs = range(len(history[train_metric]))
@@ -39,7 +41,7 @@ def get_train_curves(history, train_metric, valid_metric, out_path, name):
                  label='Training'+train_metric)
     
     #plot validation
-    sns.lineplot(range(len(train_metric)),
+    sns.lineplot(range(len(history[valid_metric])),
                  history[valid_metric],
                  markers=True,
                  dashes=False,
@@ -50,7 +52,7 @@ def get_train_curves(history, train_metric, valid_metric, out_path, name):
     plt.ylabel('loss')
     plt.legend()
     plt.grid()
-    fig.savefig(os.path.join(out_path,name+'_'+train_metric+'.png'))
+    fig.savefig(os.path.join(save_path,train_metric+'.png'))
     plt.close()
 
 
@@ -63,13 +65,14 @@ def get_files(files_path, ext):
     return files_lst
 
 
-def save_experiment(model,history,config,name,out_path):
-    model.save(os.path.join(out_path, name+ '.h5'))
-    with open(os.path.join(out_path, name, '_history'), 'wb') as history_file:
+def save_experiment(model,config,history,name,model_save_path):
+    model.save(os.path.join(model_save_path,'model.h5'))
+
+    with open(os.path.join(model_save_path,'history'), 'wb') as history_file:
         pickle.dump(history, history_file)
 
-    with open(os.path.join(out_path, name + '_config'), 'w') as config_file:
-        json.dump(config_file, json_file)
+    with open(os.path.join(model_save_path,'config.yaml'), 'w') as config_file:
+        yaml.dump(config, config_file)
 
 
 
