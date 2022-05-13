@@ -40,14 +40,14 @@ from utilities.custom_loss_classes import BinaryXEntropy, DiceLoss, CategoricalX
 
 
 FUNCMODELS={
-            'unet':unet.UnetFunc,
-            'unetmini':unet_mini.UnetMiniFunc,
-            'attention':atten_unet.AttenUnetFunc,
-            'multiscale':multiscale.MultiScaleUnetFunc,
-            'multiatten':multi_atten.MultiAttenFunc,
-            'resunet':resunet.ResUnetFunc,
-            'fcn8':unet.UnetFunc,
-            'mobile':mobile.MobileUnetFunc,
+            'unet':unet.Unet,
+            'unetmini':unet_mini.UnetMini,
+            'attention':atten_unet.AttenUnet,
+            'multiscale':multiscale.MSUnet,
+            'multiatten':multi_atten.MultiAtten,
+            'resunet':resunet.ResUnet,
+            'fcn8':unet.Unet,
+            'mobile':mobile.MobileUnet,
             'deeplabv3plus':deeplabv3.DeepLabV3Plus
             }
 
@@ -72,7 +72,7 @@ def data_loader(path,config):
     train_loader.record_size()
     print(f'tiles: n={train_loader.tile_nums}; steps:n={train_loader.steps}')
     
-    #augment
+    #augmention
     aug_methods=config['augmentation']['methods']
     aug_parameters=config['augmentation']
 
@@ -116,20 +116,30 @@ def main(args,config,name,save_path):
     :param args: command line arguments
     :returns result: avg dice and iou score
     '''
+    #tensorflow logs
+    train_log_dir = os.path.join(save_path,'tensorboard_logs', 'train')
+    test_log_dir = os.path.join(save_path, 'tensorboard_logs', 'test') 
+    train_writer = tf.summary.create_file_writer(train_log_dir)
+    test_writer = tf.summary.create_file_writer(test_log_dir)
 
+    #set up train and valid loaders
     data_path = os.path.join(args.record_path,args.record_dir)
     train_loader,valid_loader=data_loader(data_path,config)
         
-    #get devices
+    #collect gpus
     devices = tf.config.experimental.list_physical_devices('GPU')
     devices = [x.name.replace('/physical_device:', '') for x in devices] 
     #devices = ['/device:GPU:{}'.format(i) for i in range(multiDict['num'])]
-
-    #model_params={'filters':config['model']['filters']
-                  #'activation':config['model']['activation'],
-                  #'n_output':config['num_classes'}
-   
     
+    #set up model parameters
+    model_params={
+        'filters':config['model']['filters'],
+        'final_activation':config['model']['final_activation'],
+        'dropout':config['model']['dropout'],
+        'n_output':config['num_classes'],
+            }
+   
+    #use distributed training (multi-gpu training)
     strategy = tf.distribute.MirroredStrategy(devices)
     with strategy.scope():
         boundaries=[30, 60]
@@ -138,10 +148,9 @@ def main(args,config,name,save_path):
         optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
         criterion = BinaryXEntropy(config['weights'][0])
         #with tf.device('/cpu:0'):
-        #model=FUNCMODELS[args.model_name](**model_params)
-        model=FUNCMODELS[args.model_name]()
+        model=FUNCMODELS[args.model_name](**model_params)
         model=model.build()
-
+ 
     train_dataset = strategy.experimental_distribute_dataset(train_loader.dataset)
     valid_dataset = strategy.experimental_distribute_dataset(valid_loader.dataset)
     train = DistributedTraining(model,
@@ -155,21 +164,23 @@ def main(args,config,name,save_path):
                                 config['image_dims'], 
                                 config['early_stopping'],
                                 config['threshold'],
-                                config['model_name'],
-                                config['task_type'])
+                                config['task_type'],
+                                train_writer,
+                                test_writer)
     
     model, history = train.forward()
     
+    #save model, config and training curves
     model_save_path=os.path.join(save_path,'models')
-    save_experiment(model,config,history,name,save_path)
+    save_experiment(model,config,history,name,model_save_path)
     curve_save_path=os.path.join(save_path,'curves')
     get_train_curves(history,'train_loss','val_loss',curve_save_path)
-    get_train_curves(history,'train_dice', 'val_dice',curve_save_path)
+    get_train_curves(history,'train_metric', 'val_metric',curve_save_path)
 
-    if predict:
-        pass
+    #if predict:
+        #pass
 
-    return result
+    #return result
 
 
 if __name__ == '__main__':
@@ -205,6 +216,9 @@ if __name__ == '__main__':
 
     save_predict_path=os.path.join(save_path,'predictions')
     os.makedirs(save_predict_path,exist_ok=True)
+
+    save_logs_path=os.path.join(save_path,'tensorflow-logs')
+    os.makedirs(save_logs_path,exist_ok=True)
 
     main(args,config,name,save_path)
 
