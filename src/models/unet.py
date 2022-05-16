@@ -1,7 +1,7 @@
 #!/usr/local/bin/env python3
 
 '''
-unet.py: unet model in functional and subclass forms
+unet.py: U-Net model using functional tensorflow api
 '''
 
 import tensorflow as tf
@@ -11,253 +11,114 @@ from tensorflow.keras.regularizers import l2,l1
 from tensorflow.keras.layers import Conv2D, UpSampling2D,BatchNormalization,GaussianNoise
 from tensorflow.keras.layers import MaxPooling2D, Dropout, Activation, Concatenate
 from tensorflow.keras.layers import Add, Multiply, Input, Conv2DTranspose,LeakyReLU, ReLU
-#from crfrnn_layer import CrfRnnLayer
 
-#################################### subclassing model ####################################
-
-class ConvBlock(layers.Layer):
-    def __init__(self, f, dropout, kSize, dtype):
-        super(ConvBlock, self).__init__(dtype=dtype)
-        self.f = f
-        self.batchnorm1 = BatchNormalization()
-        self.batchnorm2 = BatchNormalization()
-        self.drop1 = Dropout(dropout)
-        self.drop2 = Dropout(dropout)
-        self.conv2d1 = Conv2D(f, kSize, activation='relu', padding='same')
-        self.conv2d2 = Conv2D(f, kSize, activation='relu', padding='same')
+from .layers import ConvLayer, UpLayer, conv_block
 
 
-    def call(self, x, normalize=True):
-
-        x = self.conv2d1(x)
-        x = self.batchnorm1(x)
-        x = self.drop1(x)
-        x = self.conv2d2(x)
-        x = self.batchnorm2(x)
-        x = self.drop2(x)
-
-        return x
-
-
-class UnetSC(Model):
-    def __init__(self, filters=[16,32,64,128, 256], finalActivation='sigmoid', activation='relu',
-                    nOutput=1, kSize=(3,3), pSize=(2,2), dropout=0,
-                 normalize=True, padding='same', upTypeName='upsampling', dtype='float32'):
-        super(UnetSC, self).__init__(dtype=dtype)
-
-        self.normalize = normalize
-        self.convblocke1 = ConvBlock(filters[0], dropout, kSize, dtype)
-        self.pool1 = MaxPooling2D((2, 2))
-        self.convblocke2 = ConvBlock(filters[1], dropout, kSize, dtype)
-        self.pool2 = MaxPooling2D((2, 2))
-        self.convblocke3 = ConvBlock(filters[2], dropout, kSize, dtype)
-        self.pool3 = MaxPooling2D((2, 2))
-        self.convblocke4 = ConvBlock(filters[3], dropout, kSize, dtype)
-        self.pool4 = MaxPooling2D((2, 2))
-
-        self.convb_1 = Conv2D(filters[4], kSize, activation='relu', padding='same')
-        self.batchnorm9 = BatchNormalization()
-        self.convb_2 = Conv2D(filters[4], kSize, activation='relu', padding='same')
-        self.batchnorm10 = BatchNormalization()
-
-        if upTypeName=='upsampling':
-            self.up1 = UpSampling2D((2, 2))
-        elif upTypeName=='transpose':
-            self.up1 = Conv2DTranspose(filters[4], kSize, activation='relu', strides=(2,2), padding='same')
-        self.conc1 = Concatenate()
-        self.convblockd1 = ConvBlock(filters[3], dropout, kSize, dtype)
-
-        if upTypeName=='upsampling':
-            self.up2 = UpSampling2D((2, 2))
-        elif upTypeName=='transpose':
-            self.up2 = Conv2DTranspose(filters[3], kSize, activation='relu',strides=(2,2), padding='same')
-
-        self.conc2 = Concatenate()
-        self.convblockd2 = ConvBlock(filters[2], dropout, kSize, dtype)
-
-        if upTypeName=='upsampling':
-            self.up3 = UpSampling2D((2, 2))
-        elif upTypeName=='transpose':
-            self.up3 = Conv2DTranspose(filters[2], kSize, activation='relu',strides=(2,2),padding='same')
-        self.conc3 = Concatenate()
-        self.convblockd3 = ConvBlock(filters[1], dropout, kSize, dtype)
-
-        if upTypeName=='upsampling':
-            self.up4 = UpSampling2D((2, 2))
-        elif upTypeName=='transpose':
-            self.up4 = Conv2DTranspose(filters[1], kSize, activation='relu',strides=(2,2), padding='same')
-
-        self.conc4 = Concatenate()
-        self.convblockd4 = ConvBlock(filters[0], dropout, kSize, dtype)
-
-        self.final = Conv2D(nOutput, kernel_size=(1, 1), strides=(1, 1), activation=finalActivation)
-
-
-    def call(self, x, training=True):
-
-        e1 = self.convblocke1(x)
-        p1 = self.pool1(e1)
-
-        e2 = self.convblocke2(p1)
-        p2 = self.pool2(e2)
-
-        e3 = self.convblocke3(p2)
-        p3 = self.pool3(e3)
-
-        e4 = self.convblocke4(p3)
-        p4 = self.pool4(e4)
-
-        b = self.convb_1(p4)
-        b = self.batchnorm9(b)
-        b = self.convb_2(b)
-        b = self.batchnorm10(b)
-
-        d1 = self.up1(b)
-        d1 = self.conc1([e4, d1])
-        d1 = self.convblockd1(d1)
-
-        d2 = self.up2(d1)
-        d2 = self.conc2([e3, d2])
-        d2 = self.convblockd2(d2)
-
-        d3 = self.up3(d2)
-        d3 = self.conc3([e2, d3])
-        d3 = self.convblockd3(d3)
-
-
-        d4 = self.up4(d3)
-        d4 = self.conc4([e1, d4])
-        d4 = self.convblockd4(d4)
-
-
-        x = self.final(d4)
-
-        return x
-
-#################################### functional model ####################################
-
-class UnetFunc():
-    def __init__(self, filters=[32,64,128,256,512], finalActivation='sigmoid', activation='relu',
-                nOutput=1, kernelSize=(3,3), pSize=(2,2), dropout=0, normalize=True, padding='same', 
-                upTypeName='upsampling', dtype='float32'):
+class Unet():
+    def __init__(self, 
+                 filters=[32,64,128,256,512], 
+                 final_activation='sigmoid', 
+                 activation='relu',
+                 n_output=1, 
+                 kernel_size=(3,3), 
+                 pool=(2,2),
+                 initializer='glorot_uniform',
+                 dropout=0, 
+                 normalize=True, 
+                 padding='same', 
+                 up_type='upsampling', 
+                 dtype='float32'):
 
         self.filters = filters
+        self.final_activation = final_activation
         self.activation = activation
-        self.finalActivation = finalActivation
-        self.nOutput = nOutput
-        self.kernelSize = kernelSize
-        self.pSize = pSize
+        self.n_output = n_output
+        self.kernel_size = kernel_size
+        self.pool = pool
+        self.initializer = initializer
         self.dropout=dropout
         self.normalize = normalize
         self.padding = padding
-        self.upTypeName = upTypeName
+        self.up_type = up_type
         self.dtype = dtype
 
 
-    def convBlock(self, x, f, dilation,contraction=True):
+    @property
+    def conv_layer(self):
+        return ConvLayer(
+             self.kernel_size,
+             self.padding,
+             self.initializer
+             )
 
-        #x = Conv2D(filters=f, kernel_size=self.kernelSize, activation=self.activation, 
-                    #padding=self.padding)(x)
-        x = Conv2D(filters=f, kernel_size=self.kernelSize,padding=self.padding, 
-                   kernel_initializer='glorot_uniform')(x)
+
+    @property
+    def up_layer(self):
+        return UpLayer(
+            self.kernel_size,
+            self.padding,
+            self.initializer,
+            self.activation,
+            self.up_type,
+            )
+        
+
+    def bridge(self, x, f):
+
+        x = self.conv_layer(f)(x)
         x = BatchNormalization()(x) if self.normalize else x
-        #x = GaussianNoise(0.3)(x)
-        x = ReLU()(x)
-        #x = LeakyReLU(0.1)(x)
-        #x = Dropout(0.2)(x) if contraction else x
-        #x = Conv2D(filters=f, kernel_size=self.kernelSize, activation=self.activation,                        
-                   #padding=self.padding)(x)
-        x = Conv2D(filters=f,kernel_size=self.kernelSize,padding=self.padding,
-                   kernel_initializer='glorot_uniform', dilation_rate=dilation)(x)
+        x = self.conv_layer(f)(x)
         x = BatchNormalization()(x) if self.normalize else x
-        #x = GaussianNoise(0.3)(x)
-        #x = LeakyReLU(0.1)(x)
-        x = ReLU()(x)
-        #x = Dropout(0.2)(x) if contraction else x
-         
-        #x = Conv2D(filters=f, kernel_size=self.kernelSize,
-        #           padding=self.padding,kernel_initializer='glorot_uniform')(x)
-        #x = BatchNormalization()(x) if self.normalize else x
-        #x = LeakyReLU(0.1)(x)
-        #x = Dropout(self.dropout)(x) if contraction else x
+
         return x
 
 
-    def bridge(self, x, f, kSize=(3, 3)):
+    def encoder(self, x):
 
-        x = Conv2D(f,kSize,padding=self.padding,
-                   kernel_initializer='glorot_uniform')(x)
-        x = BatchNormalization()(x) if self.normalize else x
-        x = Conv2D(f, kSize,padding=self.padding,
-                   kernel_initializer='glorot_uniform')(x)
-        x = BatchNormalization()(x) if self.normalize else x
-
-        #x = Conv2D(f, kSize, padding=self.padding,
-                   #kernel_initializer='glorot_uniform')(x)
-        #x = BatchNormalization()(x) if self.normalize else x
-        return x
-
-
-    def encoder(self, inputTensor):
-
-        e1 = self.convBlock(inputTensor, self.filters[0], 1)
+        e1 = conv_block(x, self.filters[0], self.conv_layer)
         p1 = MaxPooling2D((2,2))(e1)
-        e2 = self.convBlock(p1, self.filters[1],1)
+        e2 = conv_block(p1, self.filters[1], self.conv_layer)
         p2 = MaxPooling2D((2,2))(e2)
-        e3 = self.convBlock(p2, self.filters[2],1)
+        e3 = conv_block(p2, self.filters[2], self.conv_layer)
         p3 = MaxPooling2D((2,2))(e3)
-        e4 = self.convBlock(p3, self.filters[3],1)
+        e4 = conv_block(p3, self.filters[3], self.conv_layer)
         p4 = MaxPooling2D((2,2))(e4)
-        #bridge = self.bridge(p4, self.filters[4])
-        bridge=self.convBlock(p4, self.filters[4],1)
-
+        bridge = conv_block(p4, self.filters[4], self.conv_layer)
+ 
         return e1,e2,e3,e4,bridge
 
 
     def decoder(self, e1,e2,e3,e4, bridge):
 
-        if self.upTypeName=='upsampling':
-            d5 = UpSampling2D((2,2))(bridge)
-        elif self.upTypeName=='transpose':
-            d5 = Conv2DTranspose(self.filters[4],self.kernelSize,activation='relu', strides=(2,2), padding='same')(bridge)
-
+        d5 = self.up_layer(self.filters[4])(bridge)
         d5 = Concatenate()([e4, d5])
-        d5 = self.convBlock(d5, self.filters[3], 1,contraction=False)
+        d5 = conv_block(d5, self.filters[3], self.conv_layer)
 
-        if self.upTypeName=='upsampling':
-            d4 = UpSampling2D((2,2))(d5)
-        elif self.upTypeName=='transpose':
-            d4 = Conv2DTranspose(self.filters[3], self.kernelSize, activation='relu', strides=(2,2),padding='same')(d5)
-
+        d4 = self.up_layer(self.filters[3])(d5)
         d4 = Concatenate()([e3, d4])
-        d4 = self.convBlock(d4, self.filters[2], 1,contraction=False)
+        d4 = conv_block(d4, self.filters[2], self.conv_layer)
         
-        if self.upTypeName=='upsampling':
-            d3 = UpSampling2D((2,2))(d4)
-        elif self.upTypeName=='transpose':
-            d3 = Conv2DTranspose(self.filters[2], self.kernelSize, activation='relu', strides=(2,2), padding='same')(d4)
-
+        d3 = self.up_layer(self.filters[2])(d4)
         d3 = Concatenate()([e2, d3])
-        d3 = self.convBlock(d3, self.filters[1], 1,contraction=False)
+        d3 = conv_block(d3, self.filters[1], self.conv_layer)
 
-        if self.upTypeName=='upsampling':
-            d2 = UpSampling2D((2,2))(d3)
-        elif self.upTypeName=='transpose':
-            d2 = Conv2DTranspose(self.filters[1], self.kernelSize,activation='relu', strides=(2,2), padding='same')(d3)
-
+        d2 = self.up_layer(self.filters[1])(d3)
         d2 = Concatenate()([e1, d2])
-        d2 = self.convBlock(d2, self.filters[0], 1,contraction=False)
+        d2 = conv_block(d2, self.filters[0], self.conv_layer)
 
         return d2
 
 
     def build(self):
 
-        tensorInput = Input((None, None, 3))
-        e1,e2,e3,e4,bridge = self.encoder(tensorInput)
+        input_tensor = Input((None, None, 3))
+        e1,e2,e3,e4,bridge = self.encoder(input_tensor)
         d2 = self.decoder(e1,e2,e3,e4, bridge)
-        finalMap = Conv2D(self.nOutput, (1, 1), strides=(1,1), activation=self.finalActivation)(d2)
-        
+        final_tensor = Conv2D(self.n_output, 
+                             (1, 1), 
+                             strides=(1,1),
+                             activation=self.final_activation)(d2)
         '''
         finalMap = CrfRnnLayer(image_dims=(height, width),
                              num_classes=2,
@@ -267,7 +128,5 @@ class UnetFunc():
                              num_iterations=10,
                              name='crfrnn')([d2,tensorInput])
         '''
-
-        model = Model(tensorInput, finalMap)
-
+        model = Model(input_tensor, final_tensor)
         return model

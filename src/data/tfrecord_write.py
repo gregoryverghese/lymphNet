@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 '''
 tfrecord_write.py: write down image and mask data in serialized tfrecord format
 '''
@@ -108,7 +106,8 @@ def convert(imageFiles, maskFiles, tfRecordPath, dim=None):
             maskName = os.path.basename(m)
 
             image = tf.keras.preprocessing.image.load_img(img)
-            image = tf.keras.preprocessing.image.img_to_array(image, dtype=np.uint8)
+            image = tf.keras.preprocessing.image.img_to_array(image,dtype=np.uint8)
+            if stainNormalize=
             dims = image.shape
             image = tf.image.encode_png(image)
             

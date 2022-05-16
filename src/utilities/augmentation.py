@@ -145,6 +145,12 @@ class Normalize():
         self.channelStd = channelStd
 
 
+
+    def stainNormalize(self,x,y):
+        pass
+
+
+
     def getStandardizeImage(self, x, y):
         '''
         applies image level standardization

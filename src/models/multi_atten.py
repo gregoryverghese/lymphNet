@@ -6,75 +6,76 @@ from tensorflow.keras.layers import Conv2D, UpSampling2D, Input, Concatenate,con
 from tensorflow.keras.layers import  Activation, Dropout, BatchNormalization, MaxPooling2D, Add, Multiply
 from tensorflow.keras.regularizers import l2
 
-class MultiAttenFunc():
-    def __init__(self, filters=[32,64,128,256,512],finalActivation='sigmoid',
-                 activation='relu',nOutput=1,kSize=(3,3),pSize=(2,2),pool=(1,1),padding='same',
-                 stride=1,dilation=1,dropout=0,normalize=True,upTypeName='upsampling',dtype='float32'):
+from .layers import ConvLayer, UpLayer, conv_block, multi_block
 
-        self.normalize = normalize
+
+class MultiAtten():
+    def __init__(self, 
+                 filters=[32,64,128,256,512],
+                 final_activation='sigmoid',
+                 activation='relu',
+                 n_output=1,
+                 kernel_size=(3,3),
+                 pool=(2,2),
+                 initializer='glorot_uniform',
+                 padding='same',
+                 stride=1,
+                 dilation=1,
+                 dropout=0,
+                 normalize=True,
+                 up_type='upsampling',
+                 dtype='float32'):
+
+
         self.filters = filters
-        self.finalActivation = finalActivation
+        self.final_activation = final_activation
+        self.activation = activation
         self.padding = padding
         self.dropout = dropout
-        self.kSize = kSize
-        self.pSize = pSize
-        self.nOutput = nOutput
-        self.stride = stride
+        self.kernel_size = kernel_size
         self.pool = pool
-        self.dilation =dilation
+        self.initializer = initializer
+        self.n_output = n_output
+        self.stride = stride
+        self.dilation = dilation
+        self.up_type = up_type
 
 
-    def convBlock(self, x, f, dilation=1, pool=(1,1)):
-
-        x = Conv2D(f, kernel_size=(3,3), strides=self.stride,
-                   padding=self.padding,dilation_rate=dilation,kernel_regularizer=l2(0.01))(x)
-        x = MaxPooling2D((pool))(x)
-        x = BatchNormalization()(x)
-        x = GaussianNoise(0.2)(x)
-        x = Activation('relu')(x)
-        #x = Dropout(0.1)(x)
-        x = Conv2D(f, kernel_size=(3,3), strides=self.stride,
-                   padding=self.padding,dilation_rate=dilation,kernel_regularizer=l2(0.01))(x)
-        x = BatchNormalization()(x)
-        x = GaussianNoise(0.2)(x)
-        x = Activation('relu')(x)
-        #x = Dropout(0.1)(x)
-
-        return x
+    @property
+    def conv_layer(self):
+        return ConvLayer(
+             self.kernel_size,
+             self.padding,
+             self.initializer
+             )
 
 
-    def downBlock(self, x, f):
-
-        outChannel = f/3
-
-        x = MaxPooling2D((2,2))(x)
-        d1 = self.convBlock(x, outChannel, dilation=self.dilation, pool=self.pool)
-
-        d2 = self.convBlock(x, outChannel, dilation=2, pool=(2,2))
-        d2 = UpSampling2D((2,2), interpolation='bilinear')(d2)
-
-        d3 = self.convBlock(x, outChannel, dilation=4, pool=(4,4))
-        d3 = UpSampling2D((4,4), interpolation='bilinear')(d3)
-
-        out = Concatenate()([d1,d2,d3])
-        return out
+    @property
+    def up_layer(self):
+        return UpLayer(
+            self.kernel_size,
+            self.padding,
+            self.initializer,
+            self.activation,
+            self.up_type,
+            )
 
 
     def attention(self, x, g, f1, f2, u):
 
-        thetaX = Conv2D(f1, kernel_size=(2,2), strides=(2,2), padding=self.padding, use_bias=False)(x)
-        phiG = Conv2D(f1, kernel_size=(1,1),strides=1, padding=self.padding, use_bias=True)(g)
-        phiG = BatchNormalization()(phiG)
+        theta_x = Conv2D(f1, kernel_size=(2,2), strides=(2,2), padding=self.padding, use_bias=False)(x)
+        phi_g = Conv2D(f1, kernel_size=(1,1),strides=1, padding=self.padding, use_bias=True)(g)
+        phi_g = BatchNormalization()(phi_g)
         #upFactor = K.int_shape(thetaX)[1]/K.int_shape(phiG)[1]
-        upFactor = u
-        phiG = UpSampling2D(size=(int(upFactor), int(upFactor)), interpolation='bilinear')(phiG)
-        psi = Conv2D(1, kernel_size=(1,1), strides=1, padding=self.padding, use_bias=True)(Add()([phiG, thetaX]))
+        up_factor = u
+        phi_g = UpSampling2D(size=(int(up_factor), int(up_factor)),interpolation='bilinear')(phi_g)
+        psi = Conv2D(1, kernel_size=(1,1), strides=1, padding=self.padding,use_bias=True)(Add()([phi_g, theta_x]))
         psi = BatchNormalization()(psi)
         psi = Activation('relu')(psi)
         psi = Activation('sigmoid')(psi)
         #upFactor = K.int_shape(x)[1]/K.int_shape(psi)[1]
-        upFactor = 2
-        psi = UpSampling2D(size=(int(upFactor), int(upFactor)), interpolation='bilinear')(psi)
+        up_factor = 2
+        psi = UpSampling2D(size=(int(up_factor), int(up_factor)), interpolation='bilinear')(psi)
         psi = Multiply()([x, psi])
         psi = Conv2D(f2, kernel_size=(1,1), strides=(1,1), padding=self.padding)(psi)
         psi = BatchNormalization()(psi)
@@ -82,7 +83,7 @@ class MultiAttenFunc():
         return psi
 
 
-    def gridGatingSignal(self, bridge, f):
+    def grid_gating_signal(self, bridge, f):
 
         x = Conv2D(f, kernel_size=(1,1),strides=(1,1), padding=self.padding)(bridge)
         x = BatchNormalization()(x)
@@ -93,54 +94,64 @@ class MultiAttenFunc():
 
     def encoder(self, x):
 
-        x = self.convBlock(x, self.filters[0])
-        e1 = self.downBlock(x, self.filters[1])
-        e2 = self.downBlock(e1, self.filters[2])
-        e3 = self.downBlock(e2, self.filters[3])
-        e4 = self.downBlock(e3, self.filters[4])
-        e5 = self.downBlock(e4, self.filters[4])
+        x = conv_block(x, self.filters[0],self.conv_layer)
+        e1 = multi_block(x, self.filters[1],self.conv_layer,self.up_layer)
+        e2 = multi_block(e1, self.filters[2], self.conv_layer,self.up_layer)
+        e3 = multi_block(e2, self.filters[3], self.conv_layer,self.up_layer)
+        e4 = multi_block(e3, self.filters[4], self.conv_layer,self.up_layer)
+        e5 = multi_block(e4, self.filters[4], self.conv_layer,self.up_layer)
 
         return x,e1,e2,e3,e4,e5
 
 
     def decoder(self, x, e1,e2,e3,e4,e5):
 
-        gating = self.gridGatingSignal(e5, self.filters[3])
+        gating = self.grid_gating_signal(e5, self.filters[3])
 
         a4 = self.attention(e4, gating, self.filters[3], self.filters[3],1)
         a3 = self.attention(e3, gating, self.filters[2], self.filters[2],2)
         a2 = self.attention(e2, gating, self.filters[1], self.filters[1],4)
         a1 = self.attention(e1, gating, self.filters[1], self.filters[1],8)
+        
+        #print(K.int_shape(d1), K.int_shape(a4))
+        d1 = UpSampling2D((2, 2))(e5)
 
-        d1 = upsampling1 = UpSampling2D((2, 2))(e5)
+        print(K.int_shape(d1), K.int_shape(a4))
         d1 = Concatenate()([d1, a4])
-        d1 = self.convBlock(d1, self.filters[4], dilation=1)
+        d1 = conv_block(d1, self.filters[4], self.conv_layer)
 
+        #print(K.int_shape(d2), K.int_shape(a3))
         d2 = UpSampling2D((2, 2))(d1)
-        d2 = Concatenate()([d2, a3])
-        d2 = self.convBlock(d2, self.filters[3], dilation=1)
 
+        print(K.int_shape(d2), K.int_shape(a3))
+        d2 = Concatenate()([d2, a3])
+        d2 = conv_block(d2, self.filters[3], self.conv_layer)
+
+
+        #print(K.int_shape(d3), K.int_shape(a2))
         d3 = UpSampling2D((2, 2))(d2)
+
+        print(K.int_shape(d3), K.int_shape(a2))
         d3 = Concatenate()([d3, a2])
-        d3 = self.convBlock(d3, self.filters[2], dilation=1)
+        d3 = conv_block(d3, self.filters[2], self.conv_layer)
 
         d4 = UpSampling2D((2, 2))(d3)
         d4 = Concatenate()([d4, a1])
-        d4 = self.convBlock(d4, self.filters[1], dilation=1)
+        d4 = conv_block(d4, self.filters[1], self.conv_layer)
 
-        d5 = upsampling5 = UpSampling2D((2, 2))(d4)
+        d5 = UpSampling2D((2, 2))(d4)
         d5 = Concatenate()([d5, x])
-        d5 = self.convBlock(d5, self.filters[0], dilation=1)
+        d5 = conv_block(d5, self.filters[0], self.conv_layer)
 
         return d5
 
 
     def build(self):
 
-        tensorInput = Input((None, None, 3))
-        x, e1,e2,e3,e4,e5 = self.encoder(tensorInput)
+        tensor_input = Input((None, None, 3))
+        x, e1,e2,e3,e4,e5 = self.encoder(tensor_input)
         x = self.decoder(x, e1,e2,e3,e4,e5)
-        final = Conv2D(self.nOutput, kernel_size=(1, 1), strides=1, activation=self.finalActivation)(x)
-        model = Model(tensorInput, final)
+        final = Conv2D(self.n_output, kernel_size=(1, 1), strides=1,activation=self.final_activation)(x)
+        model = Model(tensor_input, final)
 
         return model

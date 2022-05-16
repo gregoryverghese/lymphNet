@@ -15,7 +15,7 @@ import numpy as np
 import tensorflow.keras.backend as K
 from tensorflow.keras.utils import Progbar
 
-from utilities.custom_loss_classes import WeightedBinaryCrossEntropy
+from utilities.custom_loss_classes import BinaryXEntropy
 from utilities.evaluation import diceCoef
 
 __author__ = 'Gregory Verghese'
@@ -25,271 +25,216 @@ __email__ = 'gregory.verghese@kcl.ac.uk'
 #tf.__dict__["gradients"] = memory_saving_gradients.gradients_speed
 
 
-class DistributeTrain():
+class DistributedTraining():
     '''
-    class for training neural network over a number of gpus.
-    Performs each forward pass of the network and calculates the 
-    new gradients using the loss function and performs backward 
-    pass with chosen optimizer. Loss and dice are calculated per
-    gpu (known as replica) and combined at the end.
+    Multi-gpu training: performs each forward pass of the network 
+    and performs backward pass with chosen optimizer. Loss and dice 
+    are calculated per gpu (known as replica) and combined at the end.
     '''
+    def __init__(self, 
+                 model, 
+                 train_loader,
+                 valid_loader,
+                 optimizer, 
+                 criterion,
+                 strategy,
+                 batch_size,
+                 epoch,
+                 img_dims,
+                 stop_criteria,
+                 threshold, 
+                 model_name, 
+                 task_type):
 
-    def __init__(self, epochs, model, optimizer, lossObject,
-                 batchSize, strategy, trainSteps, testNum, 
-                 imgDims, threshold, modelName, currentTime, 
-                 currentDate, tasktype):
-
-        self.epochs = epochs
-        self.batchSize = batchSize
-        self.strategy = strategy
-        self.loss_object = lossObject
-        self.optimizer = optimizer
-        self.metric = diceCoef
         self.model = model
-        self.trainSteps = trainSteps
-        self.testNum = testNum
-        self.imgDims = imgDims
-        self.history = {'trainloss': [], 'trainmetric':[], 'valmetric': [],'valloss':[]}
+        self.train_loader = train_loader
+        self.valid_loader = valid_loader
+        self.optimizer = optimizer
+        self.criterion = criterion
+        self.strategy = strategy
+        self.epochs = epoch
+        self.batch_size = batch_size
+        self.strategy = strategy
+        self.metric = diceCoef
+        self.img_dims = img_dims
+        self.history = {'train_loss': [], 'train_metric':[], 'val_metric':[],'val_loss':[]}
+        self.stop_criteria = stop_criteria
         self.threshold = threshold
-        self.modelName = modelName
-        self.currentTime = currentTime
-        self.currentDate = currentDate
-        self.tasktype = tasktype
+        self.model_name = model_name
+        self.task_type = task_type
 
-    def computeLoss(self, label, predictions):
+
+    def compute_loss(self, label, predictions):
         '''
         computes loss for each replica
-        Args:
-            label: mask tf 4d-tensor (BxHxW)
-            predictions: network predictoon tf tensor (BxWxH)
-        Returns:
-            loss: loss per replica
+        :param label: mask tf 4d-tensor (BxHxW)
+        :param predictions: network predictoon tf tensor (BxWxH)
+        :returns loss: loss per replica
         '''
+        loss = self.criterion(label, predictions)
+        loss = tf.reduce_sum(loss) * (1. / (self.img_dims*self.img_dims*self.batch_size))
+        #loss = tf.reduce_sum(loss) * (1. / (self.batchSize))
+        loss = loss * (1/self.strategy.num_replicas_in_sync)
+        return loss
 
-        loss = self.loss_object(label, predictions)
-        loss = tf.reduce_sum(loss) * (1. / (self.imgDims*self.imgDims*self.batchSize))
 
-        return loss * (1/self.strategy.num_replicas_in_sync)
-
-
-    def computeDice(self, yTrue, yPred):
+    def compute_dice(self, y_true, y_pred):
         '''
         computes dice score using prediction and mask
-        Args:
-            yTrue: mask 4d-tensor mask (BxWxH)
-            yPred: prediction 4d-tensor prediction (BxWxH)
-        Returns:
-            dice: dice score per replica
+        :params y_true: mask 4d-tensor mask (BxWxH)
+        :params y_pred: prediction 4d-tensor prediction (BxWxH)
+        "returns dice: dice score per replica
         '''
-
         #axIdx=[1,2,3] if self.tasktype=='binary' else [1,2]
-        dice = tf.reduce_mean([self.metric(yTrue[:,:,:,i], yPred[:,:,:,i]) for i in range(yTrue.shape[-1])])
-        #dice = self.metric(yTrue, yPred)
+        dice = tf.reduce_mean([self.metric(y_true[:,:,:,i], y_pred[:,:,:,i])
+                               for i in range(y_true.shape[-1])])
         dice = dice * (1 / self.strategy.num_replicas_in_sync)
         return dice
 
 
-    def trainStep(self, inputs):
+    def _train_step(self, inputs):
         '''
         perfoms one gradient update using tf.GradientTape.
-        calculates loss using logits and then updates all
-        trainable parameters
-        Args:
-            inputs: tuple of image and mask tensors
-        Returns:
-            loss: loss value
-            dice: returns dice coefficient
+        calculates loss and updates all trainable parameters
+        :params inputs: tuple of image and mask tensors
+        :returns loss: loss value
+        :returns dice: returns dice coefficient
         '''
-
         x, y = inputs
-
         with tf.GradientTape() as tape:
-
             logits = self.model(x, training=True)
-            loss = self.computeLoss(y, logits)
-
-            yPred = tf.cast((logits > 0.5), tf.float32)
-            dice = self.computeDice(y, yPred)
-
+            loss = self.compute_loss(y, logits)
+            y_pred = tf.cast((logits > self.threshold), tf.float32)
+            dice = self.compute_dice(y, y_pred)
             gradients = tape.gradient(loss, self.model.trainable_variables)
             self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
-
         return loss, dice
 
 
-    def testStep(self, inputs):
+    def _test_step(self, inputs):
         '''
         performs prediction using trained model
-        Args:
-            inputs: tuple of x, y image and mask tensors
-        Returns:
-            loss: loss value
-            dice: returns dice coefficient
+        :params  inputs: tuple of x, y image and mask tensors
+        :returns loss: loss value
+        :returns dice: returns dice coefficient
         '''
-
         x, y = inputs
-        predictions = self.model(x, training=False)
-        loss = self.loss_object(y, predictions)
-
-        yPred = tf.cast((predictions > 0.5), tf.float32)
-
-	#print('y',np.unique(y.numpy()))
-	#print('yPred', np.unique(yPred.numpy()))
-
-        dice = self.computeDice(y, yPred)
-        loss = tf.reduce_sum(loss) * (1. / (self.imgDims*self.imgDims*self.batchSize))
-
+        logits = self.model(x, training=False)
+        loss = self.criterion(y, logits)
+        y_pred = tf.cast((logits > self.threshold), tf.float32)
+        dice = self.compute_dice(y, y_pred)
+        loss = tf.reduce_sum(loss) * (1. / (self.img_dims*self.img_dims*self.batch_size))
         return loss, dice
 
-
-    @tf.function
-    def distributedTrainEpoch(self, batch):
-        '''
-        calculates loss and dice for each replica
-        Args:
-            batch: containing image and mask tensor data
-        Returns:
-            replicaLoss:
-            replicaDice:
-        '''
-
-      #totalLoss = 0.0
-      #totalDice = 0.0
-      #i = 0
-      #prog = Progbar(self.trainSteps-1)
-      #for batch in trainData:
-          #i+=1
-        replicaLoss, replicaDice = self.strategy.run(self.trainStep, args=(batch,))
-         # totalLoss += self.strategy.reduce(tf.distribute.ReduceOp.SUM, replicaLoss, axis=None)
-         # totalDice += self.strategy.reduce(tf.distribute.ReduceOp.SUM, replicaDice, axis=None)
-          #prog.update(i)
-      #return totalLoss, totalDice
-        return replicaLoss, replicaDice
 
     #ToDo: shitty hack to include progbar in distributed train function. need a
     #way of converting tensor i to integer
-    def getDistTrainEpoch(self, trainData):
+    @tf.function
+    def _run(self,batch):
+        replica_loss, replica_dice = self.strategy.run(self._train_step,args=(batch,))
+        return replica_loss, replica_dice
+
+
+    def _train(self):
         '''
         iterates over each batch in the data and calulates total
         loss and dice over all replicas using tf strategy.
-        Args:
-            trainData: contains train image and mask tensors
-        Returns:
-            totalLoss: total loss across all replicas
-            totalDice: total dice across all dice
+        :returns train_data: contains train image and mask tensors
+        :returns total_loss: total loss across all replicas
+        :returns total_dice: total dice across all replicas
         '''
-
-        #use Progbar to provide visual update of training
-        totalLoss = 0.0
-        totalDice = 0.0
-        i = 0
-        prog = Progbar(self.trainSteps-1)
-        for batch in trainData:
-            replicaLoss, replicaDice = self.distributedTrainEpoch(batch)
-            totalLoss += self.strategy.reduce(tf.distribute.ReduceOp.SUM, replicaLoss, axis=None)
-            totalDice += self.strategy.reduce(tf.distribute.ReduceOp.SUM, replicaDice, axis=None)
+        total_loss = 0.0
+        total_dice = 0.0
+        prog = Progbar(self.train_loader.steps-1)
+        for i, batch in enumerate(self.train_loader.dataset):
+            replica_loss, replica_dice = self._run(batch)
+            total_loss += self.strategy.reduce(tf.distribute.ReduceOp.SUM,replica_loss, axis=None)
+            total_dice += self.strategy.reduce(tf.distribute.ReduceOp.SUM,replica_dice, axis=None)
             prog.update(i) 
-            i+=1
-
-        return totalLoss, totalDice
+        return total_loss, total_dice
 
 	
-       
     @tf.function
-    def distributedTestEpoch(self, validData):
+    def _test(self):
         '''
         calculates loss and dice across all replicas
         for the test data
-        Args:
-            validData: contains validation image and mask tensors
-        Returns:
-            totalloss: loss summed over replicas
-            totalDice dice summed over replicas
+        :params valid_data: contains validation image and mask tensors
+        :returns total_loss: loss summed over replicas
+        :returns total_dice: dice summed over replicas
         '''
-
-        totalLoss = 0.0
-        totalDice = 0.0
-
-        for d in validData:
-            loss, dice = self.strategy.run(self.testStep, args=(d,))
-            totalLoss += self.strategy.reduce(tf.distribute.ReduceOp.SUM, loss, axis=None)
-            totalDice += self.strategy.reduce(tf.distribute.ReduceOp.SUM, dice, axis=None)
-
-        return totalLoss, totalDice
+        total_loss = 0.0
+        total_dice = 0.0
+        for batch in self.valid_loader.dataset:
+            loss, dice = self.strategy.run(self._test_step, args=(batch,))
+            total_loss += self.strategy.reduce(tf.distribute.ReduceOp.SUM, loss, axis=None)
+            total_dice += self.strategy.reduce(tf.distribute.ReduceOp.SUM, dice, axis=None)
+        return total_loss, total_dice   
 
 
-    #we wantt o stop on a moving average value, min threshold dice and min epoch iterations 
-    def earlyStop(self, valDice, epoch):
+    #we want to stop on a moving average value, min threshold dice and min epoch iterations 
+    def early_stop(self, val_dice, epoch):
         '''
         implements and earlystopping criteria based on two dice thresholds
         and the number of epochs that has passed
-        Args:
-            valDice: current validation dice value
-            epoch: epoch number
-        Returns:
-            stop: boolean
+        :params val_dice: current validation dice value 
+        :params epoch: epoch number
+        :returns stop: boolean
         '''
+        first_epoch=self.stop_criteria['first']['epochs']
+        first_metric=self.stop_criteria['first']['metric']
+        second_epoch=self.stop_criteria['second']['epochs']
+        second_metric=self.stop_criteria['second']['metric']
 
-        if epoch > self.threshold['first']['epochs'] and valDice > self.threshold['first']['metric']:
+        if epoch > first_epoch and val_dice > first_metric:
             stop = True
-        elif epoch > self.threshold['second']['epochs'] and valDice > self.threshold['second']['metric']:
+        elif epoch > second_epoch and val_dice > second_metric:
             stop = True
         else:
             stop = False
-
         return stop
 
 
-    def forward(self, trainDistDataset, testDistDataset):
+    def forward(self):
         '''
         performs the forward pass of the network. calls each training epoch
         and prediction on validation data. Records results in history
         dictionary. Record logs for tensorboard using create_file_writer
-        Args:
-            trainDistDataset: contains train image and mask tensor data
-            testDistDataset: contains valid image and mask tensor data
-        Returns:
-            self.model: trained tensorflow/keras subclassed model
-            self.history: dictonary containing train and validation scores
+        :params train_dataset: contains train image and mask tensor data
+        :params test_dataset: contains valid image and mask tensor data
+        :returns self.model: trained tensorflow/keras subclassed model
+        :returns self.history: dictonary containing train and validation scores
         '''
-
-        currentTime = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
-        trainLogDir = os.path.join('tensorboard_logs', 'train', self.currentDate, self.modelName + '_' + self.currentTime)
-        testLogDir = os.path.join('tensorboard_logs', 'test', self.currentDate, self.modelName + '_' + self.currentTime)
-
-        trainWriter = tf.summary.create_file_writer(trainLogDir)
-        testWriter = tf.summary.create_file_writer(testLogDir)
-
+        train_log_dir = os.path.join('tensorboard_logs', 'train',self.model_name)
+        test_log_dir = os.path.join('tensorboard_logs', 'test', self.model_name)
+        train_writer = tf.summary.create_file_writer(train_log_dir)
+        test_writer = tf.summary.create_file_writer(test_log_dir)
         for epoch in range(self.epochs):
-
             #trainLoss, trainDice = self.distributedTrainEpoch(trainDistDataset)
-            trainLoss, trainDice = self.getDistTrainEpoch(trainDistDataset)
+            train_loss, train_dice = self._train()
+            print(train_loss,self.train_loader.steps)
+            train_loss = float(train_loss/self.train_loader.steps)
+            train_dice = float(train_dice/self.train_loader.steps)
+            print(train_loss)
+            with train_writer.as_default():
+                tf.summary.scalar('loss', train_loss, step=epoch)
+                tf.summary.scalar('dice', train_dice, step=epoch)
+            tf.print(' Epoch: {}/{},  loss - {:.2f}, dice - {:.2f}, lr - {:.5f}'.format(epoch+1, self.epochs, train_loss, train_dice, 1), end="")
 
-            print('trainLoss', trainLoss, 'trainDice', trainDice)
-            epochTrainLoss, epochTrainDice = float(trainLoss/self.trainSteps), float(trainDice/self.trainSteps)
+            test_loss, test_dice  =  self._test()
+            test_loss = float(test_loss/self.valid_loader.steps)
+            test_dice = float(test_dice/self.valid_loader.steps)
+            with test_writer.as_default():
+                tf.summary.scalar('loss', test_loss, step=epoch)
+                tf.summary.scalar('dice', test_dice, step=epoch)
+            tf.print('  val_loss - {:.3f}, val_dice - {:.3f}'.format(test_loss, test_dice))
+            
+            self.history['train_metric'].append(train_dice)
+            self.history['train_loss'].append(train_loss)
+            self.history['val_metric'].append(test_dice)
+            self.history['val_loss'].append(test_loss)
 
-            with trainWriter.as_default():
-                tf.summary.scalar('loss', epochTrainLoss, step=epoch)
-                tf.summary.scalar('dice', epochTrainDice, step=epoch)
-
-            tf.print(' Epoch: {}/{},  loss - {:.2f}, dice - {:.2f}, lr - {:.5f}'.format(epoch+1, self.epochs, epochTrainLoss,
-                     epochTrainDice, 1), end="")
-
-            testLoss, testDice  =  self.distributedTestEpoch(testDistDataset)
-            epochTestLoss, epochTestDice = float(testLoss/self.testNum), float(testDice/self.testNum)
-
-            with testWriter.as_default():
-                tf.summary.scalar('loss', epochTestLoss, step=epoch)
-                tf.summary.scalar('Dice', epochTestDice, step=epoch)
-
-            tf.print('  val_loss - {:.3f}, val_dice - {:.3f}'.format(epochTestLoss, epochTestDice))
-
-            self.history['trainmetric'].append(epochTrainDice)
-            self.history['trainloss'].append(epochTrainLoss)
-            self.history['valmetric'].append(epochTestDice)
-            self.history['valloss'].append(epochTestLoss)
-
-            if self.earlyStop(epochTestDice, epoch):
+            if self.early_stop(test_dice, epoch):
                 print('Stopping early on epoch: {}'.format(epoch))
                 break
 

@@ -2,16 +2,17 @@
 # -*- coding: utf-8 -*-
 
 '''
-Tuning.py: opens config file and iterates over 
-combination of parameters used for training.
-Executes hyperparameter tuning by calling sets of
-models with different sets of parameters
+Tuning.py: hyperparameter tuning script
+
+opens config template file and iterates over sets of parameters
+Executes hyperparameter tuning by calling models  with different sets of parameters
 '''
 
 import os
 import json
 import datetime
 import argparse
+import yaml
 
 import tensorflow as tf
 import pandas as pd
@@ -19,94 +20,91 @@ import pandas as pd
 from main import main
 
 __author__ = 'Gregory Verghese'
-__email__ = 'gregory.verghese@kcl.ac.uk'
+__email__ = 'gregory.e.verghese@kcl.ac.uk'
 
-N=20
+N=10
 
-def tuning(args):
+def tuning(args,config,save_path,curr_date,curr_time):
 
     '''
-    collects sets of parameters which form combinations
-    for each analysis from config template file and 
-    initiates the training for each analysis. Saves down
-    results in csv file
-    Args:
-        command line arguments for script
-    '''
-    
-    date = str(datetime.date.today())
-    currentTime = datetime.datetime.now().strftime('%H:%M')
-    resultsPath = os.path.join(args['outpath'], 'summaries')
+    generates series of config files to tune different parameters
+    :param args: command line arguments
+    '''  
 
     indexes = []
     results = []
 
-    modelname = args['modelname']
-    configTemplate = args['configfile']
-
-    #open config template file and get parameters
-    with open(configTemplate) as jsonFile:
-        jsonDict = json.load(jsonFile)
-
-    losses = jsonDict['loss']
-    #dropouts = jsonDict['dropouts']
-    augmentation = jsonDict['augmentation']['methods'] 
+    model_name = args.model_name
+    losses = config['loss']
+    #dropouts = config['dropouts']
+    augmentation = config['augmentation']['methods'] 
     augmentation=augmentation*N
-    feature = jsonDict['feature']
-    mag = jsonDict['magnification']
+    feature = config['feature']
+    mag = config['magnification']
     #Loop over parameters (augmentation and loss functions)
+    #generate experiment specific config file
     for a in augmentation:
        for l in losses:
-    
-          with open(configTemplate) as jsonFile:
-              jsonDict = json.load(jsonFile)
+          config['loss'] = l
+          config['augmentation']['methods'] = a
+          #generate experiment name using 
+          name = config['name']
+          name = name.replace('$model', model_name)
+          name=name.replace('$feature',str(config['feature']))
+          name=name.replace('$mag',str(config['magnification']))
+          aug_initials = [i[0] for i in a]
+          name = name.replace('$augment', ''.join(aug_initials))
+          name=name.replace('$dim',str(config['image_dims']))
+          config['experiment_name'] = name
+          name = name+curr_date+'_'+curr_time 
+          #set up folders for experiment
+          save_path = os.path.join(args.save_path,name)
+          os.makedirs(save_path,exist_ok=True)
+          model_save_path = os.path.join(save_path,'models')
+          os.makedirs(model_save_path,exist_ok=True)
+          curve_save_path = os.path.join(save_path,'curves')
+          os.makedirs(curve_save_path,exist_ok=True)
+          save_predict_path=os.path.join(save_path,'predictions')
+          os.makedirs(save_predict_path,exist_ok=True)
 
-          jsonDict['loss'] = l
-          jsonDict['augmentation']['methods'] = a
-          name = jsonDict['modelname']
-          name = name.replace('$model', modelname)
-          name = name.replace('$loss', l)
-          #name = name.replace('$drop', str(d))
-          augInitials = [i[0] for i in a]
-          name = name.replace('$augment', ''.join(augInitials))
-          name=name.replace('$optimizer',jsonDict['optimizer']['method'])
-          name=name.replace('$epoch',str(jsonDict['epoch']))
-          name=name.replace('$dim',str(jsonDict['imageDims']))
-          
-          name=name.replace('$uptypename',str(jsonDict['upTypeName']))
-          name=name.replace('$threshold',str(jsonDict['activationthreshold']))
-          name=name.replace('$feature',str(jsonDict['feature']))
-          name=name.replace('$magnification',str(jsonDict['magnification']))
-          jsonDict['modelname'] = name
-          
+          args.config_file = config
           #save down analysis specific config file
-          configFile = os.path.join(os.path.split(configTemplate)[0], name+'.json')
-          args['configfile'] = configFile
-          with open(configFile, 'w') as jsonFile:
-              json.dump(jsonDict, jsonFile)
-
-          result = main(args, modelname)
+          #config_save_path = os.path.join(os.path.split(config_template)[0], name+'.json')
+          #with open(config_save_path, 'w') as config_file:
+              #json.dump(config, config_file)
+          
+          print(f'experiment name: {name}')
+          result = main(args,config,name,save_path)
           indexes.append(name)
           results.append(result)
 
     #results (avg dice and IOU for each analysis are saved down in a csv file
     df = pd.DataFrame({'dice': results}, index=indexes)
-    df.to_csv(os.path.join(resultsPath,modelname+'_'+mag+'_'+feature+'_'+date+'_'+currentTime+'.csv'))
+    df.to_csv(os.path.join(save_path,'summary.csv'))
 
 
 
 if __name__ == '__main__':
 
     ap = argparse.ArgumentParser()
-    ap.add_argument('-rp', '--recordpath', required=True, help='path to tfrecords')
-    ap.add_argument('-rd', '--recordDir', required=True, help='directory for the tfrecords dataset')
-    ap.add_argument('-op', '--outpath', required=True, help='output path for predictions')
-    ap.add_argument('-cp', '--checkpointpath', required=True, help='path for checkpoint files')
-    ap.add_argument('-cf', '--configfile', help='file containing parameters')
-    ap.add_argument('-mn', '--modelname', help='name of neural network model')
-    
-    args = vars(ap.parse_args())
-    
-    devices  = tf.config.experimental.list_physical_devices('GPU')
+    ap.add_argument('-rp', '--record_path', required=True, help='path to tfrecords')
+    ap.add_argument('-rd', '--record_dir', required=True, help='directory for the tfrecords dataset')
+    ap.add_argument('-op', '--save_path', required=True, help='output path for predictions')
+    ap.add_argument('-cp', '--checkpoint_path', required=True, help='path for checkpoint files')
+    ap.add_argument('-cf', '--config_file', help='file containing parameters')
+    ap.add_argument('-mn', '--model_name', help='name of neural network model') 
+    ap.add_argument('-p', '--predict', help='set this flag to run the trained model on test set automatically')
 
-    tuning(args)
+    args = ap.parse_args()
+
+    curr_date=str(datetime.date.today())
+    curr_time=datetime.datetime.now().strftime('%H:%M')
+
+    with open(args.config_file) as yaml_file:
+        config=yaml.load(yaml_file, Loader=yaml.FullLoader)
+
+    #set up paths for models, training curves and predictions
+    save_path = os.path.join(args.save_path,curr_date)
+    os.makedirs(save_path,exist_ok=True)
+
+    tuning(args,config,save_path,curr_date,curr_time)
