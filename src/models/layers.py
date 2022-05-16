@@ -58,6 +58,24 @@ class UpLayer():
         return layer
 
 
+class IdentityLayer():
+    def __init__(self, padding, strides):
+        self.kernel_size=(1,1)
+        self.padding=padding
+        self.strides=strides
+    
+
+    def __call__(self, x , f):
+ 
+        identity = Conv2D(f, 
+                          kernel_size=self.kernel_size,
+                          padding=self.padding, 
+                          strides=self.strides)(x)
+        identity = BatchNormalization()(identity)
+        x = Add()([identity, x])
+        return x
+
+
 def conv_block(x,
                f,
                conv_layer,
@@ -77,6 +95,27 @@ def conv_block(x,
     x = ReLU()(x)
     #x = LeakyReLU(0.1)(x)
     #x = Dropout(0.2)(x) if contraction else x 
+    return x
+
+
+
+def residual_block(x1,
+               f,
+               conv_layer,
+               identity_layer,
+               strides=strides
+               normalize=True,
+               drop=False):
+
+    x2 = conv_layer(f)(x) 
+    x2 = BatchNormalization()(x) if normalize else x
+    x2 = ReLU()(x)
+    #x = Dropout(0.2)(x) if drop else x
+    x2 = conv_layer(f)(x)
+    x2 = BatchNormalization()(x) if normalize else x
+    x2 = ReLU()(x)
+    #x = Dropout(0.2)(x) if drop else x 
+    x2 = identity_layer(r, x, f, strides=stride)
     return x
 
 

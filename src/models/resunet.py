@@ -3,34 +3,57 @@ from tensorflow.keras.layers import Conv2D, UpSampling2D, BatchNormalization, Ma
 from tensorflow.keras import layers
 from tensorflow.keras import Model
 
-
+#NOT REFACTORED
 
 class ResUnet():
-    def __init__(self, filters=[32,64,128,256,512], finalActivation='sigmoid', activation='relu', nOutput=1, dropout=0, normalize=True, padding='same'):
+    def __init__(self, 
+                 filters=[32,64,128,256,512], 
+                 final_activation='sigmoid', 
+                 activation='relu', 
+                 kernel_size=(3,3),
+                 intializer='glorot_uniform',
+                 n_output=1, 
+                 dropout=0, 
+                 normalize=True, 
+                 padding='same'):
+
         self.filters = filters
         self.activation = activation
-        self.finalActivation = finalActivation
+        self.final_activation = final_activation
+        self.kernel_size=kernel_size
+        self.initializer = initializer
         self.padding = padding
-        self.nOutput = nOutput
+        self.n_output = n_output
         self.dropout = dropout
 
 
-    def convBlocks(self, x, f, kernelSize=(3,3), padding='same', strides=1):
+    @property
+    def conv_layer(self):
+        return ConvLayer(
+             self.kernel_size,
+             self.padding,
+             self.initializer
+             )
 
-        x = keras.layers.BatchNormalization()(x)
-        x = keras.layers.Activation(self.activation)(x)
-        x = keras.layers.Conv2D(f, kernelSize, padding=padding, strides=strides)(x)
 
-        return x
+    @property
+    def identity_layer(self):
+        return IdentityLayer(
+             self.kernel_size,
+             self.padding,
+             self.initializer
+             )
 
 
-    def identity(self, x, xInput, f, padding='same', strides=1):
-
-        skip = keras.layers.Conv2D(f, kernel_size=(1, 1), padding=padding, strides=strides)(xInput)
-        skip = keras.layers.BatchNormalization()(skip)
-        output = keras.layers.Add()([skip, x])
-
-        return output
+    @property
+    def up_layer(self):
+        return UpLayer(
+            self.kernel_size,
+            self.padding,
+            self.initializer,
+            self.activation,
+            self.up_type,
+            )
 
 
     def residualBlock(self, xIn, f, stride):
