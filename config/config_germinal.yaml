@@ -3,11 +3,11 @@ feature: "germinal",
 task_type: "binary",
 magnification: "2.5x"
 loss: ["wCE"]
-name: "$model_$feature_$magnification_$augment_$dim_$step" 
+name: "$model_$feature_$magnification_$augment_$dim_$step " 
 ratio: 0.9
 batch_size: 32
 image_dims: 256
-epochs: 100
+epochs: 10
 augmentation: 
         methods": [["Flip","Rotate90","Color"]]
         saturation: [0.5,1.2]
@@ -16,13 +16,18 @@ augmentation:
 	contrast: [0.8,1.5]
 	flip_prob: 0.5
 	rotate_prob: 0.5
-	color_prob: 0.5	
+	color_prob: 0.5
+normalize:
+        methods: ["Scale"]
+        channel_std: [0.633, 0.383, 0.649]
+        channel_mean: [0.143, 0.197, 0.19]        
 num_classes: 1 
 weights: [5.02]
 model: 
         network: "unet",
         filters: [32,64,128,256,512]
 	final_activation: "sigmoid"
+        dropout: 0
 learning_rate: 0.001 
 gpu_num: 4
 metric: "dice_coef" 
@@ -30,4 +35,4 @@ threshold: 0.95
 early_stopping:
 	metric: [0.85,0.8]
         epochs: [40, 80]
-step: 2048
+step: 1024
