@@ -8,32 +8,30 @@ import cv2
 import numpy as np
 
 
-def calculateStdMean(path):
+def calculate_std_mean(path):
 
     images = glob.glob(os.path.join(path,'*'))
-    imageShape = cv2.imread(images[0]).shape
-    channelNum = imageShape[-1]
-    
-    channelValues = np.zeros((channelNum))
-    channelValuesSq = np.zeros((channelNum))
+    image_shape = cv2.imread(images[0]).shape
+    channel_num = image_shape[-1]
+    channel_values = np.zeros((channel_num))
+    channel_values_sq = np.zeros((channel_num))
 
-    pixelNum = len(images)*imageShape[0]*imageShape[1]
-    print('total number pixels: {}'.format(pixelNum))
+    pixel_num = len(images)*image_shape[0]*image_shape[1]
+    print('total number pixels: {}'.format(pixel_num))
 
-    for imgPath in images:
-        image = cv2.imread(imgPath)
+    for path in images:
+        image = cv2.imread(path)
         image = (image/255.0).astype('float64')
-        channelValues += np.sum(image, axis=(0,1), dtype='float64')
+        channel_values += np.sum(image, axis=(0,1), dtype='float64')
 
-    mean=channelValues/pixelNum
+    mean=channel_values/pixel_num
 
-    for imgPath in images:
-        image = cv2.imread(imgPath)
+    for path in images:
+        image = cv2.imread(path)
         image = (image/255.0).astype('float64')
-        channelValuesSq += np.sum(np.square(image-mean), axis=(0,1), dtype='float64')
+        channel_values_sq += np.sum(np.square(image-mean), axis=(0,1), dtype='float64')
 
-    std=np.sqrt(channelValuesSq/pixelNum, dtype='float64')
-    
+    std=np.sqrt(channel_values_sq/pixel_num, dtype='float64')
     print('mean: {}, std: {}'.format(mean, std))
 
     return mean, std
@@ -43,10 +41,9 @@ if __name__ == '__main__':
 
     ap = argparse.ArgumentParser()
     ap.add_argument('-p', '--path', required=True, help='path to image set')
-
     args = vars(ap.parse_args())
 
-    mean, std = calculateStdMean(args['path'])
+    mean, std = calculate_std_mean(args['path'])
 
     
 

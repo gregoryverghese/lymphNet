@@ -15,33 +15,25 @@ import numpy as np
 from sklearn.utils import class_weight
 
 
-def calculateWeights(maskPath, outPath, fileName, numClasses):
+def calculate_weights(mask_path, out_path, file_name, num_classes):
 
-    total = {c:0 for c in range(numClasses)}
-    i=0
-
-    masks = glob.glob(os.path.join(maskPath,'*'))
-    for f in masks:
+    total = {c:0 for c in range(num_classes)}
+    masks = glob.glob(os.path.join(mask_path,'*'))
+    for i, f in enumerate(masks):
         print(f)
         mask = cv2.imread(f)
         labels = mask.reshape(-1)
         classes = np.unique(labels, return_counts=True)
-
-        pixelDict = dict(list(zip(*classes))) 
-    
-        for k, v in pixelDict.items():
+        pixel_dict = dict(list(zip(*classes))) 
+        for k, v in pixel_dict.items():
             total[k] = total[k] + v
-        print(i)
-        i+=1
 
     print(total)
-    if numClasses==2:
+    if num_classes==2:
         weight = total[0]/total[1]
     else:
         weight = [1/v for v in list(total.values())]
-        
-
-    #np.savetxt(fileName+'.csv', averageWeights, delimiter=',')
+    #np.savetxt(os.path.join('~',file_name+'.csv'), average_weights, delimiter=',')
     print(weight)
 
 if __name__=='__main__':
@@ -53,9 +45,9 @@ if __name__=='__main__':
     ap.add_argument('-nc', '--number', required=True, help='number of classes')
     args = vars(ap.parse_args())
 
-    maskPath = args['maskpath']
-    outPath = args['outpath']
-    fileName = args['savename']
-    numClasses = int(args['number'])
+    mask_path = args['maskpath']
+    out_path = args['outpath']
+    file_name = args['savename']
+    num_classes = int(args['number'])
         
-    calculateWeights(maskPath, outPath, fileName, numClasses)
+    calculate_weights(mask_path, out_path, file_name, num_classes)

@@ -29,6 +29,11 @@ WSI_MASK_PATH='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-torch/data/
 GERMINAL_PATH='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-torch/data/patches/2.5x-512-f/train'
 SINUS_PATH='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-torch/data/patches/2.5x-256'
 
+
+thumbnail_path='/home/verghese/thumbnails/*'
+thumbnails=glob.glob(thumbnail_path)
+thumbnails=[os.path.basename(t)[:-4] for t in thumbnails]
+
 wsi_path='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-keras/data/wsi/Guys/wsi/train'
 annotations_path='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-keras/data/wsi/Guys/annotations/sum_ff_toms'
 wsi_paths=glob.glob(os.path.join(wsi_path,'*'))
@@ -39,6 +44,10 @@ source_dict={'.xml':'imagej','.json':'qupath'}
 print(len(wsi_paths))
 for p in wsi_paths:
     name=os.path.basename(p)[:-5]
+    if name in thumbnails:
+        continue
+    if name=="U_90420_5_X_LOW_1_L1":
+        continue
     print('slide',name)
     ann_paths=[a for a in annotations_paths if name in a]
     annotations=Annotations()
