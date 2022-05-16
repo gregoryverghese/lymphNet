@@ -43,8 +43,9 @@ class DistributedTraining():
                  img_dims,
                  stop_criteria,
                  threshold, 
-                 model_name, 
-                 task_type):
+                 task_type,
+                 train_writer,
+                 test_writer):
 
         self.model = model
         self.train_loader = train_loader
@@ -54,14 +55,14 @@ class DistributedTraining():
         self.strategy = strategy
         self.epochs = epoch
         self.batch_size = batch_size
-        self.strategy = strategy
         self.metric = diceCoef
         self.img_dims = img_dims
         self.history = {'train_loss': [], 'train_metric':[], 'val_metric':[],'val_loss':[]}
         self.stop_criteria = stop_criteria
         self.threshold = threshold
-        self.model_name = model_name
         self.task_type = task_type
+        self.train_writer = train_writer
+        self.test_writer = test_writer
 
 
     def compute_loss(self, label, predictions):
@@ -181,10 +182,10 @@ class DistributedTraining():
         :params epoch: epoch number
         :returns stop: boolean
         '''
-        first_epoch=self.stop_criteria['first']['epochs']
-        first_metric=self.stop_criteria['first']['metric']
-        second_epoch=self.stop_criteria['second']['epochs']
-        second_metric=self.stop_criteria['second']['metric']
+        first_epoch=self.stop_criteria['epochs'][0]
+        first_metric=self.stop_criteria['metric'][0]
+        second_epoch=self.stop_criteria['epochs'][1]
+        second_metric=self.stop_criteria['metric'][1]
 
         if epoch > first_epoch and val_dice > first_metric:
             stop = True
@@ -205,29 +206,25 @@ class DistributedTraining():
         :returns self.model: trained tensorflow/keras subclassed model
         :returns self.history: dictonary containing train and validation scores
         '''
-        train_log_dir = os.path.join('tensorboard_logs', 'train',self.model_name)
-        test_log_dir = os.path.join('tensorboard_logs', 'test', self.model_name)
-        train_writer = tf.summary.create_file_writer(train_log_dir)
-        test_writer = tf.summary.create_file_writer(test_log_dir)
         for epoch in range(self.epochs):
             #trainLoss, trainDice = self.distributedTrainEpoch(trainDistDataset)
             train_loss, train_dice = self._train()
-            print(train_loss,self.train_loader.steps)
             train_loss = float(train_loss/self.train_loader.steps)
             train_dice = float(train_dice/self.train_loader.steps)
-            print(train_loss)
-            with train_writer.as_default():
+            with self.train_writer.as_default():
                 tf.summary.scalar('loss', train_loss, step=epoch)
                 tf.summary.scalar('dice', train_dice, step=epoch)
-            tf.print(' Epoch: {}/{},  loss - {:.2f}, dice - {:.2f}, lr - {:.5f}'.format(epoch+1, self.epochs, train_loss, train_dice, 1), end="")
+            epoch_str=' Epoch: {}/{},  loss - {:.2f}, dice - {:.2f}, lr - {:.5f}'
+            tf.print(epoch_str.format(epoch+1, self.epochs, train_loss, train_dice, 1), end="")
 
             test_loss, test_dice  =  self._test()
             test_loss = float(test_loss/self.valid_loader.steps)
             test_dice = float(test_dice/self.valid_loader.steps)
-            with test_writer.as_default():
+            with self.test_writer.as_default():
                 tf.summary.scalar('loss', test_loss, step=epoch)
                 tf.summary.scalar('dice', test_dice, step=epoch)
-            tf.print('  val_loss - {:.3f}, val_dice - {:.3f}'.format(test_loss, test_dice))
+            epoch_str = '  val_loss - {:.3f}, val_dice - {:.3f}'
+            tf.print(epoch_str.format(test_loss, test_dice))
             
             self.history['train_metric'].append(train_dice)
             self.history['train_loss'].append(train_loss)
