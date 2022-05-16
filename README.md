@@ -1,8 +1,7 @@
 lymph node
 -------------
 
-This project aims to use deep learning approaches to capture intersting histopathological changes in cancer-free lymph nodes for breast cancer patients. We have developed a segmentation pipeline to capture and quantify a set of immune features.
-
+Deep learning pipeline to capture morphometic immune features in lymph nodes of breast cancer patients. Segmentation pipeline based on Fully Convolutional Networks (FCNs)
 
 Todo
 -------------
@@ -10,7 +9,6 @@ Todo
 * improve sinus and germinal predictions
 * weakly supervised approaches
 * weighted map for sinuses (uncertain/fuzzy annotations)
-* deep reinforcement learning - image segemntation
 * transfer learning unet
 * random conditional forest
 
