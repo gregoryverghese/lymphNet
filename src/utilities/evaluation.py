@@ -23,7 +23,6 @@ def diceCoef(yTrue, yPred, axIdx=[1,2,3], smooth=1):
     union = K.sum(yTrue, axis=axIdx) + K.sum(yPred, axis=axIdx)
     dice = K.mean((2. * intersection + smooth)/(union + smooth), axis=0)
     
-    print(dice)
     return dice
 
 
