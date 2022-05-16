@@ -34,7 +34,7 @@ from models import fcn8,unet,mobile,resunet,resunet_a,unet_mini,atten_unet
 from models import multiscale,multi_atten,deeplabv3
 from models import deeplabv3
 from data.tfrecord_read import TFRecordLoader
-from utilities import decay_schedules
+#from utilities import decay_schedules
 from utilities.evaluation import diceCoef
 from predict import test_predictions
 from utilities.utils import get_train_curves, save_experiment

@@ -103,7 +103,7 @@ def residual_block(x1,
                f,
                conv_layer,
                identity_layer,
-               strides=strides
+               strides=(1,1),
                normalize=True,
                drop=False):
 
