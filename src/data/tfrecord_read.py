@@ -108,7 +108,7 @@ class TFRecordLoader():
         for i, n in enumerate(methods):
             print('{}','{}'.format(i,n))
             self.dataset = self.dataset.map(getattr(norm, 'get'+ n), num_parallel_calls=4)
-        if 'StandardizeDataset' in methods:
+        if 'Standardize' in methods:
             columns=['means', 'std']
             values=[channel_means, channel_std]
             #table = PrettyTable(columns)
