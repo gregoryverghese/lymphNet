@@ -1,3 +1,8 @@
+"""
+predict.py: inference on LNs using trained model
+"""
+
+
 import os
 import glob
 import argparse
@@ -11,11 +16,9 @@ from tensorflow.keras.models import load_model
 from utilities.evaluation import diceCoef
 
 
-test_path='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-keras/data/patches/segmentation/10x/one/testing'
-model_path='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-keras/output/models/2022-04-28/attention_sinus_2.5x_adam_weightedBinaryCrossEntropy_FRC_data4_256_01:19.h5'
-save_path='/home/verghese/lymphnode-keras'
-
-
+#test_path='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-keras/data/patches/segmentation/10x/one/testing'
+#model_path='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-keras/output/models/2022-04-28/attention_sinus_2.5x_adam_weightedBinaryCrossEntropy_FRC_data4_256_01:19.h5'
+#save_path='/home/verghese/lymphnode-keras'
 class Predict():
     def __init__(self,model,threshold,step):
         self.model=model
@@ -41,11 +44,11 @@ class Predict():
         return canvas.astype(np.uint8)
 
 
-def test_predictions(model,test_path,save_path,threshold=0.5,step=512):
+def test_predictions(model,test_path,save_path,feature,threshold=0.5,step=512):
     dices=[]
     names=[]
-    image_paths=glob.glob(os.path.join(test_path,'images/germinal','*'))
-    mask_paths=glob.glob(os.path.join(test_path,'masks/germinal','*'))
+    image_paths=glob.glob(os.path.join(test_path,'images',feature,'*'))
+    mask_paths=glob.glob(os.path.join(test_path,'masks',feature,'*'))
     predict=Predict(model,threshold,step)
     for i, (i_path,m_path) in enumerate(zip(image_paths,mask_paths)):
         name=os.path.basename(i_path)
@@ -59,9 +62,7 @@ def test_predictions(model,test_path,save_path,threshold=0.5,step=512):
         print(names[i],dices[i])
     dice_df=pd.DataFrame({'names':names,'dices':dices})
     dice_df.to_csv(os.path.join(save_path,'results.csv'))
-
-model=load_model(model_path)
-test_predictions(model,test_path,save_path,0.5,512)
+    return dices
 
   
 if __name__=='__main__':
