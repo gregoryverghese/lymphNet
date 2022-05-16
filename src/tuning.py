@@ -90,6 +90,7 @@ if __name__ == '__main__':
     ap.add_argument('-rp', '--record_path', required=True, help='path to tfrecords')
     ap.add_argument('-rd', '--record_dir', required=True, help='directory for the tfrecords dataset')
     ap.add_argument('-op', '--save_path', required=True, help='output path for predictions')
+    ap.add_argument('-tp', '--test_path', required=True, help='path to test images')
     ap.add_argument('-cp', '--checkpoint_path', required=True, help='path for checkpoint files')
     ap.add_argument('-cf', '--config_file', help='file containing parameters')
     ap.add_argument('-mn', '--model_name', help='name of neural network model') 
