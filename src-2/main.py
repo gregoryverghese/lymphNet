@@ -1,6 +1,8 @@
 '''
-main.py: main module that sets up analysis, models
-parameters and calls training and prediction scripts
+main.py: main script sets up analysis, data and models. Calls
+
+1. distributed training
+2. prediction
 '''
 
 import os
@@ -34,7 +36,7 @@ from models import deeplabv3
 from data.tfrecord_read import TFRecordLoader
 from utilities import decay_schedules
 from utilities.evaluation import diceCoef
-#from predict import WSIPredictions, PatchPredictions
+from predict import test_predictions
 from utilities.utils import get_train_curves, save_experiment
 from utilities.custom_loss_classes import BinaryXEntropy, DiceLoss, CategoricalXEntropy
 
@@ -52,11 +54,11 @@ FUNCMODELS={
             }
 
 
-#LOSSFUNCTIONS={
-#              'binary-xentropy':BinaryCrossEntropy
-#              'categorical-xentropy':CategoricalCrossEntropy,
-#              'diceloss':DiceLoss
-#              }
+LOSSFUNCTIONS={
+              'wCE':BinaryCrossEntropy,
+              'wCCE':CategoricalCrossEntropy,
+              'DL':DiceLoss
+              }
 
 
 def data_loader(path,config):
@@ -114,6 +116,9 @@ def main(args,config,name,save_path):
     Parameters and model are saved down
     
     :param args: command line arguments
+    :param config: config file (yaml)
+    :param name: experiment name
+    :param save_path: path for experiment output
     :returns result: avg dice and iou score
     '''
     #tensorflow logs
@@ -138,7 +143,8 @@ def main(args,config,name,save_path):
         'dropout':config['model']['dropout'],
         'n_output':config['num_classes'],
             }
-   
+    loss_params={'weights':config['weights'][0]}
+
     #use distributed training (multi-gpu training)
     strategy = tf.distribute.MirroredStrategy(devices)
     with strategy.scope():
@@ -146,6 +152,7 @@ def main(args,config,name,save_path):
         values=[0.001,0.0005,0.0001]
         lr_schedule = tf.keras.optimizers.schedules.PiecewiseConstantDecay(boundaries,values)
         optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
+        #criterion = LOSSFUNCTIONS[config['loss'][0]](**loss_params)
         criterion = BinaryXEntropy(config['weights'][0])
         #with tf.device('/cpu:0'):
         model=FUNCMODELS[args.model_name](**model_params)
@@ -169,7 +176,6 @@ def main(args,config,name,save_path):
                                 test_writer)
     
     model, history = train.forward()
-    
     #save model, config and training curves
     model_save_path=os.path.join(save_path,'models')
     save_experiment(model,config,history,name,model_save_path)
@@ -177,10 +183,13 @@ def main(args,config,name,save_path):
     get_train_curves(history,'train_loss','val_loss',curve_save_path)
     get_train_curves(history,'train_metric', 'val_metric',curve_save_path)
 
-    #if predict:
-        #pass
-
-    #return result
+    if args.predict:
+        result=test_predictions(model,
+                         args.test_path,
+                         args.save_path,
+                         config['threshold'],
+                         config['step'])
+    return result
 
 
 if __name__ == '__main__':
@@ -189,6 +198,7 @@ if __name__ == '__main__':
     ap.add_argument('-rp', '--record_path', required=True, help='path to tfrecords')
     ap.add_argument('-rd', '--record_dir', required=True, help='directory for specific tfrecords dataset')    
     ap.add_argument('-op', '--save_path', required=True, help='path to save output')
+    ap.add_argument('-tp', '--test_path', required=True, help='path to test images')
     ap.add_argument('-cp', '--checkpoint_path', required=True, help='path for checkpoint files')
     ap.add_argument('-cf', '--config_file', help='config file with parameters')
     ap.add_argument('-mn', '--model_name', help='neural network model')
@@ -202,7 +212,7 @@ if __name__ == '__main__':
     with open(args.config_file) as yaml_file:
         config=yaml.load(yaml_file, Loader=yaml.FullLoader)
 
-    name=config['name']+curr_date+'_'+curr_time
+    name=config['name']+'_'+curr_date+'_'+curr_time
 
     #set up paths for models, training curves and predictions
     save_path = os.path.join(args.save_path,name)
