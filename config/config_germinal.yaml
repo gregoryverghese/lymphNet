@@ -2,7 +2,7 @@
 feature: "germinal",
 task_type: "binary",
 magnification: "2.5x"
-loss: ["weightedBinaryCrossEntropy"]
+loss: ["wCE"]
 name: "$model_$feature_$magnification_$augment_$dim_$step" 
 ratio: 0.9
 batch_size: 32
