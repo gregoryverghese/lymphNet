@@ -189,7 +189,10 @@ def main(args,config,name,save_path):
                          args.save_path,
                          config['feature'],
                          config['threshold'],
-                         config['step'])
+                         config['step'],
+                         config['normalize']['methods'],
+                         config['normalize']['channel_mean'],
+                         config['normalize']['channel_std'])
     return result
 
 
