@@ -207,12 +207,10 @@ def main(args,config,name,save_path):
                          save_path,
                          config['feature'],
                          config['threshold'],
-                         config['step'])
-    print("\n\n**** HOLLY ****   finished predictions")
-
-    print("\n\n**** HOLLY ****   the END")
-
-
+                         config['step'],
+                         config['normalize']['methods'],
+                         config['normalize']['channel_mean'],
+                         config['normalize']['channel_std'])
     return result
 
 
