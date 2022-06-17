@@ -7,7 +7,7 @@ name: "$model_$feature_$mag_$augment_$dim_$step "
 ratio: 0.9
 batch_size: 32
 image_dims: 256
-epochs: 10
+epochs: 40
 augmentation: 
         methods: [["Flip","Rotate90","Color"]]
         saturation: [0.5,1.2]
