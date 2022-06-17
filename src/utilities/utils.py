@@ -30,17 +30,29 @@ def resize_image(dim, factor=2048, threshold=0, op=operator.gt):
 
 def get_train_curves(history,train_metric,valid_metric,save_path):
     sns.set_style('dark')
-    fig = plt.figure(figsize=(8,5))
-    epochs = range(len(history[train_metric]))
 
+#DEBUGGING
+    print("*** HOLLY***   in get_train_curves")
+    print("history: ")
+    print(history)
+    print("train_metric: " )
+    print(train_metric)
+    print("length of history[train metric]: ")
+    print(len(history[train_metric]))
+
+    fig = plt.figure(figsize=(8,5))
+
+    epochs = range(len(history[train_metric]))
+    print(epochs)
+    print("*** HOLLY *** plot train lineplot")
     #plot train
     sns.lineplot(epochs,
                  history[train_metric],
                  markers=True,
                  dashes=False,
                  label='Training'+train_metric)
-    
-    #plot validation
+    print("*** HOLLY *** plot validation now")    
+   #plot validation
     sns.lineplot(range(len(history[valid_metric])),
                  history[valid_metric],
                  markers=True,
