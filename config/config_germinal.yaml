@@ -7,11 +7,11 @@ name: "$model_$feature_$mag_$augment_$dim_$step "
 ratio: 0.9
 batch_size: 32
 image_dims: 256
-epochs: 40
+epochs: 125
 augmentation: 
         methods: [["Flip","Rotate90","Color"]]
         saturation: [0.5,1.2]
-        brightness: 0.4
+        brightness: 0.25
         hue: 0.05
         contrast: [0.8,1.5]
         flip_prob: 0.5
@@ -19,8 +19,8 @@ augmentation:
         color_prob: 0.5
 normalize:
         methods: ["Scale"]
-        channel_std: [0.633, 0.383, 0.649]
-        channel_mean: [0.143, 0.197, 0.19]        
+        channel_mean: [0.633, 0.383, 0.649]
+        channel_std: [0.143, 0.197, 0.19]        
 num_classes: 1 
 weights: [5.02]
 model: 
@@ -33,6 +33,6 @@ gpu_num: 4
 metric: "dice_coef" 
 threshold: 0.95
 early_stopping:
-        metric: [0.85,0.8]
-        epochs: [40, 80]
-step: 1024
+        metric: [0.85,0.825]
+        epochs: [30, 75]
+step: 2048

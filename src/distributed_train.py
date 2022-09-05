@@ -144,14 +144,19 @@ class DistributedTraining():
         :returns total_loss: total loss across all replicas
         :returns total_dice: total dice across all replicas
         '''
+        print("****START HOLLY in _train")
         total_loss = 0.0
         total_dice = 0.0
+        print(self.train_loader.steps)
         prog = Progbar(self.train_loader.steps-1)
         for i, batch in enumerate(self.train_loader.dataset):
+            #print(i)
+            #print(batch)
             replica_loss, replica_dice = self._run(batch)
             total_loss += self.strategy.reduce(tf.distribute.ReduceOp.SUM,replica_loss, axis=None)
             total_dice += self.strategy.reduce(tf.distribute.ReduceOp.SUM,replica_dice, axis=None)
             prog.update(i) 
+        print("****END _train")
         return total_loss, total_dice
 
 	
@@ -206,6 +211,7 @@ class DistributedTraining():
         :returns self.model: trained tensorflow/keras subclassed model
         :returns self.history: dictonary containing train and validation scores
         '''
+        print("****START forward")
         for epoch in range(self.epochs):
             #trainLoss, trainDice = self.distributedTrainEpoch(trainDistDataset)
             train_loss, train_dice = self._train()
@@ -235,4 +241,5 @@ class DistributedTraining():
                 print('Stopping early on epoch: {}'.format(epoch))
                 break
 
+        print("****END forward")
         return self.model, self.history

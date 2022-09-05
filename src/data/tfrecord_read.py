@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+import sys
+sys.path.append('../utilities/augmentation.py')
+sys.path.append('/home/hrafique/lymphnode-keras/src')
+
+
 
 import os
 import random
@@ -50,13 +55,32 @@ class TFRecordLoader():
             'image': tf.io.FixedLenFeature((), tf.string),
             'mask': tf.io.FixedLenFeature((), tf.string)
             #'imagename': tf.io.FixedLenFeature((), tf.string),
-            #'maskname': tf.io.FixedLenFeature((), tf.string)
+            #'maskname': tf.io.FixedLenFeature((), tf.string),
             #'dims': tf.io.FixedLenFeature((), tf.int64)
                }
         example = tf.io.parse_single_example(serialized, data)
         image = tf.image.decode_png(example['image'])
         mask = tf.image.decode_png(example['mask'])
         return image, mask
+
+    def _read_full_record(self, serialized):
+        '''
+        read tfrecord image/mask files
+        :param serialized: tfrecord file
+        :return image: image tensor (HxWxC)
+        :return mask: mask tensor (HxWxC)
+        '''
+        data = {
+            'image': tf.io.FixedLenFeature((), tf.string),
+            'mask': tf.io.FixedLenFeature((), tf.string),
+            'imagename': tf.io.FixedLenFeature((), tf.string),
+            'maskname': tf.io.FixedLenFeature((), tf.string),
+            'dims': tf.io.FixedLenFeature((), tf.int64)
+               }
+        example = tf.io.parse_single_example(serialized, data)
+        image = tf.image.decode_png(example['image'])
+        mask = tf.image.decode_png(example['mask'])
+        return image, example['imagename'], mask, example['maskname']
 
 
     def record_size(self):
@@ -151,19 +175,71 @@ class TFRecordLoader():
             dataset = dataset.batch(1)
         self.dataset=dataset
 
+    def extract_records(self, path, output_path):
+        #make img and mask dirs
+        img_path = os.path.join(output_path,'images')
+        mask_path = os.path.join(output_path,'masks') 
+        os.makedirs(img_path,exist_ok=True)
+        os.makedirs(mask_path,exist_ok=True)
+        print(img_path)
+        print(mask_path)
+
+        AUTO = tf.data.experimental.AUTOTUNE
+        ignoreDataOrder = tf.data.Options()
+        ignoreDataOrder.experimental_deterministic = False
+        dataset = tf.data.Dataset.list_files(self.tfrecords)
+        dataset = dataset.with_options(ignoreDataOrder)
+        ##TRY LEAVING THIS OUT?
+        dataset = dataset.interleave(lambda x: tf.data.TFRecordDataset(x), cycle_length=16, num_parallel_calls=AUTO)
+        dataset = dataset.map(self._read_tfr_record, num_parallel_calls=AUTO)
+        
+        for i, (img,mask) in enumerate(dataset):
+            #print(i)
+            img = np.array(img)
+            mask = np.array(mask)
+            #print(img)
+            #img = cv2.cvtColor(d[0], cv2.COLOR_RGB2BGR)
+            img_name = os.path.join(img_path,('patch_validation'+str(i)+'.png')) 
+            cv2.imwrite(img_name,img)
+            #print(img_name)
+            #mask = cv2.cvtColor(d[1], cv2.COLOR_RGB2BGR)
+            cv2.imwrite(os.path.join(mask_path,('patch_validation'+str(i)+'_mask.png')),mask)
+
 
 if  __name__ == '__main__':
 
     ap = argparse.ArgumentParser()
-    ap.add_argument('-rp', '--tfrecordpath', required=True, help='path to tfrecord')
+    ap.add_argument('-rp', '--record_path', required=True, help='path to tfrecord')
+    ap.add_argument('-op', '--output_path')
     ap.add_argument('-c', '--categorical', help='binary or categorical - default is binary')
     ap.add_argument('-n', '--number', help='get the number of records')
     ap.add_argument('-a', '--augment', help='augmentation flag')
-    args = vars(ap.parse_args())
+    args = ap.parse_args()
 
-    tfRecordPaths = os.path.join(args['tfrecordpath'],'*.tfrecords')
-    if args['number'] is not None:
-        number = getRecordNumber(tfrecords)
-        print('The number is: {}'.format(number), flush=True)
+    #if args.number is not None:
+        #number = getRecordNumber(tfrecords)
+        #print('The number is: {}'.format(number), flush=True)
+    print("calling tfrecords_read")
 
-    dataset = getShards(tfRecordPaths, augment)
+    if(args.output_path):
+        save_path = args.output_path
+        os.makedirs(save_path,exist_ok=True)
+    else:
+        save_path = args.record_path
+
+    #write all images to op/images
+    #write all masks to op/masks
+    img_dims=1024
+    batch_size=1
+    tfRecordPaths = os.path.join(args.record_path,'*.tfrecords')
+    record_files = glob.glob(tfRecordPaths)
+    print("init loader")
+    loader=TFRecordLoader(record_files,
+                                'records',
+                                img_dims,
+                                "binary",
+                                batch_size)
+
+    print("extract records")
+    loader.extract_records(args.record_path, save_path)
+    #dataset = getShards(tfRecordPaths, augment)

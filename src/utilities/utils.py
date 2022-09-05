@@ -8,6 +8,7 @@ import numpy as np
 import operator
 import matplotlib.pyplot as plt
 
+import pandas as pd
 
 def one_hot_to_mask(one_hot):
     n_classes = one_hot.shape[-1]
@@ -50,14 +51,14 @@ def get_train_curves(history,train_metric,valid_metric,save_path):
                  history[train_metric],
                  markers=True,
                  dashes=False,
-                 label='Training'+train_metric)
+                 label='Training Dice - '+train_metric)
     print("*** HOLLY *** plot validation now")    
    #plot validation
     sns.lineplot(range(len(history[valid_metric])),
                  history[valid_metric],
                  markers=True,
                  dashes=False,
-                 label='Validation'+valid_metric)
+                 label='Validation Dice - '+valid_metric)
 
     plt.title('Training and validation'+train_metric)
     plt.xlabel('epochs')
@@ -86,7 +87,8 @@ def save_experiment(model,config,history,name,model_save_path):
     with open(os.path.join(model_save_path,'config.yaml'), 'w') as config_file:
         yaml.dump(config, config_file)
 
-
+    summary_df=pd.DataFrame({'train dice':history['train_metric'], 'validation dice':history['val_metric']})
+    summary_df.to_csv(os.path.join(model_save_path,'dice_scores.csv'))
 
 
 

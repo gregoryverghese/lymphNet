@@ -71,14 +71,21 @@ class MSUnet():
     
     
     def encoder(self, x):
-
+        print("****START HOLLY in multiscale encoder")
         x = conv_block(x, self.filters[0],self.conv_layer)
+        print(K.int_shape(x))
         e1 = multi_block(x, self.filters[1],self.conv_layer,self.up_layer)
+        print(K.int_shape(e1))
         e2 = multi_block(e1, self.filters[2], self.conv_layer,self.up_layer)
+        print(K.int_shape(e2))
         e3 = multi_block(e2, self.filters[3], self.conv_layer,self.up_layer)
+        print(K.int_shape(e3))
         e4 = multi_block(e3, self.filters[4], self.conv_layer,self.up_layer)
+        print(K.int_shape(e4))
         e5 = multi_block(e4, self.filters[4], self.conv_layer,self.up_layer)
+        print(K.int_shape(e5))
 
+        print("****END encoder")
         return x, e1,e2,e3,e4,e5
 
 

@@ -64,18 +64,22 @@ LOSSFUNCTIONS={
 
 def data_loader(path,config):
     
+    print("****START in data_loader")
     #load training files
     train_path = os.path.join(path,'train','*.tfrecords')
     train_files = glob.glob(train_path)
-    
+    print("initial num train files: "+str(len(train_files)))    
     ## HOLLY testing
-    train_files=train_files[:100]
+    train_files=train_files[:10]
+    
+    print("new num train files: "+str(len(train_files)))
+    
     train_loader=TFRecordLoader(train_files,
                                 'train',
                                 config['image_dims'],
                                 config['task_type'],
                                 config['batch_size'])
-    train_loader.record_size()
+    print("record size: "+str(train_loader.record_size()))
     #print(f'tiles: n={train_loader.tile_nums}; steps:n={train_loader.steps}')
     
     #augmention
@@ -104,7 +108,7 @@ def data_loader(path,config):
     #print(f'tiles: n={valid_loader.tile_nums}; steps:n={valid_loader.steps}')
     valid_loader.load(1)
     valid_loader.normalize(norm_methods,norm_parameters)
-
+    print("****END")
     return train_loader,valid_loader
 
 
@@ -128,7 +132,7 @@ def main(args,config,name,save_path):
     :param save_path: path for experiment output
     :returns result: avg dice and iou score
     '''
-    print("\n\n**** HOLLY ****   in main")
+    print("\n\n****START HOLLY ****   in main")
 
     
 
@@ -155,7 +159,7 @@ def main(args,config,name,save_path):
         'n_output':config['num_classes'],
             }
     loss_params={'weights':config['weights'][0]}
-    print("\n\n**** HOLLY ****   about to train")
+    print("\n\n**** HOLLY ****   set up models")
 
     #use distributed training (multi-gpu training)
     strategy = tf.distribute.MirroredStrategy(devices)
@@ -186,17 +190,19 @@ def main(args,config,name,save_path):
                                 config['task_type'],
                                 train_writer,
                                 test_writer)
-    print("\n\n**** HOLLY ****   finished train, now going forward")
+    print("\n\n**** HOLLY ****   now train going forward")
     
     model, history = train.forward()
     #save model, config and training curves
     model_save_path=os.path.join(save_path,'models')
     save_experiment(model,config,history,name,model_save_path)
     curve_save_path=os.path.join(save_path,'curves')
-    print("\n\n**** HOLLY ****   about to call get_train_curves for train_loss val_loss")
+    print("\n\n****START HOLLY ****   about to call get_train_curves for train_loss val_loss")
     get_train_curves(history,'train_loss','val_loss',curve_save_path)
-    print("\n\n**** HOLLY ****   about to call get_train_curves for train_metric val_metric")
+    print("****END")
+    print("\n\n****START HOLLY ****   about to call get_train_curves for train_metric val_metric")
     get_train_curves(history,'train_metric', 'val_metric',curve_save_path)
+    print("****END")
     print("\n\n**** HOLLY ****   finished getting train curves")
 
     print("\n\n**** HOLLY ****   time to test")
@@ -211,6 +217,11 @@ def main(args,config,name,save_path):
                          config['normalize']['methods'],
                          config['normalize']['channel_mean'],
                          config['normalize']['channel_std'])
+
+    print("\n\n**** HOLLY ****   finished predictions")
+
+    print("\n\n****END HOLLY ****   the END of main")
+
     return result
 
 
