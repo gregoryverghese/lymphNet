@@ -38,7 +38,7 @@ class DistributedTraining():
                  optimizer, 
                  criterion,
                  strategy,
-                 batch_size,
+                 global_batch_size,
                  epoch,
                  img_dims,
                  stop_criteria,
@@ -54,10 +54,17 @@ class DistributedTraining():
         self.criterion = criterion
         self.strategy = strategy
         self.epochs = epoch
-        self.batch_size = batch_size
+        self.global_batch_size = global_batch_size
         self.metric = diceCoef
         self.img_dims = img_dims
-        self.history = {'train_loss': [], 'train_metric':[], 'val_metric':[],'val_loss':[]}
+
+        self.history = {
+            'train_loss': [], 
+            'train_metric':[], 
+            'val_metric':[],
+            'val_loss':[]
+        }
+
         self.stop_criteria = stop_criteria
         self.threshold = threshold
         self.task_type = task_type
@@ -73,7 +80,7 @@ class DistributedTraining():
         :returns loss: loss per replica
         '''
         loss = self.criterion(label, predictions)
-        loss = tf.reduce_sum(loss) * (1. / (self.img_dims*self.img_dims*self.batch_size))
+        loss = tf.reduce_sum(loss) * (1. /(self.img_dims*self.img_dims*self.global_batch_size))
         #loss = tf.reduce_sum(loss) * (1. / (self.batchSize))
         loss = loss * (1/self.strategy.num_replicas_in_sync)
         return loss
@@ -104,10 +111,8 @@ class DistributedTraining():
         x, y = inputs
         with tf.GradientTape() as tape:
             logits = self.model(x, training=True)
-            print('logits', K.int_shape(logits))
             loss = self.compute_loss(y, logits)
             y_pred = tf.cast((logits > self.threshold), tf.float32)
-            print(K.int_shape(y),K.int_shape(y_pred))
             dice = self.compute_dice(y, y_pred)
             gradients = tape.gradient(loss, self.model.trainable_variables)
             self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
@@ -126,7 +131,8 @@ class DistributedTraining():
         loss = self.criterion(y, logits)
         y_pred = tf.cast((logits > self.threshold), tf.float32)
         dice = self.compute_dice(y, y_pred)
-        loss = tf.reduce_sum(loss) * (1. / (self.img_dims*self.img_dims*self.batch_size))
+        #need to change batch size variable (testing uses 1)
+        loss = tf.reduce_sum(loss) * (1. / (self.img_dims*self.img_dims*1))
         return loss, dice
 
 
