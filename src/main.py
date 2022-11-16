@@ -164,22 +164,22 @@ def main(args,config,name,save_path):
     valid_dataset_dist = strategy.experimental_distribute_dataset(valid_loader.dataset)
     train_loader.dataset = train_dataset_dist
     valid_loader.dataset = valid_dataset_dist
-    print(train_loader.dataset)
 
-    train = DistributedTraining(model,
-                                train_loader,
-                                valid_loader,
-                                optimizer, 
-                                criterion,
-                                strategy, 
-                                config['batch_size'],
-                                config['epochs'],
-                                config['image_dims'], 
-                                config['early_stopping'],
-                                config['threshold'],
-                                config['task_type'],
-                                train_writer,
-                                test_writer)
+    train = DistributedTraining(
+        model,
+        train_loader,
+        valid_loader,
+        optimizer, 
+        criterion,
+        strategy, 
+        config['batch_size'],
+        config['epochs'],
+        config['image_dims'], 
+        config['early_stopping'],
+        config['threshold'],
+        config['task_type'],
+        train_writer,
+        test_writer)
     
     model, history = train.forward()
     #save model, config and training curves
@@ -189,17 +189,20 @@ def main(args,config,name,save_path):
     get_train_curves(history,'train_loss','val_loss',curve_save_path)
     get_train_curves(history,'train_metric', 'val_metric',curve_save_path)
     pre=True
+
     if pre:
         print('prediction')
-        result=test_predictions(model,
-                         args.test_path,
-                         args.save_path,
-                         config['feature'],
-                         config['threshold'],
-                         config['step'],
-                         config['normalize']['methods'],
-                         config['normalize']['channel_mean'],
-                         config['normalize']['channel_std'])
+        result=test_predictions(
+            model,
+            args.test_path,
+            args.save_path,
+            config['feature'],
+            config['threshold'],
+            config['step'],
+            config['normalize']['methods'],
+            config['normalize']['channel_mean'],
+            config['normalize']['channel_std']
+        )
     #return result
 
 
