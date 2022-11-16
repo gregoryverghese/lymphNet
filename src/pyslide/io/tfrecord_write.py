@@ -10,7 +10,6 @@ import math
 
 import cv2
 import numpy as np
-import staintools
 import tensorflow as tf
 
 __author__= 'Gregory Verghese'
@@ -19,24 +18,7 @@ __email__='gregory.verghese@gmail.com'
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 
-TARGET='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-keras/data/norm-targets/14.90610 C L2.11.png'
-
-def stain_normalizer(image):
-    image.setflags(write=1)
-    target_path=TARGET
-    target=cv2.imread(target_path)
-    target=cv2.cvtColor(target,cv2.COLOR_BGR2RGB)
-    normalizer=staintools.StainNormalizer(method='vahadane')
-    normalizer.fit(target)
-    try:
-        transformed = normalizer.transform(image)
-    except Exception as e:
-        print('Not-transformed')
-        transformed=None
-    return transformed
-
-
-def getShardNumber(images, masks, shardSize=0.25, unit=10**9):
+def getShardNumber(images, masks, shardSize=0.01, unit=10**9):
     '''
     calculate the number of shards based on images
     masks and required shard size
@@ -115,9 +97,7 @@ def convert(imageFiles, maskFiles, tfRecordPath, dim=None):
             maskName = os.path.basename(m)[:-10]
             mPath = os.path.dirname(m)
            
-            m = os.path.join(mPath, os.path.basename(img[:-4]) + '.png')
-            print(imgName)
-            print(m)
+            m = os.path.join(mPath, os.path.basename(img[:-4]) + '_masks.png')
             maskName = os.path.basename(m)
             if not os.path.exists(m):
                 check.append(maskName)
@@ -125,9 +105,9 @@ def convert(imageFiles, maskFiles, tfRecordPath, dim=None):
  
             maskName = os.path.basename(m)
 
-            image = np.array(tf.keras.preprocessing.image.load_img(img,color_mode='rgb'))
-            #image = tf.keras.preprocessing.image.img_to_array(image,dtype=np.uint8)
-            #image = stain_normalizer(image)
+            image = tf.keras.preprocessing.image.load_img(img)
+            image = tf.keras.preprocessing.image.img_to_array(image,dtype=np.uint8)
+            if stainNormalize=
             dims = image.shape
             image = tf.image.encode_png(image)
             
@@ -188,8 +168,8 @@ def getFiles(imagePath, maskPath, outPath, config, shardSize=0.1):
 
     validFiles=configFile['validFiles']
     testFiles = configFile['testFiles']
-    imagePaths = glob.glob(os.path.join(imagePath, '*/images/*'))
-    maskPaths = glob.glob(os.path.join(maskPath, '*/mask/*'))
+    imagePaths = glob.glob(os.path.join(imagePath, '*'))
+    maskPaths = glob.glob(os.path.join(maskPath, '*'))
 
     print('Total images: {}, Total masks: {}'.format(len(imagePaths), len(maskPaths)))
 

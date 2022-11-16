@@ -15,6 +15,22 @@ from prettytable import PrettyTable
 
 from utilities.augmentation import Augment, Normalize 
 
+TARGET='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-keras/data/norm-targets'
+
+def stain_normalizer(image):
+
+    target=cv2.imread(target_path)
+    target=cv2.cvtColor(target,cv2.COLOR_BGR2RGB)
+    normalizer=staintools.StainNormalizer(method='vahadane')
+    normalizer.fit(target)
+    try:
+        transformed = normalizer.transform(image)
+    except:
+        print('Not-transformed')
+        transformed=None
+    return transformed
+
+
 
 class TFRecordLoader():
     def __init__(self,tfrecords,name,tile_dims,task_type,batch_size):
@@ -124,6 +140,7 @@ class TFRecordLoader():
         tastType: string multi or binary
         :returns dataset: tfrecord.data.dataset
         '''
+        print(self.tile_nums/4)
         self.batch_size=batch_size
         AUTO = tf.data.experimental.AUTOTUNE
         ignoreDataOrder = tf.data.Options()
@@ -144,7 +161,7 @@ class TFRecordLoader():
         if self.name!='test':
             dataset = dataset.cache()
             #dataset = dataset.repeat()
-            dataset = dataset.shuffle(self.tile_nums, reshuffle_each_iteration=True)
+            dataset = dataset.shuffle(int(self.tile_nums/15), reshuffle_each_iteration=True)
             dataset = dataset.batch(self.batch_size, drop_remainder=True)
             dataset = dataset.prefetch(AUTO)
         else:

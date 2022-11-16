@@ -10,17 +10,34 @@ import argparse
 import cv2
 import numpy as np
 import pandas as pd
-import tensorflow as tf
 from tensorflow.keras.models import load_model
+import torch
+import tensorflow as tf
+import torch.nn.functional as F
+import torch.nn as nn
+from torchvision import transforms as T
 
+from networks.unet_multi import UNet_multi 
 from utilities.evaluation import diceCoef
 from utilities.augmentation import Augment, Normalize
 
 #test_path='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-keras/data/patches/segmentation/10x/one/testing'
 #model_path='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-keras/output/models/2022-04-28/attention_sinus_2.5x_adam_weightedBinaryCrossEntropy_FRC_data4_256_01:19.h5'
 #save_path='/home/verghese/lymphnode-keras'
+
+
+def dice_coef(y_true,y_pred,idx=[0,2,3],smooth=1):
+        y_true=y_true.type(torch.float32)
+        y_pred=y_pred.type(torch.float32)
+        intersection=torch.sum(y_true*y_pred,dim=idx)
+        union=torch.sum(y_true,dim=idx)+torch.sum(y_pred,dim=idx)
+        dice=torch.mean((2*intersection+smooth)/(union+smooth),dim=0)
+        return dice
+
+
 class Predict():
-    def __init__(self,model,
+    def __init__(self,
+                 model,
                  threshold,
                  step, 
                  normalize=[], 
@@ -52,15 +69,31 @@ class Predict():
 
         return image,mask
 
+    
+    def get_transform(self,img):
+        #img = Image.fromarray(img)
+        #img=img.convert('RGB')
+        tt = T.ToTensor()
+        n = T.Normalize((0.7486, 0.5743, 0.7222),(0.0126, 0.0712, 0.0168))
+        img = tt(img)
+        img = n(img)
+        return img
 
     def _predict(self, image):
+        tt = T.ToTensor() 
+        print(self.threshold)
         y_dim, x_dim, _ = image.shape
         canvas=np.zeros((1,int(y_dim),int(x_dim),1))
         for x, y in self._patching(x_dim,y_dim):
             patch=image[y:y+self.step,x:x+self.step,:]
             patch=np.expand_dims(patch,axis=0)
-            probs=self.model.predict(patch)
-            prediction=tf.cast((probs>self.threshold), tf.float32)
+            #patch=self.get_transform(patch)
+            #patch=torch.unsqueeze(patch,0)
+            logits=self.model(patch)
+            prediction=tf.cast((logits>self.threshold), tf.float32)
+            #probs=F.sigmoid(logits)
+            #prediction = torch.ge(probs[:,1:2,:,:],self.threshold).float()
+            #prediction=torch.permute(prediction,(0,2,3,1))
             canvas[:,y:y+self.step,x:x+self.step,:]=prediction
         return canvas.astype(np.uint8)
 
@@ -69,32 +102,37 @@ def test_predictions(model,
                      test_path,
                      save_path,
                      feature,
-                     threshold=0.5,
-                     step=512,
+                     threshold=0.7,
+                     step=1024,
                      normalize=[],
                      channel_means=None,
                      channel_std=None
                      ):
     dices=[]
     names=[]
-    image_paths=glob.glob(os.path.join(test_path,'images',feature,'*'))
+    print(save_path)
+    image_paths=glob.glob(os.path.join(test_path,'images','*'))
     mask_paths=glob.glob(os.path.join(test_path,'masks',feature,'*'))
+    print(mask_paths)
     predict=Predict(model,threshold,step,normalize,channel_means,channel_std)
-
-    for i, (i_path,m_path) in enumerate(zip(image_paths,mask_paths)):
-        name=os.path.basename(i_path)
+    for i, i_path in enumerate(image_paths):
+        name=os.path.basename(i_path)[:-9]
         names.append(name)
+        print(name)
+        m_path=[m for m in mask_paths if name in m][0]
         mask=cv2.imread(m_path)
         image=cv2.imread(i_path)
         image=cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
         image,mask=predict._normalize(image,mask)
         prediction=predict._predict(image)
         mask=np.expand_dims(mask,axis=0)
-        dices.append(diceCoef(prediction,mask))
+        print(prediction.shape,mask.shape)
+        dices.append(diceCoef(prediction,mask[:,:,:,0:1]))
         cv2.imwrite(os.path.join(save_path,'predictions',name+'.png'),prediction[0,:,:,:]*255)
+    print(dices)
     dice_df=pd.DataFrame({'names':names,'dices':dices})
     dice_df.to_csv(os.path.join(save_path,'results.csv'))
-    print(dice_df)
+    #print(dice_df)
     return dices
 
   
@@ -111,7 +149,11 @@ if __name__=='__main__':
     ap.add_argument('-cs','--std',nargs='+', default=[0.143,0.197,0.19],help='channel std')
     args=ap.parse_args()
 
+    #model=UNet_multi(3,2)
+    #state_dict=torch.load(args.model_path,map_location='cpu')
+    #model.load_state_dict(state_dict)
     model=load_model(args.model_path)
+    print(model)
     test_predictions(model,
                      args.test_path,
                      args.save_path,

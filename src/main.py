@@ -133,7 +133,8 @@ def main(args,config,name,save_path):
         
     #collect gpus
     devices = tf.config.experimental.list_physical_devices('GPU')
-    devices = [x.name.replace('/physical_device:', '') for x in devices] 
+    devices = [x.name.replace('/physical_device:', '') for x in devices]
+    print(devices)
     #devices = ['/device:GPU:{}'.format(i) for i in range(multiDict['num'])]
     
     #set up model parameters
@@ -148,18 +149,23 @@ def main(args,config,name,save_path):
     #use distributed training (multi-gpu training)
     strategy = tf.distribute.MirroredStrategy(devices)
     with strategy.scope():
-        boundaries=[30, 60]
-        values=[0.001,0.0005,0.0001]
-        lr_schedule = tf.keras.optimizers.schedules.PiecewiseConstantDecay(boundaries,values)
-        optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
+        #boundaries=[30, 60]
+        #values=[0.001,0.0005,0.0001]
+        #lr_schedule = tf.keras.optimizers.schedules.PiecewiseConstantDecay(boundaries,values)
+        #optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
+        optimizer = tf.keras.optimizers.Adam(learning_rate=config['learning_rate'])
         #criterion = LOSSFUNCTIONS[config['loss'][0]](**loss_params)
         criterion = BinaryXEntropy(config['weights'][0])
         #with tf.device('/cpu:0'):
         model=FUNCMODELS[args.model_name](**model_params)
         model=model.build()
  
-    train_dataset = strategy.experimental_distribute_dataset(train_loader.dataset)
-    valid_dataset = strategy.experimental_distribute_dataset(valid_loader.dataset)
+    train_dataset_dist = strategy.experimental_distribute_dataset(train_loader.dataset)
+    valid_dataset_dist = strategy.experimental_distribute_dataset(valid_loader.dataset)
+    train_loader.dataset = train_dataset_dist
+    valid_loader.dataset = valid_dataset_dist
+    print(train_loader.dataset)
+
     train = DistributedTraining(model,
                                 train_loader,
                                 valid_loader,
@@ -182,8 +188,9 @@ def main(args,config,name,save_path):
     curve_save_path=os.path.join(save_path,'curves')
     get_train_curves(history,'train_loss','val_loss',curve_save_path)
     get_train_curves(history,'train_metric', 'val_metric',curve_save_path)
-
-    if args.predict:
+    pre=True
+    if pre:
+        print('prediction')
         result=test_predictions(model,
                          args.test_path,
                          args.save_path,
@@ -193,7 +200,7 @@ def main(args,config,name,save_path):
                          config['normalize']['methods'],
                          config['normalize']['channel_mean'],
                          config['normalize']['channel_std'])
-    return result
+    #return result
 
 
 if __name__ == '__main__':
@@ -217,7 +224,7 @@ if __name__ == '__main__':
         config=yaml.load(yaml_file, Loader=yaml.FullLoader)
 
     name=config['name']+'_'+curr_date+'_'+curr_time
-
+    print(name)
     #set up paths for models, training curves and predictions
     save_path = os.path.join(args.save_path,name)
     os.makedirs(save_path,exist_ok=True)

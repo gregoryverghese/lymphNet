@@ -104,8 +104,10 @@ class DistributedTraining():
         x, y = inputs
         with tf.GradientTape() as tape:
             logits = self.model(x, training=True)
+            print('logits', K.int_shape(logits))
             loss = self.compute_loss(y, logits)
             y_pred = tf.cast((logits > self.threshold), tf.float32)
+            print(K.int_shape(y),K.int_shape(y_pred))
             dice = self.compute_dice(y, y_pred)
             gradients = tape.gradient(loss, self.model.trainable_variables)
             self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
@@ -187,9 +189,9 @@ class DistributedTraining():
         second_epoch=self.stop_criteria['epochs'][1]
         second_metric=self.stop_criteria['metric'][1]
 
-        if epoch > first_epoch and val_dice > first_metric:
+        if epoch > first_epoch and val_dice < first_metric:
             stop = True
-        elif epoch > second_epoch and val_dice > second_metric:
+        elif epoch > second_epoch and val_dice < second_metric:
             stop = True
         else:
             stop = False
@@ -231,7 +233,7 @@ class DistributedTraining():
             self.history['val_metric'].append(test_dice)
             self.history['val_loss'].append(test_loss)
 
-            if self.early_stop(test_dice, epoch):
+            if self.early_stop(test_loss, epoch):
                 print('Stopping early on epoch: {}'.format(epoch))
                 break
 

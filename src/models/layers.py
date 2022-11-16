@@ -129,28 +129,28 @@ def multi_block(x,
     out_f=f/3
     x = MaxPooling2D((2,2))(x)
 
-    x1 = conv_layer(f, 1)(x)
+    x1 = conv_layer(out_f, 1)(x)
     x1 = MaxPooling2D((1,1))(x1)
     x1 = BatchNormalization()(x1) if normalize else x1
     x1 = ReLU()(x1)
-    x1 = conv_layer(f, 1)(x1)
+    x1 = conv_layer(out_f, 1)(x1)
     x1 = BatchNormalization()(x1) if normalize else x1
     x1 = ReLU()(x1)
 
-    x2 = conv_layer(f, 2)(x1)
+    x2 = conv_layer(out_f, 2)(x1)
     x2 = MaxPooling2D((2,2))(x2)
     x2 = BatchNormalization()(x2) if normalize else x2
     x2 = ReLU()(x2)
-    x2 = conv_layer(f, 2)(x2)
+    x2 = conv_layer(out_f, 2)(x2)
     x2 = BatchNormalization()(x2) if normalize else x2
     x2 = ReLU()(x2)
     x2 = up_layer(pool=(2,2))(x2)
 
-    x3 = conv_layer(f, 4)(x2)
+    x3 = conv_layer(out_f, 4)(x2)
     x3 = MaxPooling2D((4,4))(x3)
     x3 = BatchNormalization()(x3) if normalize else x3
     x3 = ReLU()(x3)
-    x3 = conv_layer(f, 4)(x3)
+    x3 = conv_layer(out_f, 4)(x3)
     x3 = BatchNormalization()(x3) if normalize else x3
     x3 = ReLU()(x3) 
     x3 = up_layer(pool=(4,4))(x3)
