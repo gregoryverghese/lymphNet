@@ -23,7 +23,7 @@ __author__ = 'Gregory Verghese'
 __email__ = 'gregory.e.verghese@kcl.ac.uk'
 
 #ask GV: why are we running the same experiment 10 times?
-N=10
+N=1
 
 def tuning(args,config,save_path,curr_date,curr_time):
 
@@ -31,6 +31,11 @@ def tuning(args,config,save_path,curr_date,curr_time):
     generates series of config files to tune different parameters
     :param args: command line arguments
     '''  
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    #HOLLY - attempting to resolve OOM //Resource_Exhausted errors
+    #this is the tf v2 replacement for ConfigPronto allow_growth
+    for gpu in gpus:
+       tf.config.experimental.set_memory_growth(gpu,True)
 
     print("****START Tuning **** HOLLY")
     indexes = []
@@ -47,6 +52,7 @@ def tuning(args,config,save_path,curr_date,curr_time):
     #generate experiment specific config file
     
     #added a count to be able to save seperate results for each iteration when N>1
+    #could use a subprocess for each iteration
     for a_i,a  in enumerate(augmentation):
        print("aug loop: "+str(a_i))
        print(a)

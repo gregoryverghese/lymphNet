@@ -10,6 +10,7 @@ function and performs backward pass with chosen optimizer
 import os
 import datetime
 
+import cv2
 import tensorflow as tf
 import numpy as np
 import tensorflow.keras.backend as K
@@ -24,6 +25,7 @@ __email__ = 'gregory.verghese@kcl.ac.uk'
 #import memory_saving_gradients
 #tf.__dict__["gradients"] = memory_saving_gradients.gradients_speed
 
+DEBUG=False
 
 class DistributedTraining():
     '''
@@ -74,7 +76,6 @@ class DistributedTraining():
         '''
         loss = self.criterion(label, predictions)
         loss = tf.reduce_sum(loss) * (1. / (self.img_dims*self.img_dims*self.batch_size))
-        #loss = tf.reduce_sum(loss) * (1. / (self.batchSize))
         loss = loss * (1/self.strategy.num_replicas_in_sync)
         return loss
 
@@ -101,6 +102,7 @@ class DistributedTraining():
         :returns loss: loss value
         :returns dice: returns dice coefficient
         '''
+        #if DEBUG: print("in _train")
         x, y = inputs
         with tf.GradientTape() as tape:
             logits = self.model(x, training=True)
@@ -109,6 +111,7 @@ class DistributedTraining():
             dice = self.compute_dice(y, y_pred)
             gradients = tape.gradient(loss, self.model.trainable_variables)
             self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
+        #if DEBUG: print("end _train")
         return loss, dice
 
 
@@ -121,10 +124,11 @@ class DistributedTraining():
         '''
         x, y = inputs
         logits = self.model(x, training=False)
-        loss = self.criterion(y, logits)
+        loss = self.compute_loss(y, logits)
+        #loss = self.criterion(y, logits)
+        #print("_test_step:loss")
         y_pred = tf.cast((logits > self.threshold), tf.float32)
         dice = self.compute_dice(y, y_pred)
-        loss = tf.reduce_sum(loss) * (1. / (self.img_dims*self.img_dims*self.batch_size))
         return loss, dice
 
 
@@ -144,24 +148,28 @@ class DistributedTraining():
         :returns total_loss: total loss across all replicas
         :returns total_dice: total dice across all replicas
         '''
-        print("****START HOLLY in _train")
+        if DEBUG: print("****START HOLLY in _train")
         total_loss = 0.0
         total_dice = 0.0
-        print(self.train_loader.steps)
-        prog = Progbar(self.train_loader.steps-1)
+        count = 0
+        #print(self.train_loader.steps) 
+        #prog = Progbar(self.train_loader.steps-1)
         for i, batch in enumerate(self.train_loader.dataset):
+            count = i
             #print(i)
             #print(batch)
             replica_loss, replica_dice = self._run(batch)
             total_loss += self.strategy.reduce(tf.distribute.ReduceOp.SUM,replica_loss, axis=None)
             total_dice += self.strategy.reduce(tf.distribute.ReduceOp.SUM,replica_dice, axis=None)
-            prog.update(i) 
-        print("****END _train")
+            #prog.update(i) 
+        
+        if DEBUG: print("trained on: "+str(i)+" images")
+        if DEBUG: print("****END _train")
         return total_loss, total_dice
 
 	
     @tf.function
-    def _test(self):
+    def _test(self,epoch):
         '''
         calculates loss and dice across all replicas
         for the test data
@@ -169,12 +177,14 @@ class DistributedTraining():
         :returns total_loss: loss summed over replicas
         :returns total_dice: dice summed over replicas
         '''
+        if DEBUG: print("\n****START Holly in _test ")
         total_loss = 0.0
         total_dice = 0.0
         for batch in self.valid_loader.dataset:
             loss, dice = self.strategy.run(self._test_step, args=(batch,))
             total_loss += self.strategy.reduce(tf.distribute.ReduceOp.SUM, loss, axis=None)
             total_dice += self.strategy.reduce(tf.distribute.ReduceOp.SUM, dice, axis=None)
+                
         return total_loss, total_dice   
 
 
@@ -211,8 +221,9 @@ class DistributedTraining():
         :returns self.model: trained tensorflow/keras subclassed model
         :returns self.history: dictonary containing train and validation scores
         '''
-        print("****START forward")
+        if DEBUG: print("****START forward")
         for epoch in range(self.epochs):
+            #print("new epoch")
             #trainLoss, trainDice = self.distributedTrainEpoch(trainDistDataset)
             train_loss, train_dice = self._train()
             train_loss = float(train_loss/self.train_loader.steps)
@@ -223,7 +234,7 @@ class DistributedTraining():
             epoch_str=' Epoch: {}/{},  loss - {:.2f}, dice - {:.2f}, lr - {:.5f}'
             tf.print(epoch_str.format(epoch+1, self.epochs, train_loss, train_dice, 1), end="")
 
-            test_loss, test_dice  =  self._test()
+            test_loss, test_dice  =  self._test(epoch)
             test_loss = float(test_loss/self.valid_loader.steps)
             test_dice = float(test_dice/self.valid_loader.steps)
             with self.test_writer.as_default():
@@ -241,5 +252,5 @@ class DistributedTraining():
                 print('Stopping early on epoch: {}'.format(epoch))
                 break
 
-        print("****END forward")
+        if DEBUG: print("****END forward")
         return self.model, self.history

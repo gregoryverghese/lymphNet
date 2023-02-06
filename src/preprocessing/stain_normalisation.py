@@ -10,6 +10,7 @@ choice of models: macenko, vahadane
 '''
 
 import staintools
+from staintools.miscellaneous.exceptions import TissueMaskException
 import datetime
 import argparse
 import time
@@ -39,34 +40,51 @@ def staintools_norm(image_path, target_path, output_path, method_name):
     #read all images names in directories
     target_paths=glob.glob(os.path.join(target_path,'*'))
     image_paths=glob.glob(os.path.join(image_path,'*'))
-
+    print(image_paths)
     #define ideal target patch and train normaliser
     #if there is more than one image in the target folder we will only read the first
     target = staintools.read_image(target_paths[0])
     target = staintools.LuminosityStandardizer.standardize(target)
-
+    print("target defined")
     normalizer = staintools.StainNormalizer(method=method_name)
     normalizer.fit(target)
-
+    print("fitted")
     #during testing we will just try a few images at once
     #image_paths = image_paths[:100]
-   
+    untransformed = []
+
     for i_path in image_paths:
+        print("*\n")
+        try:        
+            print(i_path)
+            # Read data from names 
+            #staintools reads into RGB format
+            img = staintools.read_image(i_path)
+            #standardize brightness
+            img = staintools.LuminosityStandardizer.standardize(img)
+            #stain normalise image towards target
+            img = normalizer.transform(img)
         
-        print(i_path)
-        # Read data from names 
-        #staintools reads into RGB format
-        img = staintools.read_image(i_path)
-        #standardize brightness
-        img = staintools.LuminosityStandardizer.standardize(img)
-        #stain normalise image towards target
-        img = normalizer.transform(img)
+            pass
+        except TissueMaskException as e:
+            print("cannot transform so using the original")
+            print(e)  
+            untransformed.append(i_path)          
+            pass
+        except Exception as e:
+            print("something unexpected happened")
+            print(e)
+            untransformed.append(i_path)
+            pass
+
         #write image to output folder
         #img is RGB so need to make sure we write it correctly as CV2 expects BGR
         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         cv2.imwrite(os.path.join(output_path, os.path.basename(i_path)),img)
 
 
+    print("The following images remain untransformed: ")
+    print(untransformed)
     #USING LIST COMPREHENSION - too memory intensive for 4k images at once?
     #images = []
     #images = [staintools.read_image(i_path)  for i_path in image_paths]

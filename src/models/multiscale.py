@@ -14,10 +14,11 @@ from tensorflow.keras.layers import  Activation, Dropout, BatchNormalization, Ma
 
 from .layers import multi_block, conv_block, ConvLayer, UpLayer
 
+DEBUG=True
 
 class MSUnet():
     def __init__(self, 
-                 filters=[32,64,128, 256,512], 
+                 filters=[63,150,270,360,540], 
                  final_activation='sigmoid',
                  activation='relu', 
                  n_output=1, 
@@ -74,15 +75,27 @@ class MSUnet():
         print("****START HOLLY in multiscale encoder")
         x = conv_block(x, self.filters[0],self.conv_layer)
         print(K.int_shape(x))
-        e1 = multi_block(x, self.filters[1],self.conv_layer,self.up_layer)
+
+        p1 = MaxPooling2D((2,2))(x)
+        e1 = multi_block(p1, self.filters[1],self.conv_layer,self.up_layer)
         print(K.int_shape(e1))
-        e2 = multi_block(e1, self.filters[2], self.conv_layer,self.up_layer)
+
+        p2 = MaxPooling2D((2,2))(e1)
+        e2 = multi_block(p2, self.filters[2], self.conv_layer,self.up_layer)
         print(K.int_shape(e2))
-        e3 = multi_block(e2, self.filters[3], self.conv_layer,self.up_layer)
+
+        ### HR - 05/09/22
+        # changed the last 3 blocks from multi to conv_block as per Nikhil's updates
+        p3 = MaxPooling2D((2,2))(e2)
+        e3 = conv_block(p3, self.filters[3], self.conv_layer)
         print(K.int_shape(e3))
-        e4 = multi_block(e3, self.filters[4], self.conv_layer,self.up_layer)
+
+        p4 = MaxPooling2D((2,2))(e3)
+        e4 = conv_block(p4, self.filters[4], self.conv_layer)
         print(K.int_shape(e4))
-        e5 = multi_block(e4, self.filters[4], self.conv_layer,self.up_layer)
+
+        p5 = MaxPooling2D((2,2))(e4)
+        e5 = conv_block(p5, self.filters[4], self.conv_layer)
         print(K.int_shape(e5))
 
         print("****END encoder")
@@ -90,7 +103,7 @@ class MSUnet():
 
 
     def decoder(self, x, e1,e2,e3,e4,e5):
-
+        ###HOLLY - why do we use self.up_layer in the first layer then UpSampling2D for ther rest?
         d1 = self.up_layer((2, 2))(e5)
         d1 = Concatenate()([e4, d1])
         d1 = conv_block(d1, self.filters[4], self.conv_layer)
@@ -107,7 +120,7 @@ class MSUnet():
         d4 = Concatenate()([e1, d4]) 
         d4 = conv_block(d4, self.filters[1], self.conv_layer)
         
-        d5 = upsampling5 = UpSampling2D((2, 2))(d4)
+        d5 = UpSampling2D((2, 2))(d4)
         d5 = Concatenate()([x, d5])
         d5 = conv_block(d5, self.filters[0], self.conv_layer)
 
@@ -118,8 +131,8 @@ class MSUnet():
 
         tensor_input = Input((None, None, 3))
         x, e1,e2,e3,e4,e5 = self.encoder(tensor_input)
-        x = self.decoder(x, e1,e2,e3,e4,e5)
-        final = Conv2D(self.n_output, kernel_size=(1, 1), strides=1,activation=self.final_activation)(x)
+        x_out = self.decoder(x, e1,e2,e3,e4,e5)
+        final = Conv2D(self.n_output, kernel_size=(1, 1), strides=1,activation=self.final_activation)(x_out)
         model = Model(tensor_input, final)
 
         return model

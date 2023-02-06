@@ -6,8 +6,7 @@ from tensorflow.keras.layers import Conv2D, UpSampling2D,BatchNormalization,Gaus
 from tensorflow.keras.layers import MaxPooling2D, Dropout, Activation, Concatenate
 from tensorflow.keras.layers import Add, Multiply, Input, Conv2DTranspose,LeakyReLU, ReLU
 
-
-
+#do we use this script at all?
 class ConvLayer():
     def __init_(self,
                 kernel_size,

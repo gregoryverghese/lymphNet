@@ -53,15 +53,17 @@ class TFRecordLoader():
         '''
         data = {
             'image': tf.io.FixedLenFeature((), tf.string),
-            'mask': tf.io.FixedLenFeature((), tf.string)
-            #'imagename': tf.io.FixedLenFeature((), tf.string),
-            #'maskname': tf.io.FixedLenFeature((), tf.string),
+            'mask': tf.io.FixedLenFeature((), tf.string),
+            'imageName': tf.io.FixedLenFeature((), tf.string)
+            #'maskName': tf.io.FixedLenFeature((), tf.string),
             #'dims': tf.io.FixedLenFeature((), tf.int64)
                }
         example = tf.io.parse_single_example(serialized, data)
         image = tf.image.decode_png(example['image'])
         mask = tf.image.decode_png(example['mask'])
-        return image, mask
+        #imgname = example['imageName'].numpy()
+        
+        return image, mask #, imgname
 
     def _read_full_record(self, serialized):
         '''
@@ -193,13 +195,14 @@ class TFRecordLoader():
         dataset = dataset.interleave(lambda x: tf.data.TFRecordDataset(x), cycle_length=16, num_parallel_calls=AUTO)
         dataset = dataset.map(self._read_tfr_record, num_parallel_calls=AUTO)
         
-        for i, (img,mask) in enumerate(dataset):
+        for i, (img,mask,iname) in enumerate(dataset):
             #print(i)
             img = np.array(img)
             mask = np.array(mask)
-            #print(img)
+            print("img name:" +str(iname))
             #img = cv2.cvtColor(d[0], cv2.COLOR_RGB2BGR)
-            img_name = os.path.join(img_path,('patch_validation'+str(i)+'.png')) 
+            #img_name = os.path.join(img_path,('patch_validation'+str(i)+'.png')) 
+            img_name=iname
             cv2.imwrite(img_name,img)
             #print(img_name)
             #mask = cv2.cvtColor(d[1], cv2.COLOR_RGB2BGR)
@@ -232,7 +235,8 @@ if  __name__ == '__main__':
     img_dims=1024
     batch_size=1
     tfRecordPaths = os.path.join(args.record_path,'*.tfrecords')
-    record_files = glob.glob(tfRecordPaths)
+    record_files = sorted(glob.glob(tfRecordPaths))
+    #record_files = record_files[:100]
     print("init loader")
     loader=TFRecordLoader(record_files,
                                 'records',
