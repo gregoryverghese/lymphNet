@@ -128,14 +128,36 @@ def test_predictions(model,
         mask=np.expand_dims(mask,axis=0)
         print(prediction.shape,mask.shape)
         dices.append(diceCoef(prediction,mask[:,:,:,0:1]))
-        cv2.imwrite(os.path.join(save_path,'predictions',name+'.png'),prediction[0,:,:,:]*255)
+        
+	writePredictionsToImage(prediction,save_path,name)        
+        writePredictionsToImage(mask,save_path,str("mask"+name)) 
+        
+	#cv2.imwrite(os.path.join(save_path,'predictions',name+'.png'),prediction[0,:,:,:]*255)
     print(dices)
     dice_df=pd.DataFrame({'names':names,'dices':dices})
     dice_df.to_csv(os.path.join(save_path,'results.csv'))
     #print(dice_df)
     return dices
 
+
+
+## writePredictionsToImage
+## helper function to take care of processing and write image in required format
+## 21/04/23 Holly Rafique - created function
+##
+def writePredictionsToImage(img,save_path,name):
+    
+    img_out = img[0,:,:,:]
+    img_out = img_out*255
   
+    img_out = cv2.cvtColor(img_out, cv2.COLOR_RGB2BGR)
+    cv2.imwrite(os.path.join(save_path,'predictions',name),img_out)
+  
+
+
+
+
+
 if __name__=='__main__':
     ap=argparse.ArgumentParser(description='model inference')
     ap.add_argument('-mp','--model_path',required=True,help='path to trained model')
