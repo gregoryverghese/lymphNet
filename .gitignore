@@ -9,4 +9,4 @@ archive/*
 *.csv
 *.txt
 *dev
-
+/output
