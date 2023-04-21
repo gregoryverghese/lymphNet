@@ -29,7 +29,7 @@ model:
         final_activation: "sigmoid"
         dropout: 0
 learning_rate: 0.001 
-gpu_num: 2
+gpu_num: 1
 metric: "dice_coef" 
 threshold: 0.75
 early_stopping:
