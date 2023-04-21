@@ -128,8 +128,7 @@ def test_predictions(model,
         mask=np.expand_dims(mask,axis=0)
         print(prediction.shape,mask.shape)
         dices.append(diceCoef(prediction,mask[:,:,:,0:1]))
-        
-	writePredictionsToImage(prediction,save_path,name)        
+        writePredictionsToImage(prediction,save_path,name)
         writePredictionsToImage(mask,save_path,str("mask"+name)) 
         
 	#cv2.imwrite(os.path.join(save_path,'predictions',name+'.png'),prediction[0,:,:,:]*255)
