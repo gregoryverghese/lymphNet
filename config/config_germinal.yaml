@@ -5,9 +5,9 @@ magnification: "10x"
 loss: ["wCE"]
 name: "$model_$feature_$mag_$augment_$dim_$step " 
 ratio: 0.9
-batch_size: 4
+batch_size: 2
 image_dims: 1024
-epochs: 30
+epochs: 10
 augmentation: 
         methods: [["Flip","Rotate90","Color"]]
         saturation: [0.5,1.2]
@@ -22,16 +22,16 @@ normalize:
         channel_mean: [0.633, 0.383, 0.649]
         channel_std: [0.143, 0.197, 0.19]        
 num_classes: 1 
-weights: [73.12]
+weights: [5.02]
 model: 
         network: "unet"
         filters: [32,64,128,256,512]
         final_activation: "sigmoid"
         dropout: 0
 learning_rate: 0.001 
-gpu_num: 1
+gpu_num: 2
 metric: "dice_coef" 
-threshold: 0.95
+threshold: 0.75
 early_stopping:
         metric: [0.85,0.825]
         epochs: [30, 75]
