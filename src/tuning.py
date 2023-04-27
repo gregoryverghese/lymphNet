@@ -22,7 +22,7 @@ from main import main
 __author__ = 'Gregory Verghese'
 __email__ = 'gregory.e.verghese@kcl.ac.uk'
 
-N=10
+N=5
 
 def tuning(args,config,save_path,curr_date,curr_time):
 
@@ -43,7 +43,7 @@ def tuning(args,config,save_path,curr_date,curr_time):
     mag = config['magnification']
     #Loop over parameters (augmentation and loss functions)
     #generate experiment specific config file
-    for a in augmentation:
+    for i,a in enumerate(augmentation):
        for l in losses:
           config['loss'] = l
           config['augmentation']['methods'] = a
@@ -58,7 +58,7 @@ def tuning(args,config,save_path,curr_date,curr_time):
           config['experiment_name'] = name
           name = name+curr_date+'_'+curr_time 
           #set up folders for experiment
-          save_path = os.path.join(args.save_path,name)
+          save_path = os.path.join(args.save_path,name+'_'+str(i))
           os.makedirs(save_path,exist_ok=True)
           model_save_path = os.path.join(save_path,'models')
           os.makedirs(model_save_path,exist_ok=True)

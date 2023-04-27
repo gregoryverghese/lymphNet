@@ -23,7 +23,7 @@ class Slide():
 
     def __init__(self, slide, mask,w,h,wNew=1,hNew=1,
                  pixWidth=0.23e-6, pixHeight=0.23e-6):
-
+        
         self.slide=slide
         self.mask=mask
         self.w=w
@@ -162,7 +162,7 @@ class Germinals():
         blur=cv2.bilateralFilter(self.mask,9,100,100)
         _,thresh=cv2.threshold(blur,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_NONE)
-        contours = list(filter(lambda x: cv2.contourArea(x) > 100, contours))
+        contours = list(filter(lambda x: cv2.contourArea(x) > 20, contours))
 
         self._germinals=contours
         self._num=len(self._germinals)

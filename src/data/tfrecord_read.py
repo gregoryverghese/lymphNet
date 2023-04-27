@@ -161,7 +161,7 @@ class TFRecordLoader():
         if self.name!='test':
             dataset = dataset.cache()
             #dataset = dataset.repeat()
-            dataset = dataset.shuffle(int(self.tile_nums/15), reshuffle_each_iteration=True)
+            dataset = dataset.shuffle(int(self.tile_nums/5), reshuffle_each_iteration=True)
             dataset = dataset.batch(self.batch_size, drop_remainder=True)
             dataset = dataset.prefetch(AUTO)
         else:

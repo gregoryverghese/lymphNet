@@ -65,12 +65,12 @@ def data_loader(path,config):
     
     #load training files
     train_path = os.path.join(path,'train','*.tfrecords')
-    train_files = glob.glob(train_path)
+    train_files = glob.glob(train_path)[:2]
     train_loader=TFRecordLoader(train_files,
                                 'train',
                                 config['image_dims'],
                                 config['task_type'],
-                                config['batch_size'])
+                                int(config['batch_size']))
     train_loader.record_size()
     print(f'tiles: n={train_loader.tile_nums}; steps:n={train_loader.steps}')
     
@@ -78,7 +78,7 @@ def data_loader(path,config):
     aug_methods=config['augmentation']['methods']
     aug_parameters=config['augmentation']
 
-    train_loader.load(config['batch_size'])
+    train_loader.load(int(config['batch_size']))
     train_loader.augment(aug_methods,aug_parameters)
 
     #normalize
@@ -93,12 +93,12 @@ def data_loader(path,config):
                                'test',
                                config['image_dims'],
                                config['task_type'],
-                               #config['batchSize']
-                               1)
+                               int(config['batch_size'])
+                               )
 
     valid_loader.record_size()
     print(f'tiles: n={valid_loader.tile_nums}; steps:n={valid_loader.steps}')
-    valid_loader.load(1)
+    valid_loader.load(int(config['batch_size']))
     valid_loader.normalize(norm_methods,norm_parameters)
 
     return train_loader,valid_loader

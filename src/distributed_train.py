@@ -132,7 +132,7 @@ class DistributedTraining():
         y_pred = tf.cast((logits > self.threshold), tf.float32)
         dice = self.compute_dice(y, y_pred)
         #need to change batch size variable (testing uses 1)
-        loss = tf.reduce_sum(loss) * (1. / (self.img_dims*self.img_dims*1))
+        loss = tf.reduce_sum(loss) * (1. /(self.img_dims*self.img_dims*1*self.global_batch_size))
         return loss, dice
 
 

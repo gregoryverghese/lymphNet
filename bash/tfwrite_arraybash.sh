@@ -7,16 +7,16 @@
 #$ -N 'arrayJobs' 
 
 for f in 'g'; do
-    for x in '2.5x'; do
-        for s in '256'; do
-            for o in '32'; do
+    for x in '10x'; do
+        for s in '1024'; do
+            for o in '512'; do
 	        echo $f
                 echo $s
                 echo $x
 		echo $o
-                qsub /home/verghese/breastcancer_ln_deeplearning/scripts/bash/tfwrite_bash.sh $f $x $s $o
+                qsub /home/verghese/lymphnode-keras/lymphnode/bash/tfwrite_v2_bash.sh $f $x $s $o
             done
         done
     done
 done
- 
+

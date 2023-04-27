@@ -80,14 +80,13 @@ for p in wsi_paths:
     #for p_idx in patches._patches:
         #if p_idx['name'] not in filtered:
             #patches._patches.remove(p_idx)
-    test=[p_id for p_id in patches._patches if p_id['name'] in filtered]
-    patches._patches=test
+    #test=[p_id for p_id in patches._patches if p_id['name'] in filtered]
+    #patches._patches=test
     print('g','num patches: {}'.format(len(patches._patches)))
+    patches.save(save_path,mask_flag=True)
     #patches.save(save_path,mask_flag=True)
-    #patches.save(save_path,mask_flag=True)
-    patches.save_mask(save_path, 'mask')
-    
-    """
+    #patches.save_mask(save_path, 'mask')
+        
     #sinuses
     annotate_sinus=Annotations(ann_path,source='qupath',labels=['sinus'])
     annotations=annotate_sinus._annotations 
@@ -95,9 +94,10 @@ for p in wsi_paths:
     
     patches=Patch(wsi_sinus,mag_level=MAG_LEVEL,border=border,size=SIZE)
     num=patches.generate_patches(STEP)
-    test=[p_id for p_id in patches._patches if p_id['name'] in filtered]
+    #test=[p_id for p_id in patches._patches if p_id['name'] in filtered]
     #print('g','num patches: {}'.format(num))
-    patches._patches=test
+    #patches._patches=test
+    patches.save(save_path,mask_flag=True)
     patches.save_mask(save_path,'sinus_mask')
 
     #s=Stitching(os.path.join(save_path,'images'),mag_level=MAG_LEVEL,name=name)
