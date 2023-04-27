@@ -51,6 +51,11 @@ def xml_to_json(xml_file_path, json_file_path):
         roi_properties["object_type"] = "annotation"
         classification = {}
         classification["name"] = annot.attrib.get("Name")
+        if classification["name"]=="GERMINAL CENTRE":
+            classification["name"]="GC"
+        elif classification["name"]=="SINUS":
+            classification["name"]="sinus"
+
         classification["colorRGB"] =-15481405
         roi_properties["classification"] = classification
 
@@ -80,7 +85,7 @@ def xml_to_json(xml_file_path, json_file_path):
     #file_name, file_extension = os.path.splitext(os.path.basename(xml_file_path))
     # Write the QuPath JSON format to a file
     with open(os.path.join(json_file_path,os.path.basename(xml_file_path))+".json", 'w') as f:
-        json.dump(qupath_json, f)
+        json.dump(qupath_json, f,indent=4)
 
 
 
