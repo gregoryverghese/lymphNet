@@ -273,7 +273,7 @@ if __name__ == '__main__':
     ap.add_argument('-fp', '--filepath', required=True, help='path to images')
     ap.add_argument('-mp', '--maskpath', required=True, help='path to mask')
     ap.add_argument('-op', '--outpath', required=True, help='path for tfRecords to be wrriten to')
-    ap.add_argument('-cf', '--configfile', required=True, help='path to config file')
+    ap.add_argument('-cf', '--configfile', help='path to config file')
     args = vars(ap.parse_args())
     os.makedirs(os.path.join(args['outpath'],'train'),exist_ok=True)
     os.makedirs(os.path.join(args['outpath'],'test'),exist_ok=True)
