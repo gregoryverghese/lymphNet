@@ -71,6 +71,8 @@ def data_loader(path,config):
                                 config['image_dims'],
                                 config['task_type'],
                                 config['batch_size'])
+
+    ##HOLLY: this might be an error as not assigned to anything
     train_loader.record_size()
     print(f'tiles: n={train_loader.tile_nums}; steps:n={train_loader.steps}')
     
@@ -148,6 +150,9 @@ def main(args,config,name,save_path):
 
     #use distributed training (multi-gpu training)
     strategy = tf.distribute.MirroredStrategy(devices)
+    #HOLLY
+    # holly-old-branch has uncommented the top 4 of these
+    #need to check when GV added these
     with strategy.scope():
         #boundaries=[30, 60]
         #values=[0.001,0.0005,0.0001]
@@ -160,6 +165,8 @@ def main(args,config,name,save_path):
         model=FUNCMODELS[args.model_name](**model_params)
         model=model.build()
  
+    #HOLLY - this is different to holly-old-branch
+    # check when GV added
     train_dataset_dist = strategy.experimental_distribute_dataset(train_loader.dataset)
     valid_dataset_dist = strategy.experimental_distribute_dataset(valid_loader.dataset)
     train_loader.dataset = train_dataset_dist
@@ -188,6 +195,8 @@ def main(args,config,name,save_path):
     curve_save_path=os.path.join(save_path,'curves')
     get_train_curves(history,'train_loss','val_loss',curve_save_path)
     get_train_curves(history,'train_metric', 'val_metric',curve_save_path)
+    
+    #this should be args.predict
     pre=True
 
     if pre:
@@ -203,7 +212,8 @@ def main(args,config,name,save_path):
             config['normalize']['channel_mean'],
             config['normalize']['channel_std']
         )
-    #return result
+    #why is this commented out?
+    return result
 
 
 if __name__ == '__main__':
