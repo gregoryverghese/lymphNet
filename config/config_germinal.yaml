@@ -3,7 +3,7 @@ feature: "germinal"
 task_type: "binary"
 magnification: "10x"
 loss: ["wCE"]
-name: "$model_$feature_$mag_$augment_$dim_$step " 
+name: "$model_$feature_$mag_$augment_$dim_$step-" 
 ratio: 0.9
 batch_size: 2
 image_dims: 1024
@@ -22,7 +22,7 @@ normalize:
         channel_std: [0.633, 0.383, 0.649]
         channel_mean: [0.143, 0.197, 0.19]        
 num_classes: 1 
-weights: [5.02]
+weights: [185.8]
 model: 
         network: "unet"
         filters: [32,64,128,256,512]
@@ -35,4 +35,4 @@ threshold: 0.75
 early_stopping:
         metric: [0.85,0.8]
         epochs: [40, 80]
-step: 1024
+step: 512
