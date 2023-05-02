@@ -18,7 +18,7 @@ __email__='gregory.verghese@gmail.com'
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
-
+#####HR - this is NOT a good place to stain normalise
 TARGET='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-keras/data/norm-targets/14.90610 C L2.11.png'
 
 def stain_normalizer(image):
@@ -115,7 +115,7 @@ def convert(imageFiles, maskFiles, tfRecordPath, dim=None):
             maskName = os.path.basename(m)[:-10]
             mPath = os.path.dirname(m)
            
-            m = os.path.join(mPath, os.path.basename(img[:-4]) + '.png')
+            m = os.path.join(mPath, os.path.basename(img[:-4]) + '_mask.png')
             print(imgName)
             print(m)
             maskName = os.path.basename(m)
@@ -186,11 +186,14 @@ def getFiles(imagePath, maskPath, outPath, config, shardSize=0.1):
     with open(config) as jsonFile:
         configFile = json.load(jsonFile)
 
+    print(imagePath)
+    print(maskPath)
     validFiles=configFile['validFiles']
     testFiles = configFile['testFiles']
-    imagePaths = glob.glob(os.path.join(imagePath, '*/images/*'))
-    maskPaths = glob.glob(os.path.join(maskPath, '*/mask/*'))
-
+    #imagePaths = glob.glob(os.path.join(imagePath, '*/images/*'))
+    imagePaths = glob.glob(os.path.join(imagePath,'*.png'))
+    #maskPaths = glob.glob(os.path.join(maskPath, '*/mask/*'))
+    maskPaths = glob.glob(os.path.join(maskPath,'*.png'))
     print('Total images: {}, Total masks: {}'.format(len(imagePaths), len(maskPaths)))
 
     trainImgs = [img for img in imagePaths if not any([v for v in validFiles+testFiles if v in img])]
@@ -224,6 +227,45 @@ def getFiles(imagePath, maskPath, outPath, config, shardSize=0.1):
     print('Number of test shards: {}'.format(testShardNum))
     
 
+def basicConvert(imagePath, maskPath, outPath, shardSize=0.1):
+    '''
+    gets images paths and convert to tfrecords without splitting into test, validate and train
+    necessary for converting files that have previously been extracted from tfrecords and have lost their filenames (Holly Rafique)
+    Args:
+        imagePath: path to image files
+        maskPath: path to mask files
+        outPath: path to save down files
+    '''
+
+    imagePaths = glob.glob(os.path.join(imagePath, '*'))
+    maskPaths = glob.glob(os.path.join(maskPath, '*'))
+
+    print('Total images: {}, Total masks: {}'.format(len(imagePaths), len(maskPaths)))
+
+    allShardNum, shNum = getShardNumber(imagePaths, maskPaths)
+    doConversion(imagePaths, maskPaths, allShardNum, shNum, outPath, '')
+    print('Number of shards: {}'.format(allShardNum))
+
+def basicConvert(imagePath, maskPath, outPath, shardSize=0.1):
+    '''
+    gets images paths and convert to tfrecords without splitting into test, validate and train
+    necessary for converting files that have previously been extracted from tfrecords and have lost their filenames (Holly Rafique)
+    Args:
+        imagePath: path to image files
+        maskPath: path to mask files
+        outPath: path to save down files
+    '''
+
+    imagePaths = glob.glob(os.path.join(imagePath, '*'))
+    maskPaths = glob.glob(os.path.join(maskPath, '*'))
+
+    print('Total images: {}, Total masks: {}'.format(len(imagePaths), len(maskPaths)))
+
+    allShardNum, shNum = getShardNumber(imagePaths, maskPaths)
+    doConversion(imagePaths, maskPaths, allShardNum, shNum, outPath, '')
+    print('Number of shards: {}'.format(allShardNum))
+
+
 
 if __name__ == '__main__':
 
@@ -233,5 +275,13 @@ if __name__ == '__main__':
     ap.add_argument('-op', '--outpath', required=True, help='path for tfRecords to be wrriten to')
     ap.add_argument('-cf', '--configfile', required=True, help='path to config file')
     args = vars(ap.parse_args())
+    os.makedirs(os.path.join(args['outpath'],'train'),exist_ok=True)
+    os.makedirs(os.path.join(args['outpath'],'test'),exist_ok=True)
+    os.makedirs(os.path.join(args['outpath'],'validation'),exist_ok=True)
 
-    getFiles(args['filepath'], args['maskpath'], args['outpath'], args['configfile'])
+    #getFiles(args['filepath'], args['maskpath'], args['outpath'], args['configfile'])
+    if(args['configfile']):
+        getFiles(args['filepath'], args['maskpath'], args['outpath'], args['configfile'])
+    else:
+        basicConvert(args['filepath'], args['maskpath'], args['outpath'])
+
