@@ -43,6 +43,13 @@ def xml_to_json(xml_file_path, json_file_path):
 
     # Loop through all the regions of interest (ROIs) in the Aperio XML file
     for annot in root.iter('Annotation'):
+        ##if the annotation does not have any vertices then skip
+        ##need to include this to avoid empty elements being created in QuPath
+        vertices_element = annot.find('Regions/Region/Vertices')
+        if vertices_element is None:
+            print("no vertices")
+            continue
+
         #print("region"+annot.attrib.get("Name"))
         roi = {"type": "Feature", "color": "#FF0000", "class": "", "properties": {}}
         roi_properties = {}
@@ -68,7 +75,7 @@ def xml_to_json(xml_file_path, json_file_path):
             vertices = []
             for vertex in region.iter('Vertex'):
                 vertices.append([float(vertex.attrib.get("X")), float(vertex.attrib.get("Y"))])
-
+            
             #need to make sure the polygons are closed
             #if last coord does not match first coord then add a final coord at the end
             if vertices[0] != vertices[-1]:
@@ -80,6 +87,7 @@ def xml_to_json(xml_file_path, json_file_path):
         roi["properties"] = roi_properties
 
         # Add the ROI to the QuPath JSON format
+        
         qupath_json["features"].append(roi)
 
     #file_name, file_extension = os.path.splitext(os.path.basename(xml_file_path))
