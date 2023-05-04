@@ -254,9 +254,8 @@ class Slide(OpenSlide):
         x_size_adj=int(x_size/Slide.MAG_FACTORS[mag])
         y_size_adj=int(y_size/Slide.MAG_FACTORS[mag])
         region=self.read_region((x_min,y_min),mag,(x_size_adj, y_size_adj))
-        #mask=self.generate_mask()[x_min:x_min+x_size,y_min:y_min+y_size]
         mask=self.generate_mask()[y_min:y_min+y_size,x_min:x_min+x_size]
-
+        mask=cv2.resize(mask,(x_size_adj,y_size_adj))
         return np.array(region.convert('RGB')), mask
 
 
