@@ -18,6 +18,8 @@ __email__='gregory.verghese@gmail.com'
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
+DEBUG = True
+
 #####HR - this is NOT a good place to stain normalise
 TARGET='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-keras/data/norm-targets/14.90610 C L2.11.png'
 
@@ -115,16 +117,19 @@ def convert(imageFiles, maskFiles, tfRecordPath, dim=None):
             maskName = os.path.basename(m)[:-10]
             mPath = os.path.dirname(m)
            
-            m = os.path.join(mPath, os.path.basename(img[:-4]) + '_mask.png')
-            print(imgName)
-            print(m)
+            m = os.path.join(mPath, os.path.basename(img)) #[:-4]) + '_mask.png')
+            if DEBUG: print(imgName)
+            if DEBUG: print(m)
             maskName = os.path.basename(m)
             if not os.path.exists(m):
+                if DEBUG: print("mask does not exist")
                 check.append(maskName)
                 continue
  
             maskName = os.path.basename(m)
 
+            ## in holly-old-branch the two commented out lines were used
+            ## added by GV in Nov 22
             image = np.array(tf.keras.preprocessing.image.load_img(img,color_mode='rgb'))
             #image = tf.keras.preprocessing.image.img_to_array(image,dtype=np.uint8)
             #image = stain_normalizer(image)
@@ -186,8 +191,8 @@ def getFiles(imagePath, maskPath, outPath, config, shardSize=0.1):
     with open(config) as jsonFile:
         configFile = json.load(jsonFile)
 
-    print(imagePath)
-    print(maskPath)
+    if DEBUG: print(imagePath)
+    if DEBUG: print(maskPath)
     validFiles=configFile['validFiles']
     testFiles = configFile['testFiles']
     #imagePaths = glob.glob(os.path.join(imagePath, '*/images/*'))

@@ -40,6 +40,7 @@ from predict import test_predictions
 from utilities.utils import get_train_curves, save_experiment
 from utilities.custom_loss_classes import BinaryXEntropy, DiceLoss, CategoricalXEntropy
 
+DEBUG = True
 
 FUNCMODELS={
             'unet':unet.Unet,
@@ -66,6 +67,10 @@ def data_loader(path,config):
     #load training files
     train_path = os.path.join(path,'train','*.tfrecords')
     train_files = glob.glob(train_path)
+    if DEBUG: print(len(train_files))
+    #train_files = train_files[:20]
+    #print(len(train_files))
+
     train_loader=TFRecordLoader(train_files,
                                 'train',
                                 config['image_dims'],
@@ -131,12 +136,13 @@ def main(args,config,name,save_path):
 
     #set up train and valid loaders
     data_path = os.path.join(args.record_path,args.record_dir)
+    if DEBUG: print("data_path", data_path)
     train_loader,valid_loader=data_loader(data_path,config)
         
     #collect gpus
     devices = tf.config.experimental.list_physical_devices('GPU')
     devices = [x.name.replace('/physical_device:', '') for x in devices]
-    print(devices)
+    if DEBUG: print(devices)
     #devices = ['/device:GPU:{}'.format(i) for i in range(multiDict['num'])]
     
     #set up model parameters
@@ -167,10 +173,8 @@ def main(args,config,name,save_path):
  
     #HOLLY - this is different to holly-old-branch
     # check when GV added
-    train_dataset_dist = strategy.experimental_distribute_dataset(train_loader.dataset)
-    valid_dataset_dist = strategy.experimental_distribute_dataset(valid_loader.dataset)
-    train_loader.dataset = train_dataset_dist
-    valid_loader.dataset = valid_dataset_dist
+    train_loader.dataset = strategy.experimental_distribute_dataset(train_loader.dataset)
+    valid_loader.dataset = strategy.experimental_distribute_dataset(valid_loader.dataset)
 
     train = DistributedTraining(
         model,
@@ -237,7 +241,7 @@ if __name__ == '__main__':
         config=yaml.load(yaml_file, Loader=yaml.FullLoader)
 
     name=config['name']+'_'+curr_date+'_'+curr_time
-    print(name)
+    if DEBUG: print(name)
     #set up paths for models, training curves and predictions
     save_path = os.path.join(args.save_path,name)
     os.makedirs(save_path,exist_ok=True)

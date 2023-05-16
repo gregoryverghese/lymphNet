@@ -25,6 +25,7 @@ from utilities.augmentation import Augment, Normalize
 #model_path='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-keras/output/models/2022-04-28/attention_sinus_2.5x_adam_weightedBinaryCrossEntropy_FRC_data4_256_01:19.h5'
 #save_path='/home/verghese/lymphnode-keras'
 
+DEBUG = True
 
 def dice_coef(y_true,y_pred,idx=[0,2,3],smooth=1):
         y_true=y_true.type(torch.float32)
@@ -81,7 +82,7 @@ class Predict():
 
     def _predict(self, image):
         tt = T.ToTensor() 
-        print(self.threshold)
+        if DEBUG: print(self.threshold)
         y_dim, x_dim, _ = image.shape
         canvas=np.zeros((1,int(y_dim),int(x_dim),1))
         for x, y in self._patching(x_dim,y_dim):
@@ -110,15 +111,15 @@ def test_predictions(model,
                      ):
     dices=[]
     names=[]
-    print(save_path)
-    image_paths=glob.glob(os.path.join(test_path,'images','*'))
+    if DEBUG: print("save path: ",save_path)
+    image_paths=glob.glob(os.path.join(test_path,'images',feature,'*'))
     mask_paths=glob.glob(os.path.join(test_path,'masks',feature,'*'))
-    print(mask_paths)
+    #if DEBUG: print("mask paths: ",mask_paths)
+    #if DEBUG: print("image paths: ",image_paths)
     predict=Predict(model,threshold,step,normalize,channel_means,channel_std)
     for i, i_path in enumerate(image_paths):
         name=os.path.basename(i_path)[:-9]
         names.append(name)
-        print(name)
         m_path=[m for m in mask_paths if name in m][0]
         mask=cv2.imread(m_path)
         image=cv2.imread(i_path)
@@ -126,7 +127,7 @@ def test_predictions(model,
         image,mask=predict._normalize(image,mask)
         prediction=predict._predict(image)
         mask=np.expand_dims(mask,axis=0)
-        print(prediction.shape,mask.shape)
+        if DEBUG: print(prediction.shape,mask.shape)
         dices.append(diceCoef(prediction,mask[:,:,:,0:1]))
         writePredictionsToImage(prediction,save_path,name)
         writePredictionsToImage(mask,save_path,str("mask"+name)) 
@@ -135,7 +136,7 @@ def test_predictions(model,
     print(dices)
     dice_df=pd.DataFrame({'names':names,'dices':dices})
     dice_df.to_csv(os.path.join(save_path,'results.csv'))
-    #print(dice_df)
+    #if DEBUG: print(dice_df)
     return dices
 
 
@@ -150,7 +151,8 @@ def writePredictionsToImage(img,save_path,name):
     img_out = img_out*255
   
     img_out = cv2.cvtColor(img_out, cv2.COLOR_RGB2BGR)
-    cv2.imwrite(os.path.join(save_path,'predictions',name),img_out)
+    
+    cv2.imwrite(os.path.join(save_path,'predictions',name+".png"),img_out)
   
 
 
@@ -174,7 +176,8 @@ if __name__=='__main__':
     #state_dict=torch.load(args.model_path,map_location='cpu')
     #model.load_state_dict(state_dict)
     model=load_model(args.model_path)
-    print(model)
+    if DEBUG: print(model)
+    os.makedirs(os.path.join(args.save_path,'predictions'),exist_ok=True)
     test_predictions(model,
                      args.test_path,
                      args.save_path,

@@ -24,6 +24,7 @@ __email__ = 'gregory.verghese@kcl.ac.uk'
 #import memory_saving_gradients
 #tf.__dict__["gradients"] = memory_saving_gradients.gradients_speed
 
+DEBUG = True
 
 class DistributedTraining():
     '''

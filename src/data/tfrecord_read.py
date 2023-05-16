@@ -15,6 +15,8 @@ from prettytable import PrettyTable
 
 from utilities.augmentation import Augment, Normalize 
 
+DEBUG=True
+
 TARGET='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-keras/data/norm-targets'
 
 def stain_normalizer(image):
@@ -65,7 +67,7 @@ class TFRecordLoader():
         data = {
             'image': tf.io.FixedLenFeature((), tf.string),
             'mask': tf.io.FixedLenFeature((), tf.string),
-            'imagename': tf.io.FixedLenFeature((), tf.string)
+            'imageName': tf.io.FixedLenFeature((), tf.string)
             #'maskname': tf.io.FixedLenFeature((), tf.string)
             #'dims': tf.io.FixedLenFeature((), tf.int64)
                }
@@ -86,14 +88,14 @@ class TFRecordLoader():
         data = {
             'image': tf.io.FixedLenFeature((), tf.string),
             'mask': tf.io.FixedLenFeature((), tf.string),
-            'imagename': tf.io.FixedLenFeature((), tf.string),
-            'maskname': tf.io.FixedLenFeature((), tf.string),
+            'imageName': tf.io.FixedLenFeature((), tf.string),
+            'maskName': tf.io.FixedLenFeature((), tf.string),
             'dims': tf.io.FixedLenFeature((), tf.int64)
                }
         example = tf.io.parse_single_example(serialized, data)
         image = tf.image.decode_png(example['image'])
         mask = tf.image.decode_png(example['mask'])
-        return image, example['imagename'], mask, example['maskname']
+        return image, example['imageName'], mask, example['maskName']
 
     def record_size(self):
         '''
@@ -195,8 +197,8 @@ class TFRecordLoader():
         mask_path = os.path.join(output_path,'masks') 
         os.makedirs(img_path,exist_ok=True)
         os.makedirs(mask_path,exist_ok=True)
-        print(img_path)
-        print(mask_path)
+        if DEBUG: print(img_path)
+        if DEBUG: print(mask_path)
 
         AUTO = tf.data.experimental.AUTOTUNE
         ignoreDataOrder = tf.data.Options()
