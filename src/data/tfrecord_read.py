@@ -181,9 +181,11 @@ class TFRecordLoader():
         #since we build our own custom training loop as opposed to model.fit
         #if model.fit used order of shuffle,cache and batch important
         if self.name!='test':
-            dataset = dataset.cache()
+            #HR 16/05/23 - removed caching to fix aggregating memory issues
+            #dataset = dataset.cache()
             #dataset = dataset.repeat()
-            dataset = dataset.shuffle(int(self.tile_nums/15), reshuffle_each_iteration=True)
+            #HR 16/05/23 - reduce num shuffled each time to reduce mem requirements
+            dataset = dataset.shuffle(int(self.tile_nums/500), reshuffle_each_iteration=True)
             dataset = dataset.batch(self.batch_size, drop_remainder=True)
             dataset = dataset.prefetch(AUTO)
         else:

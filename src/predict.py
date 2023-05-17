@@ -112,10 +112,12 @@ def test_predictions(model,
     dices=[]
     names=[]
     if DEBUG: print("save path: ",save_path)
-    image_paths=glob.glob(os.path.join(test_path,'images',feature,'*'))
-    mask_paths=glob.glob(os.path.join(test_path,'masks',feature,'*'))
-    #if DEBUG: print("mask paths: ",mask_paths)
-    #if DEBUG: print("image paths: ",image_paths)
+    #HR 17/05/23
+    #added sorted to make sure we have the right mask to image
+    image_paths=sorted(glob.glob(os.path.join(test_path,'images',feature,'*')))
+    mask_paths=sorted(glob.glob(os.path.join(test_path,'masks',feature,'*')))
+    if DEBUG: print("mask paths: ",mask_paths)
+    if DEBUG: print("image paths: ",image_paths)
     predict=Predict(model,threshold,step,normalize,channel_means,channel_std)
     for i, i_path in enumerate(image_paths):
         name=os.path.basename(i_path)[:-9]
@@ -127,14 +129,19 @@ def test_predictions(model,
         image,mask=predict._normalize(image,mask)
         prediction=predict._predict(image)
         mask=np.expand_dims(mask,axis=0)
-        if DEBUG: print(prediction.shape,mask.shape)
+        if DEBUG: print("shapes:",prediction.shape,mask.shape)
+        
         dices.append(diceCoef(prediction,mask[:,:,:,0:1]))
         writePredictionsToImage(prediction,save_path,name)
-        writePredictionsToImage(mask,save_path,str("mask"+name)) 
-        
+        writePredictionsToImage(mask,save_path,str("mask_"+name)) 
+        if DEBUG: print(names[i],dices[i])
 	#cv2.imwrite(os.path.join(save_path,'predictions',name+'.png'),prediction[0,:,:,:]*255)
-    print(dices)
-    dice_df=pd.DataFrame({'names':names,'dices':dices})
+    #print(dices)
+    #convert list of [1,] tensors to list of floats so easy to view in csv
+    da = [dt.numpy() for dt in dices]
+    dices_vals = [(list(db))[0] for db in da]
+    if DEBUG: print("dice vals:",dices_vals)
+    dice_df=pd.DataFrame({'names':names,'dices':dices,'dicevals':dices_vals})
     dice_df.to_csv(os.path.join(save_path,'results.csv'))
     #if DEBUG: print(dice_df)
     return dices
@@ -151,7 +158,7 @@ def writePredictionsToImage(img,save_path,name):
     img_out = img_out*255
   
     img_out = cv2.cvtColor(img_out, cv2.COLOR_RGB2BGR)
-    
+    if DEBUG: print("writing to image:",name) 
     cv2.imwrite(os.path.join(save_path,'predictions',name+".png"),img_out)
   
 
@@ -175,7 +182,7 @@ if __name__=='__main__':
     #model=UNet_multi(3,2)
     #state_dict=torch.load(args.model_path,map_location='cpu')
     #model.load_state_dict(state_dict)
-    model=load_model(args.model_path)
+    model=load_model(args.model_path, compile=False)
     if DEBUG: print(model)
     os.makedirs(os.path.join(args.save_path,'predictions'),exist_ok=True)
     test_predictions(model,
