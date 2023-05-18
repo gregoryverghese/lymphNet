@@ -208,7 +208,7 @@ def main(args,config,name,save_path):
         result=test_predictions(
             model,
             args.test_path,
-            args.save_path,
+            save_path, #HR 18/05/23 need to pass the experiment save path
             config['feature'],
             config['threshold'],
             config['step'],
