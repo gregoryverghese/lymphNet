@@ -6,7 +6,7 @@ predict.py: inference on LNs using trained model
 import os
 import glob
 import argparse
-
+import datetime
 import cv2
 import numpy as np
 import pandas as pd
@@ -20,10 +20,7 @@ from torchvision import transforms as T
 from networks.unet_multi import UNet_multi 
 from utilities.evaluation import diceCoef
 from utilities.augmentation import Augment, Normalize
-
-#test_path='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-keras/data/patches/segmentation/10x/one/testing'
-#model_path='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-keras/output/models/2022-04-28/attention_sinus_2.5x_adam_weightedBinaryCrossEntropy_FRC_data4_256_01:19.h5'
-#save_path='/home/verghese/lymphnode-keras'
+from stitching import Canvas, stitch
 
 DEBUG = True
 
@@ -40,6 +37,7 @@ class Predict():
     def __init__(self,
                  model,
                  threshold,
+                 tile_dim,
                  step, 
                  normalize=[], 
                  channel_means=[],
@@ -47,6 +45,7 @@ class Predict():
 
         self.model=model
         self.threshold=threshold
+        self.tile_dim = tile_dim
         self.step=step
         self.normalize=normalize
         self.channel_means=[float(m) for m in channel_means]
@@ -54,9 +53,11 @@ class Predict():
 
 
     def _patching(self, x_dim, y_dim):
-        for x in range(0, x_dim, self.step):
-            for y in range(0, y_dim, self.step):
-                yield x, y
+        for x in range(0, x_dim-self.step, self.step):
+            for y in range(0, y_dim-self.step, self.step):
+                x_new = x_dim-self.tile_dim if x+self.tile_dim>x_dim else x
+                y_new = y_dim-self.tile_dim if y+self.tile_dim>y_dim else y
+                yield x_new, y_new
 
 
     def _normalize(self, image, mask):
@@ -80,23 +81,26 @@ class Predict():
         img = n(img)
         return img
 
+
     def _predict(self, image):
-        tt = T.ToTensor() 
-        if DEBUG: print(self.threshold)
+        margin=int((self.tile_dim-self.step)/2)
         y_dim, x_dim, _ = image.shape
-        canvas=np.zeros((1,int(y_dim),int(x_dim),1))
+        c=Canvas(y_dim,x_dim)
         for x, y in self._patching(x_dim,y_dim):
-            patch=image[y:y+self.step,x:x+self.step,:]
+            patch=image[y:y+self.tile_dim,x:x+self.tile_dim,:]
             patch=np.expand_dims(patch,axis=0)
-            #patch=self.get_transform(patch)
-            #patch=torch.unsqueeze(patch,0)
             logits=self.model(patch)
+            #print("logits:",logits.shape)
             prediction=tf.cast((logits>self.threshold), tf.float32)
-            #probs=F.sigmoid(logits)
-            #prediction = torch.ge(probs[:,1:2,:,:],self.threshold).float()
-            #prediction=torch.permute(prediction,(0,2,3,1))
-            canvas[:,y:y+self.step,x:x+self.step,:]=prediction
-        return canvas.astype(np.uint8)
+            #print("preds:",prediction.shape)
+            stitch(c, prediction, y, x, y_dim, x_dim, self.tile_dim, self.step, margin)
+            #plt.imshow(c.canvas[0,:,:,:])
+            #plt.show()
+   
+        return c.canvas.astype(np.uint8)
+
+    
+
 
 
 def test_predictions(model,
@@ -104,13 +108,15 @@ def test_predictions(model,
                      save_path,
                      feature,
                      threshold=0.7,
-                     step=1024,
+                     tile_dim=1024,
+                     step=512,
                      normalize=[],
                      channel_means=None,
                      channel_std=None
                      ):
     dices=[]
     names=[]
+
     if DEBUG: print("save path: ",save_path)
     #HR 17/05/23
     #added sorted to make sure we have the right mask to image
@@ -118,10 +124,13 @@ def test_predictions(model,
     mask_paths=sorted(glob.glob(os.path.join(test_path,'masks',feature,'*')))
     if DEBUG: print("mask paths: ",mask_paths)
     if DEBUG: print("image paths: ",image_paths)
-    predict=Predict(model,threshold,step,normalize,channel_means,channel_std)
+
+    predict=Predict(model,threshold,tile_dim,step,normalize,channel_means,channel_std)
+
     for i, i_path in enumerate(image_paths):
         name=os.path.basename(i_path)[:-9]
         names.append(name)
+        if DEBUG: print(name)
         m_path=[m for m in mask_paths if name in m][0]
         mask=cv2.imread(m_path)
         image=cv2.imread(i_path)
@@ -173,6 +182,7 @@ if __name__=='__main__':
     ap.add_argument('-sp','--save_path',required=True,help='experiment folder for saving results')
     ap.add_argument('-f','--feature',required=True,help='morphological feature')
     ap.add_argument('-th','--threshold',default=0.5,help='activation threshold')
+    ap.add_argument('-td','--tile_dim',default=1024,help='tile dims')
     ap.add_argument('-s','--step',default=512,help='sliding window size')
     ap.add_argument('-n','--normalize',nargs='+',default=["Scale"],help='normalization methods')
     ap.add_argument('-cm','--means',nargs='+',default=[0.633,0.383,0.659],help='channel mean')
@@ -184,12 +194,21 @@ if __name__=='__main__':
     #model.load_state_dict(state_dict)
     model=load_model(args.model_path, compile=False)
     if DEBUG: print(model)
-    os.makedirs(os.path.join(args.save_path,'predictions'),exist_ok=True)
+    
+    curr_date=str(datetime.date.today())
+    curr_time=datetime.datetime.now().strftime('%H:%M')
+
+    #set up paths for models, training curves and predictions
+    save_path = os.path.join(args.save_path,curr_date)
+    if DEBUG: print("save_path:",save_path)
+    os.makedirs(save_path,exist_ok=True)
+    os.makedirs(os.path.join(save_path,'predictions'),exist_ok=True)
     test_predictions(model,
                      args.test_path,
-                     args.save_path,
+                     save_path,
                      args.feature,
                      float(args.threshold),
+                     int(args.tile_dim),
                      int(args.step),
                      args.normalize,
                      args.means,
