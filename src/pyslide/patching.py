@@ -321,9 +321,16 @@ class Patch():
         #points in read_region (x-x_size,y-y_size)
         #x_size=int(self.size[0]*self.mag_factor*.5)
         #y_size=int(self.size[1]*self.mag_factor*.5)
-        patch=self.slide.read_region((x,y), self.mag_level,
+        #patch=self.slide.read_region((x,y), self.mag_level,
+        #                             (self.size[0],self.size[1]))
+        #print(type(patch))
+        #wrote a custom method in the slide object to make
+        #sure we apply the slide filter mask before returning
+        #print("patch: ",x,y)
+        patch,filter_mask = self.slide.get_filtered_region((x,y), self.mag_level,
                                      (self.size[0],self.size[1]))
-        patch=np.array(patch.convert('RGB'))
+        #print(type(patch))
+        #patch=np.array(patch.convert('RGB'))
         return patch
 
 
@@ -333,6 +340,7 @@ class Patch():
         :yield patch: ndarray patch
         :yield p: patch dict metadata
         """
+        #print(self._patches)
         for p in self._patches:
             patch=self.extract_patch(p['x'],p['y'])
             yield patch, p
@@ -414,6 +422,7 @@ class Patch():
         :param label_dir: label directory
         :param label_csv: boolean to save labels in csv
         """
+        #print("saving patch")
         patch_path=os.path.join(path,'images')
         os.makedirs(patch_path,exist_ok=True)
         filename=self.slide.name
@@ -425,11 +434,16 @@ class Patch():
         if mask_flag:
             mask_generator=self.extract_masks()
             mask_path=os.path.join(path,'masks')
+            view_path=os.path.join(path,'viewable')
             os.makedirs(mask_path,exist_ok=True)
+            os.makedirs(view_path,exist_ok=True)
+            
             if label_dir:
                 patch_path=os.path.join(path_path,patch['labels'])
             for mask,m in self.extract_masks():
                 self._save_disk(mask,mask_path,filename,m['x'],m['y'])
+                self._save_disk((mask*255),view_path,filename,m['x'],m['y'])
+
 
         if label_csv:
             df=pd.DataFrame(self._patches,columns=['names','x','y','labels'])

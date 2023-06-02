@@ -28,7 +28,7 @@ import seaborn as sns
 from itertools import chain
 import operator as op
 from pyslide.util.utilities import mask2rgb
-
+from PIL import Image
 
 __author__='Gregory Verghese'
 __email__='gregory.verghese@gmail.com'
@@ -48,19 +48,28 @@ class Slide(OpenSlide):
     MAG_FACTORS={0:1,1:2,2:4,3:8,4:16,5:32,6:64}
     MASK_SIZE=(2000,2000)
 
+    #filter mask should be passed in at the specified mag level
     def __init__(self,
                  filename,
                  mag=0,
                  annotations=None,
                  annotations_path=None,
                  labels=None,
-                 source=None):
+                 source=None,
+                 filter_mask=None,
+                 filter_mask_path=None):
         super().__init__(filename)
 
         self.mag=mag
         self.dims=self.dimensions
         self.name=os.path.basename(filename)[:-5]
         self._border=None
+        if filter_mask is not None:
+            self.filter_mask = filter_mask
+        elif filter_mask_path is not None:
+            self.filter_mask = cv2.imread(filter_mask_path,cv2.IMREAD_GRAYSCALE)
+        else:
+            self.filter_mask = None
 
         if annotations is not None:
             self.annotations=annotations
@@ -80,6 +89,15 @@ class Slide(OpenSlide):
 
        return mask
 
+
+    def set_filter_mask(self, mask=None, mask_path=None):
+        if mask is not None:
+            self.filter_mask = mask
+        elif mask_path is not None:
+            self.filter_mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+        else:
+            print("no valid mask detected")
+    
 
     def generate_mask(self, size=None):
         """
@@ -254,9 +272,66 @@ class Slide(OpenSlide):
         x_size_adj=int(x_size/Slide.MAG_FACTORS[mag])
         y_size_adj=int(y_size/Slide.MAG_FACTORS[mag])
         region=self.read_region((x_min,y_min),mag,(x_size_adj, y_size_adj))
+
+        ##need to crop the mask to the correct region 
+
+        ##need to scale up the mask to the correct size
+
+
+        #set masked regions to white as easy to filter out later        
+        #bg_color = (255,255,255)
+        #region_arr = np.array(region)
+        #region_arr[self.filter_mask == 0] = bg_color
+        #region = Image.fromarray(region_arr)
+        
         mask=self.generate_mask()[y_min:y_min+y_size,x_min:x_min+x_size]
         mask=cv2.resize(mask,(x_size_adj,y_size_adj))
         return np.array(region.convert('RGB')), mask
+
+    def get_filtered_region(self,start,mag,size):
+        
+        region = self.read_region(start,mag,size)
+        start_x = start[0]
+        start_y = start[1] 
+        if self.filter_mask is None:
+            return region
+        #print(self.filter_mask.shape)
+        #need to scale mask to correct size - requested mag / existing mag
+        #filter mask will already be stored at the self.mag level
+        filter_mask = self.filter_mask
+        if mag != self.mag:
+            scaling_factor = Slide.MAG_FACTORS[self.mag]/Slide.MAG_FACTORS[mag]
+            #print("scaling: ",scaling_factor)
+            #print("original:",filter_mask.shape)
+            filter_mask = cv2.resize(filter_mask,(0,0), fx=scaling_factor, fy=scaling_factor)
+            #print("resized:",filter_mask.shape)
+            start_x = int(start[0]*scaling_factor)
+            start_y = int(start[1]*scaling_factor)
+        #need to crop the filter mask to the requested region
+        #print("start_x",start_x,start_x+size[0])
+        #print("start_y",start_y,start_y+size[1])
+        #print("filter mask shape",filter_mask.shape) 
+        filter_mask_cropped = filter_mask[start_x:start_x+size[0],start_y:start_y+size[1]]
+        
+        if filter_mask_cropped.shape < size:
+            # Pad the mask to the desired size
+            print("cropped shape:",filter_mask_cropped.shape)    
+            print("padding")
+            padded_mask = np.pad(filter_mask_cropped, ((0, size[0]-filter_mask_cropped.shape[0]), (0, size[1]-filter_mask_cropped.shape[1])), 'constant', constant_values=0)
+            print("padded mask shape",padded_mask.shape)
+
+        else:
+            # The mask is already the desired size or larger, so no padding is needed
+            padded_mask = filter_mask_cropped
+
+        #need to transpose the mask to apply bitwise and
+        padded_mask = np.transpose(padded_mask) 
+        filtered_region = cv2.bitwise_and(np.array(region),np.array(region),mask=padded_mask)
+        filtered_region = cv2.cvtColor(filtered_region, cv2.COLOR_RGBA2RGB)
+        #print(filtered_region.shape,padded_mask.shape)
+        #set regions outside the mask to white instead of black
+        filtered_region[padded_mask == 0] = (255, 255, 255)
+        return filtered_region,padded_mask
 
 
     def save(self, path, size=(2000,2000), mask=False):
