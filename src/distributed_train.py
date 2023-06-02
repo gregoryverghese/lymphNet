@@ -128,12 +128,24 @@ class DistributedTraining():
         :returns dice: returns dice coefficient
         '''
         x, y = inputs
+        #print(inputs)
+        #print(self.threshold)
         logits = self.model(x, training=False)
+        
         loss = self.criterion(y, logits)
+        #print(loss)
         y_pred = tf.cast((logits > self.threshold), tf.float32)
+        #print(np.sum(y_pred))
+        
         dice = self.compute_dice(y, y_pred)
+        #print(dice)
         #need to change batch size variable (testing uses 1)
-        loss = tf.reduce_sum(loss) * (1. / (self.img_dims*self.img_dims*1))
+        print(tf.reduce_sum(loss))
+        print(self.img_dims)
+        #loss = tf.reduce_sum(loss) * (1. / (self.img_dims*self.img_dims*1))
+        #should we just call self.compute_loss like we do in _train_step
+        #it contains an additional line to div by the num of replicas
+        loss = tf.reduce_sum(loss) * (1. /(self.img_dims*self.img_dims*self.global_batch_size))
         return loss, dice
 
 
@@ -176,9 +188,12 @@ class DistributedTraining():
         total_loss = 0.0
         total_dice = 0.0
         for batch in self.valid_loader.dataset:
+            print("enumerate valid loader: ")
             loss, dice = self.strategy.run(self._test_step, args=(batch,))
+            print(loss,dice)
             total_loss += self.strategy.reduce(tf.distribute.ReduceOp.SUM, loss, axis=None)
             total_dice += self.strategy.reduce(tf.distribute.ReduceOp.SUM, dice, axis=None)
+            print(total_loss,total_dice)
         return total_loss, total_dice   
 
 
@@ -227,6 +242,7 @@ class DistributedTraining():
             tf.print(epoch_str.format(epoch+1, self.epochs, train_loss, train_dice, 1), end="")
 
             test_loss, test_dice  =  self._test()
+            print(test_loss,test_dice)
             test_loss = float(test_loss/self.valid_loader.steps)
             test_dice = float(test_dice/self.valid_loader.steps)
             with self.test_writer.as_default():

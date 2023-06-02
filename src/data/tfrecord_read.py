@@ -189,7 +189,7 @@ class TFRecordLoader():
             dataset = dataset.batch(self.batch_size, drop_remainder=True)
             dataset = dataset.prefetch(AUTO)
         else:
-            dataset = dataset.batch(1)
+            dataset = dataset.batch(self.batch_size, drop_remainder=True)
         self.dataset=dataset
 
 

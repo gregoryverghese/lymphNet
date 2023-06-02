@@ -96,18 +96,20 @@ def data_loader(path,config):
     #load validation files
     valid_path = os.path.join(path,'validation','*.tfrecords')
     valid_files = glob.glob(valid_path)
+    print(valid_path)
+    print(len(valid_files))
     valid_loader=TFRecordLoader(valid_files,
                                'test',
                                config['image_dims'],
                                config['task_type'],
-                               #config['batchSize']
-                               1)
+                               config['batch_size']
+                               )
 
     valid_loader.record_size()
     print(f'tiles: n={valid_loader.tile_nums}; steps:n={valid_loader.steps}')
-    valid_loader.load(1)
+    valid_loader.load(config['batch_size'])
     valid_loader.normalize(norm_methods,norm_parameters)
-
+    print("normalised")
     return train_loader,valid_loader
 
 
