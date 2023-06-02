@@ -18,7 +18,10 @@ from sklearn.utils import class_weight
 def calculate_weights(mask_path, out_path, file_name, num_classes):
 
     total = {c:0 for c in range(num_classes)}
-    masks = glob.glob(os.path.join(mask_path,'*/mask/*'))
+    #masks = glob.glob(os.path.join(mask_path,'*/masks/*'))
+    masks = glob.glob(os.path.join(mask_path,'*.png'))    
+    #print(mask_path)
+    #print(masks)
     print(len(masks))
     for i, f in enumerate(masks):
         print(f)
