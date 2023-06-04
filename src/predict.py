@@ -48,6 +48,8 @@ class Predict():
         self.tile_dim = tile_dim
         self.step=step
         self.normalize=normalize
+        print("means",channel_means)
+        print("std",channel_std)
         self.channel_means=[float(m) for m in channel_means]
         self.channel_std=[float(s) for s in channel_std]
 
@@ -64,7 +66,9 @@ class Predict():
    
         norm=Normalize(self.channel_means, self.channel_std)
         data=[(image,mask)]
+        print(self.normalize)
         for method in self.normalize:
+            print(str(method))
             f=lambda x: getattr(norm,'get'+method)(x[0],x[1])
             data=list(map(f, data))
         image,mask=data[0][0],data[0][1]
@@ -111,8 +115,8 @@ def test_predictions(model,
                      tile_dim=1024,
                      step=512,
                      normalize=[],
-                     channel_means=None,
-                     channel_std=None
+                     channel_means=[],
+                     channel_std=[]
                      ):
     dices=[]
     names=[]
@@ -122,9 +126,10 @@ def test_predictions(model,
     #added sorted to make sure we have the right mask to image
     image_paths=sorted(glob.glob(os.path.join(test_path,'images',feature,'*')))
     mask_paths=sorted(glob.glob(os.path.join(test_path,'masks',feature,'*')))
-    if DEBUG: print("mask paths: ",mask_paths)
-    if DEBUG: print("image paths: ",image_paths)
-
+    #if DEBUG: print("mask paths: ",mask_paths)
+    #if DEBUG: print("image paths: ",image_paths)
+    if DEBUG: print("means",channel_means)
+    if DEBUG: print("stds",channel_std)
     predict=Predict(model,threshold,tile_dim,step,normalize,channel_means,channel_std)
 
     for i, i_path in enumerate(image_paths):
@@ -184,7 +189,7 @@ if __name__=='__main__':
     ap.add_argument('-th','--threshold',default=0.5,help='activation threshold')
     ap.add_argument('-td','--tile_dim',default=1024,help='tile dims')
     ap.add_argument('-s','--step',default=512,help='sliding window size')
-    ap.add_argument('-n','--normalize',nargs='+',default=["Scale"],help='normalization methods')
+    ap.add_argument('-n','--normalize',nargs='+',default=["Scale","StandardizeDataset"],help='normalization methods')
     ap.add_argument('-cm','--means',nargs='+',default=[0.633,0.383,0.659],help='channel mean')
     ap.add_argument('-cs','--std',nargs='+', default=[0.143,0.197,0.19],help='channel std')
     args=ap.parse_args()
@@ -197,9 +202,10 @@ if __name__=='__main__':
     
     curr_date=str(datetime.date.today())
     curr_time=datetime.datetime.now().strftime('%H:%M')
-
+    cm =[0.675,0.460,0.690] #args.means
+    cs =[0.180, 0.269, 0.218] #args.std
     #set up paths for models, training curves and predictions
-    save_path = os.path.join(args.save_path,curr_date)
+    save_path = os.path.join(args.save_path,curr_date+"-"+str(args.threshold))
     if DEBUG: print("save_path:",save_path)
     os.makedirs(save_path,exist_ok=True)
     os.makedirs(os.path.join(save_path,'predictions'),exist_ok=True)
@@ -211,8 +217,8 @@ if __name__=='__main__':
                      int(args.tile_dim),
                      int(args.step),
                      args.normalize,
-                     args.means,
-                     args.std)
+                     cm,
+                     cs)
     
 
 

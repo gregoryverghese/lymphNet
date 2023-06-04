@@ -130,7 +130,12 @@ def main(args,config,name,save_path):
     :param save_path: path for experiment output
     :returns result: avg dice and iou score
     '''
-    #tensorflow logs
+    
+    #means=config['normalize']['channel_mean']
+    #stds=config['normalize']['channel_std']    #tensorflow logs
+    #print(means, type(means))
+    #print(stds, type(stds))
+    
     train_log_dir = os.path.join(save_path,'tensorboard_logs', 'train')
     test_log_dir = os.path.join(save_path, 'tensorboard_logs', 'test') 
     train_writer = tf.summary.create_file_writer(train_log_dir)
@@ -204,7 +209,10 @@ def main(args,config,name,save_path):
     
     #this should be args.predict
     pre=True
-
+    print("methods",config['normalize'])
+    print("means",config['normalize']['channel_mean'])
+    print("stds",config['normalize']['channel_std'])
+    
     if pre:
         print('prediction')
         result=test_predictions(
@@ -213,6 +221,7 @@ def main(args,config,name,save_path):
             save_path, #HR 18/05/23 need to pass the experiment save path
             config['feature'],
             config['threshold'],
+            config['image_dims'],
             config['step'],
             config['normalize']['methods'],
             config['normalize']['channel_mean'],
