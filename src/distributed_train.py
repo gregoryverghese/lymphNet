@@ -17,6 +17,7 @@ from tensorflow.keras.utils import Progbar
 
 from utilities.custom_loss_classes import BinaryXEntropy
 from utilities.evaluation import diceCoef
+from utilities.utils import save_experiment
 
 __author__ = 'Gregory Verghese'
 __email__ = 'gregory.verghese@kcl.ac.uk'
@@ -46,7 +47,11 @@ class DistributedTraining():
                  threshold, 
                  task_type,
                  train_writer,
-                 test_writer):
+                 test_writer,
+                 save_path,
+                 name,
+                 config
+                 ):
 
         self.model = model
         self.train_loader = train_loader
@@ -71,7 +76,9 @@ class DistributedTraining():
         self.task_type = task_type
         self.train_writer = train_writer
         self.test_writer = test_writer
-
+        self.save_path = save_path
+        self.config = config
+        self.name = name
 
     def compute_loss(self, label, predictions):
         '''
@@ -256,8 +263,19 @@ class DistributedTraining():
             self.history['val_metric'].append(test_dice)
             self.history['val_loss'].append(test_loss)
 
-            if self.early_stop(test_loss, epoch):
-                print('Stopping early on epoch: {}'.format(epoch))
-                break
+            if test_loss <= min(self.history['val_loss']):
+                print("saving best model...")
+                model_save_path = os.path.join(self.save_path,'models')
+                print(model_save_path)
+                save_experiment(self.model, 
+                                self.config,
+                                self.history, 
+                                self.name,
+                                model_save_path)
+
+
+            #if self.early_stop(test_loss, epoch):
+            #    print('Stopping early on epoch: {}'.format(epoch))
+            #    break
 
         return self.model, self.history

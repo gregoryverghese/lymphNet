@@ -166,6 +166,9 @@ def main(args,config,name,save_path):
     #HOLLY
     # holly-old-branch has uncommented the top 4 of these
     #need to check when GV added these
+     
+
+    if DEBUG: print("about to build model at: ",datetime.datetime.now().strftime('%H:%M'))
     with strategy.scope():
         #boundaries=[30, 60]
         #values=[0.001,0.0005,0.0001]
@@ -183,6 +186,9 @@ def main(args,config,name,save_path):
     train_loader.dataset = strategy.experimental_distribute_dataset(train_loader.dataset)
     valid_loader.dataset = strategy.experimental_distribute_dataset(valid_loader.dataset)
 
+
+    if DEBUG: print("about to start training at: ",datetime.datetime.now().strftime('%H:%M'))
+    
     train = DistributedTraining(
         model,
         train_loader,
@@ -197,12 +203,15 @@ def main(args,config,name,save_path):
         config['threshold'],
         config['task_type'],
         train_writer,
-        test_writer)
+        test_writer,
+        save_path,
+        name,
+        config )
     
     model, history = train.forward()
     #save model, config and training curves
     model_save_path=os.path.join(save_path,'models')
-    save_experiment(model,config,history,name,model_save_path)
+    #save_experiment(model,config,history,name,model_save_path)
     curve_save_path=os.path.join(save_path,'curves')
     get_train_curves(history,'train_loss','val_loss',curve_save_path)
     get_train_curves(history,'train_metric', 'val_metric',curve_save_path)
@@ -213,12 +222,13 @@ def main(args,config,name,save_path):
     print("means",config['normalize']['channel_mean'])
     print("stds",config['normalize']['channel_std'])
     
+    predict_save_path=os.path.join(save_path,'predictions')
     if pre:
         print('prediction')
         result=test_predictions(
             model,
             args.test_path,
-            save_path, #HR 18/05/23 need to pass the experiment save path
+            predict_save_path, #HR 18/05/23 need to pass the experiment save path
             config['feature'],
             config['threshold'],
             config['image_dims'],
