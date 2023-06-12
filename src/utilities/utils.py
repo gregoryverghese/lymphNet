@@ -7,7 +7,7 @@ import seaborn as sns
 import numpy as np
 import operator
 import matplotlib.pyplot as plt
-
+import pandas as pd
 
 def one_hot_to_mask(one_hot):
     n_classes = one_hot.shape[-1]
@@ -70,6 +70,9 @@ def save_experiment(model,config,history,name,model_save_path):
 
     with open(os.path.join(model_save_path,'history'), 'wb') as history_file:
         pickle.dump(history, history_file)
+
+    history_df = pd.DataFrame(history)
+    history_df.to_csv(os.path.join(model_save_path,'history.csv'))    
 
     with open(os.path.join(model_save_path,'config.yaml'), 'w') as config_file:
         yaml.dump(config, config_file)

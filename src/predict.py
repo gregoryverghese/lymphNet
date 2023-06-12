@@ -156,9 +156,9 @@ def test_predictions(model,
     dices_vals = [(list(db))[0] for db in da]
     if DEBUG: print("dice vals:",dices_vals)
     dice_df=pd.DataFrame({'names':names,'dices':dices,'dicevals':dices_vals})
-    dice_df.to_csv(os.path.join(save_path,'results.csv'))
+    dice_df.to_csv(os.path.join(save_path,'results-'+str(threshold)+'.csv'))
     #if DEBUG: print(dice_df)
-    return dices
+    return dices_vals
 
 
 
@@ -173,8 +173,9 @@ def writePredictionsToImage(img,save_path,name):
   
     img_out = cv2.cvtColor(img_out, cv2.COLOR_RGB2BGR)
     if DEBUG: print("writing to image:",name) 
-    cv2.imwrite(os.path.join(save_path,'predictions',name+".png"),img_out)
+    #cv2.imwrite(os.path.join(save_path,'predictions',name+".png"),img_out)
   
+    cv2.imwrite(os.path.join(save_path,name+".png"),img_out)
 
 
 
@@ -186,12 +187,12 @@ if __name__=='__main__':
     ap.add_argument('-tp','--test_path',required=True,help='path to test images and masks')
     ap.add_argument('-sp','--save_path',required=True,help='experiment folder for saving results')
     ap.add_argument('-f','--feature',required=True,help='morphological feature')
-    ap.add_argument('-th','--threshold',default=0.5,help='activation threshold')
+    ap.add_argument('-th','--threshold',default=0.75,help='activation threshold')
     ap.add_argument('-td','--tile_dim',default=1024,help='tile dims')
     ap.add_argument('-s','--step',default=512,help='sliding window size')
     ap.add_argument('-n','--normalize',nargs='+',default=["Scale","StandardizeDataset"],help='normalization methods')
-    ap.add_argument('-cm','--means',nargs='+',default=[0.633,0.383,0.659],help='channel mean')
-    ap.add_argument('-cs','--std',nargs='+', default=[0.143,0.197,0.19],help='channel std')
+    ap.add_argument('-cm','--means',nargs='+',default=[0.675,0.460,0.690],help='channel mean')
+    ap.add_argument('-cs','--std',nargs='+', default=[0.180,0.269,0.218],help='channel std')
     args=ap.parse_args()
 
     #model=UNet_multi(3,2)
@@ -202,13 +203,13 @@ if __name__=='__main__':
     
     curr_date=str(datetime.date.today())
     curr_time=datetime.datetime.now().strftime('%H:%M')
-    cm =[0.675,0.460,0.690] #args.means
-    cs =[0.180, 0.269, 0.218] #args.std
+    cm = [float(x) for x in args.means]
+    cs = [float(x) for x in args.std]
     #set up paths for models, training curves and predictions
     save_path = os.path.join(args.save_path,curr_date+"-"+str(args.threshold))
     if DEBUG: print("save_path:",save_path)
     os.makedirs(save_path,exist_ok=True)
-    os.makedirs(os.path.join(save_path,'predictions'),exist_ok=True)
+    #os.makedirs(os.path.join(save_path,'predictions'),exist_ok=True)
     test_predictions(model,
                      args.test_path,
                      save_path,
