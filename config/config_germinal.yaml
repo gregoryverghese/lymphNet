@@ -5,9 +5,9 @@ magnification: "10x"
 loss: ["wCE"]
 name: "$model_$feature_$mag_$augment_$dim_$step-" 
 ratio: 0.9
-batch_size: 2
+batch_size: 4
 image_dims: 1024
-epochs: 10
+epochs: 100
 augmentation: 
         methods: [["Flip","Rotate90","Color"]]
         saturation: [0.5,1.2]
@@ -18,11 +18,11 @@ augmentation:
         rotate_prob: 0.5
         color_prob: 0.5
 normalize:
-        methods: ["Scale"]
-        channel_std: [0.633, 0.383, 0.649]
-        channel_mean: [0.143, 0.197, 0.19]        
+        methods: ["Scale","StandardizeDataset"]
+        channel_mean: [0.675, 0.460, 0.690]
+        channel_std: [0.180, 0.269, 0.218]        
 num_classes: 1 
-weights: [185.8]
+weights: [56.10]
 model: 
         network: "unet"
         filters: [32,64,128,256,512]
