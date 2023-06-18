@@ -7,9 +7,9 @@ name: "$model_$feature_$mag_$augment_$dim_$step-"
 ratio: 0.9
 batch_size: 2
 image_dims: 1024
-epochs: 15
+epochs: 100
 augmentation: 
-        methods: [["Flip","Rotate90","Color"]]
+        methods: [["Flip","Rotate90"]]
         saturation: [0.5,1.2]
         brightness: 0.4
         hue: 0.05
@@ -19,8 +19,8 @@ augmentation:
         color_prob: 0.5
 normalize:
         methods: ["Scale","StandardizeDataset"]
-        channel_mean: [0.675, 0.460, 0.690]
-        channel_std: [0.180, 0.269, 0.218]        
+        channel_std: [0.163, 0.279, 0.169]
+        channel_mean: [0.766, 0.453, 0.711]        
 num_classes: 1 
 weights: [56.10]
 model: 

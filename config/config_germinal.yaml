@@ -19,8 +19,8 @@ augmentation:
         color_prob: 0.5
 normalize:
         methods: ["Scale","StandardizeDataset"]
-        channel_mean: [0.675, 0.460, 0.690]
-        channel_std: [0.180, 0.269, 0.218]        
+        channel_mean: [0.690, 0.460, 0.675]
+        channel_std: [0.218, 0.269, 0.180]        
 num_classes: 1 
 weights: [56.10]
 model: 
