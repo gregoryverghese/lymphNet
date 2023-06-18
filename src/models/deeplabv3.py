@@ -7,8 +7,13 @@ from tensorflow.keras.models import Model
 
 
 class DeepLabV3Plus():
-    def __init__(self,nOutput,dims):
-        self.numClasses=nOutput
+    def __init__(self,
+                 filters=[32,64,128, 256,512], 
+                 final_activation='sigmoid',
+                 dropout=0, 
+                 n_output=1,
+                 dims=1024):
+        self.numClasses=n_output
         self.dims=dims
     
     def convBlock(self,bInput,nFilters=256,kSize=3,dilation=1,padding="same", bias=False):
@@ -38,7 +43,7 @@ class DeepLabV3Plus():
 
 
     def build(self):
-        modelInput = Input(shape=(256, 256, 3))
+        modelInput = Input(shape=(1024, 1024, 3))
         resnet50 = ResNet50(weights="imagenet",include_top=False,input_tensor=modelInput)
         x = resnet50.get_layer("conv4_block6_2_relu").output
         x = self.DilatedSpatialPyramidPooling(x)
