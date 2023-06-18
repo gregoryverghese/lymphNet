@@ -14,6 +14,9 @@ import random
 import argparse
 import yaml
 import datetime
+import subprocess
+import psutil
+import pynvml
 
 import cv2
 import numpy as np
@@ -60,6 +63,41 @@ LOSSFUNCTIONS={
               'wCCE':CategoricalXEntropy,
               'DL':DiceLoss
               }
+
+def get_python_process_id():
+    process_id = os.getpid()
+    process = psutil.Process(process_id)
+    if process.name().lower() == "python":
+        return process_id
+    return None
+
+def get_process_memory_usage():
+    process = psutil.Process()
+    memory_info = process.memory_info()
+    memory_usage = memory_info.rss / 1024 / 1024  # Convert to megabytes
+    return memory_usage
+
+def get_gpu_memory_usage():
+    #command = "nvidia-smi --query-gpu=memory.used --format=csv,nounits,noheader"
+    #output = subprocess.check_output(command.split())
+    #memory_used = [int(x) for x in output.decode().strip().split('\n')]
+    
+    #i#pynvml.nvmlInit()
+    #device_count = pynvml.nvmlDeviceGetCount()
+    #memory_usage = []
+    #for i in range(device_count):
+    #    handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+    #    info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+    #    memory_usage.append(info.used / 1024 / 1024)  # Convert to megabytes
+    #pynvml.nvmlShutdown()
+    #return memory_usagei
+
+    process_id = get_python_process_id()
+    command = f"nvidia-smi --query-compute-apps=used_memory --pid={process_id} --format=csv"
+    output = subprocess.check_output(command, shell=True).decode().strip().split('\n')
+    memory_usage = int(output[1]) if len(output) > 1 else 0
+    return memory_usage
+
 
 
 def data_loader(path,config):
@@ -186,6 +224,8 @@ def main(args,config,name,save_path):
     train_loader.dataset = strategy.experimental_distribute_dataset(train_loader.dataset)
     valid_loader.dataset = strategy.experimental_distribute_dataset(valid_loader.dataset)
 
+    if DEBUG: print("CPU Memory Usage:", get_process_memory_usage(), "MB")
+    #if DEBUG: print("GPU Memory Usage:", get_gpu_memory_usage(), "MB")
 
     if DEBUG: print("about to start training at: ",datetime.datetime.now().strftime('%H:%M'))
     

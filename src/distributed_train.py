@@ -9,7 +9,7 @@ function and performs backward pass with chosen optimizer
 
 import os
 import datetime
-
+import subprocess
 import tensorflow as tf
 import numpy as np
 import tensorflow.keras.backend as K
@@ -26,6 +26,12 @@ __email__ = 'gregory.verghese@kcl.ac.uk'
 #tf.__dict__["gradients"] = memory_saving_gradients.gradients_speed
 
 DEBUG = True
+
+def get_gpu_memory_used():
+    command = "nvidia-smi --query-gpu=memory.used --format=csv,nounits,noheader"
+    output = subprocess.check_output(command.split())
+    memory_used = [int(x) for x in output.decode().strip().split('\n')]
+    return memory_used
 
 class DistributedTraining():
     '''
@@ -68,7 +74,8 @@ class DistributedTraining():
             'train_loss': [], 
             'train_metric':[], 
             'val_metric':[],
-            'val_loss':[]
+            'val_loss':[] ,
+            'weighted_sum':[]
         }
 
         self.stop_criteria = stop_criteria
@@ -176,9 +183,11 @@ class DistributedTraining():
         total_dice = 0.0
         prog = Progbar(self.train_loader.steps-1)
         for i, batch in enumerate(self.train_loader.dataset):
+            
             replica_loss, replica_dice = self._run(batch)
             total_loss += self.strategy.reduce(tf.distribute.ReduceOp.SUM,replica_loss, axis=None)
             total_dice += self.strategy.reduce(tf.distribute.ReduceOp.SUM,replica_dice, axis=None)
+            #print(get_gpu_memory_used())
             prog.update(i) 
         return total_loss, total_dice
 
@@ -237,7 +246,14 @@ class DistributedTraining():
         :returns self.model: trained tensorflow/keras subclassed model
         :returns self.history: dictonary containing train and validation scores
         '''
+        #HR - 15/06 - must run for at least XX epochs before we save the model
+        min_num_epochs = 10
+        weight_loss = 0.7
+        weight_dice = 0.3
+        model_save_path = os.path.join(self.save_path,'models')
+
         for epoch in range(self.epochs):
+            print(epoch)
             #trainLoss, trainDice = self.distributedTrainEpoch(trainDistDataset)
             train_loss, train_dice = self._train()
             train_loss = float(train_loss/self.train_loader.steps)
@@ -255,27 +271,50 @@ class DistributedTraining():
             with self.test_writer.as_default():
                 tf.summary.scalar('loss', test_loss, step=epoch)
                 tf.summary.scalar('dice', test_dice, step=epoch)
-            epoch_str = '  val_loss - {:.3f}, val_dice - {:.3f}'
-            tf.print(epoch_str.format(test_loss, test_dice))
+            #epoch_str = '  val_loss - {:.3f}, val_dice - {:.3f}'
+            #tf.print(epoch_str.format(test_loss, test_dice))
             
             self.history['train_metric'].append(train_dice)
             self.history['train_loss'].append(train_loss)
             self.history['val_metric'].append(test_dice)
             self.history['val_loss'].append(test_loss)
+            print("finished epoch HOLLY")
+            weighted_sum = (test_loss * weight_loss)+((1-test_dice)*weight_dice)
 
-            if test_loss <= min(self.history['val_loss']):
-                print("saving best model...")
-                model_save_path = os.path.join(self.save_path,'models')
-                print(model_save_path)
-                save_experiment(self.model, 
-                                self.config,
-                                self.history, 
-                                self.name,
-                                model_save_path)
+           
+            epoch_str = '  val_loss - {:.3f}, val_dice - {:.3f}, w_sum - {:.3f}'
+            tf.print(epoch_str.format(test_loss, test_dice,weighted_sum))
+
+            
+            #HR - 15/06 - must run for at least XX epochs before we save
+            if epoch >= min_num_epochs:
+                #HR - 18/06 - we only add weighted sum to the history when we are passed the min epochs
+                #otherwise we risk comparing to a min weighted sum that has not been saved
+                #print("lowest weighted sum: ",min(self.history['weighted_sum'])
+                self.history['weighted_sum'].append(weighted_sum)
+
+                #HR try out a weighted sum instead of just comparing to val loss
+                if weighted_sum <= min(self.history['weighted_sum']):
+                    #if test_loss <= min(self.history['val_loss']):
+                    print("saving best model...at epoch ",epoch+1)
+                    print(model_save_path)
+                    save_experiment(self.model, 
+                                    self.config,
+                                    self.history, 
+                                    self.name,
+                                    model_save_path)
 
 
             #if self.early_stop(test_loss, epoch):
             #    print('Stopping early on epoch: {}'.format(epoch))
             #    break
+        #save final model
+        os.makedirs(os.path.join(model_save_path,'final'),exist_ok=True)
+        save_experiment(self.model, 
+                        self.config,
+                        self.history, 
+                        self.name,
+                        os.path.join(model_save_path,'final'))
+
 
         return self.model, self.history
