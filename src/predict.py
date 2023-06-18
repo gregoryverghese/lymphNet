@@ -48,8 +48,6 @@ class Predict():
         self.tile_dim = tile_dim
         self.step=step
         self.normalize=normalize
-        print("means",channel_means)
-        print("std",channel_std)
         self.channel_means=[float(m) for m in channel_means]
         self.channel_std=[float(s) for s in channel_std]
 
@@ -68,7 +66,7 @@ class Predict():
         data=[(image,mask)]
         print(self.normalize)
         for method in self.normalize:
-            print(str(method))
+            #print(str(method))
             f=lambda x: getattr(norm,'get'+method)(x[0],x[1])
             data=list(map(f, data))
         image,mask=data[0][0],data[0][1]
@@ -122,6 +120,7 @@ def test_predictions(model,
     names=[]
 
     if DEBUG: print("save path: ",save_path)
+    if DEBUG: print("threshold: ",threshold)
     #HR 17/05/23
     #added sorted to make sure we have the right mask to image
     image_paths=sorted(glob.glob(os.path.join(test_path,'images',feature,'*')))
@@ -143,7 +142,7 @@ def test_predictions(model,
         image,mask=predict._normalize(image,mask)
         prediction=predict._predict(image)
         mask=np.expand_dims(mask,axis=0)
-        if DEBUG: print("shapes:",prediction.shape,mask.shape)
+        #if DEBUG: print("shapes:",prediction.shape,mask.shape)
         
         dices.append(diceCoef(prediction,mask[:,:,:,0:1]))
         writePredictionsToImage(prediction,save_path,name)
@@ -172,7 +171,7 @@ def writePredictionsToImage(img,save_path,name):
     img_out = img_out*255
   
     img_out = cv2.cvtColor(img_out, cv2.COLOR_RGB2BGR)
-    if DEBUG: print("writing to image:",name) 
+    #if DEBUG: print("writing to image:",name) 
     #cv2.imwrite(os.path.join(save_path,'predictions',name+".png"),img_out)
   
     cv2.imwrite(os.path.join(save_path,name+".png"),img_out)
@@ -206,7 +205,9 @@ if __name__=='__main__':
     cm = [float(x) for x in args.means]
     cs = [float(x) for x in args.std]
     #set up paths for models, training curves and predictions
+
     save_path = os.path.join(args.save_path,curr_date+"-"+str(args.threshold))
+    #save_path = save_path+("_%.2f" % args.threshold)
     if DEBUG: print("save_path:",save_path)
     os.makedirs(save_path,exist_ok=True)
     #os.makedirs(os.path.join(save_path,'predictions'),exist_ok=True)

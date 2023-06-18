@@ -20,7 +20,8 @@ def predict_multiple(model, test_path, save_path, feature,step,normalize,means,s
     #go from 0.5 to 1 in increments of 
     # Loop through threshold values from 0.5 to 1 with 0.05 increments
     for threshold in results['threshold']:
-        curr_save_path=(save_path+'_'+str(threshold))
+        #curr_save_path=(save_path+'_'+str(threshold))
+        curr_save_path=f"{save_path}_{threshold:.2f}"
         os.makedirs(curr_save_path,exist_ok=True)
         print(f"Running test_predictions with threshold: {threshold}")
         print("saving to: ",curr_save_path)
