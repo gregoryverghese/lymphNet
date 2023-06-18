@@ -65,8 +65,8 @@ def get_files(files_path, ext):
     return files_lst
 
 
-def save_experiment(model,config,history,name,model_save_path):
-    model.save(os.path.join(model_save_path,'model.h5'))
+def save_experiment(model,config,history,model_save_path):
+    model.save(os.path.join(model_save_path,'model_best.h5'))
 
     with open(os.path.join(model_save_path,'history'), 'wb') as history_file:
         pickle.dump(history, history_file)

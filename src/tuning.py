@@ -14,6 +14,7 @@ import datetime
 import argparse
 import yaml
 
+#os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import tensorflow as tf
 import pandas as pd
 
@@ -73,7 +74,7 @@ def tuning(args,config,save_path,curr_date,curr_time):
           #with open(config_save_path, 'w') as config_file:
               #json.dump(config, config_file)
           
-          print(f'experiment name: {name}')
+          print(f'Experiment: {name}')
           result = main(args,config,name,save_path)
           indexes.append(name)
           results.append(result)

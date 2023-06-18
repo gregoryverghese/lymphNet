@@ -122,7 +122,7 @@ class TFRecordLoader():
         #print('\n'*2+'Applying following normalization methods to '+ self.name+' dataset \n')
         print('normalize...')
         for i, n in enumerate(methods):
-            print('{}','{}'.format(i,n))
+            print('{}: {}'.format(i,n))
             self.dataset = self.dataset.map(getattr(norm, 'get'+ n), num_parallel_calls=4)
         if 'Standardize' in methods:
             columns=['means', 'std']
@@ -140,12 +140,12 @@ class TFRecordLoader():
         tastType: string multi or binary
         :returns dataset: tfrecord.data.dataset
         '''
-        print(self.tile_nums/4)
+        #print(self.tile_nums/4)
         self.batch_size=batch_size
         AUTO = tf.data.experimental.AUTOTUNE
         ignoreDataOrder = tf.data.Options()
         ignoreDataOrder.experimental_deterministic = False
-        dataset = tf.data.Dataset.list_files(self.tfrecords)
+        dataset = tf.data.Dataset.list_files(self.tfrecords,shuffle=True)
         dataset = dataset.with_options(ignoreDataOrder)
         dataset = dataset.interleave(lambda x: tf.data.TFRecordDataset(x), cycle_length=16, num_parallel_calls=AUTO)
         dataset = dataset.map(self._read_tfr_record, num_parallel_calls=AUTO)
@@ -159,13 +159,13 @@ class TFRecordLoader():
         #since we build our own custom training loop as opposed to model.fit
         #if model.fit used order of shuffle,cache and batch important
         if self.name!='test':
-            dataset = dataset.cache()
+            #dataset = dataset.cache()
             #dataset = dataset.repeat()
-            dataset = dataset.shuffle(int(self.tile_nums/5), reshuffle_each_iteration=True)
+            dataset = dataset.shuffle(int(500), reshuffle_each_iteration=True)
             dataset = dataset.batch(self.batch_size, drop_remainder=True)
             dataset = dataset.prefetch(AUTO)
         else:
-            dataset = dataset.batch(1)
+            dataset = dataset.batch(self.batch_size)
         self.dataset=dataset
 
 

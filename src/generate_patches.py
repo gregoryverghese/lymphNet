@@ -14,16 +14,16 @@ from pyslide.util.utilities import detect_tissue_section
 from pyslide.util.utilities import match_annotations_to_tissue_contour
 #from utilities import mask2rgb
 
-STEP=1024
+STEP=512
 MAG_LEVEL=2
 SIZE=(1024,1024)
 
-WSI_MASK_PATH='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-keras/data/wsi-masks'
+#WSI_MASK_PATH='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-keras/data/wsi-masks'
 #SAVE_PATH='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-keras/data/patches/v2/20x-2048-1024'
 SAVE_PATH='/home/verghese/test'
 WSI_PATH='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-keras/data/wsi/Guys/wsi/all'
-ANNOTATIONS_PATH='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-keras/data/annotations/v2'
-FILTER_PATH='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-keras/data/images'
+ANNOTATIONS_PATH='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/smuLymphNet/annotations'
+#FILTER_PATH='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-keras/data/images'
 
 wsi_paths=glob.glob(os.path.join(WSI_PATH,'*'))
 annotations_paths=glob.glob(os.path.join(ANNOTATIONS_PATH,'*'))
@@ -47,10 +47,10 @@ for p in wsi_paths:
     annotate=Annotations(ann_path,source='qupath',labels=classes)
     annotations=annotate._annotations
     wsi=Slide(p,annotations=annotate)
+    border=wsi.get_border(space=150)
     mask=wsi.slide_mask
 
-    print('gregory',np.unique(mask))
-    cv2.imwrite(os.path.join(SAVE_PATH,name+'_mask_.png'),mask*255)
+    #cv2.imwrite(os.path.join(SAVE_PATH,name+'_mask_.png'),mask*255)
 
     #get border from border annotation
     #annotate=Annotations(ann_path,source='qupath',labels=['border'])
@@ -63,19 +63,19 @@ for p in wsi_paths:
     #border=[[min(xs),max(xs)],[min(ys),max(ys)]]
 
     #contour LNs and get border
-    contours=detect_tissue_section(wsi)
-    print(wsi.level_downsamples[6])
-    slide=wsi.get_thumbnail(wsi.level_dimensions[6])
-    slide=np.array(slide.convert('RGB'))
-    slide=cv2.drawContours(slide,contours,-1,(0,0,255),3)
+    #contours=detect_tissue_section(wsi)
+    #print(wsi.level_downsamples[6])
+    #slide=wsi.get_thumbnail(wsi.level_dimensions[6])
+    #slide=np.array(slide.convert('RGB'))
+    #slide=cv2.drawContours(slide,contours,-1,(0,0,255),3)
 
-    annotations=list(itertools.chain(*list(annotate.annotations.values())[0]))
-    c=match_annotations_to_tissue_contour(contours,annotations,wsi.level_downsamples[6])
-    rect = cv2.boundingRect(c)
-    x,y,w,h = rect
-    slide=cv2.rectangle(slide,(x,y),(x+w,y+h),(0,255,0),2)
-    cv2.imwrite(os.path.join(SAVE_PATH,name+'_slidethumb.png'),slide)
-    border=[[x*64,(x+w)*64],[y*64,(y+h)*64]]
+    #annotations=list(itertools.chain(*list(annotate.annotations.values())[0]))
+    #c=match_annotations_to_tissue_contour(contours,annotations,wsi.level_downsamples[6])
+    #rect = cv2.boundingRect(c)
+    #x,y,w,h = rect
+    #slide=cv2.rectangle(slide,(x,y),(x+w,y+h),(0,255,0),2)
+    #cv2.imwrite(os.path.join(SAVE_PATH,name+'_slidethumb.png'),slide)
+    #border=[[x*64,(x+w)*64],[y*64,(y+h)*64]]
 
     
     #germinal centres
@@ -92,7 +92,7 @@ for p in wsi_paths:
     #test=[p_id for p_id in patches._patches if p_id['name'] in filtered]
     #patches._patches=test
     print('g','num patches: {}'.format(len(patches._patches)))
-    print(patches._patches)
+    #print(patches._patches)
     #patches.save(save_path,mask_flag=True)
     #patches.save(save_path,mask_flag=True)
     #patches.save_mask(save_path, 'mask')

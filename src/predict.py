@@ -11,13 +11,14 @@ import cv2
 import numpy as np
 import pandas as pd
 from tensorflow.keras.models import load_model
-import torch
+#import torch
 import tensorflow as tf
-import torch.nn.functional as F
-import torch.nn as nn
-from torchvision import transforms as T
+#import torch.nn.functional as F
+#import torch.nn as nn
+#from torchvision import transforms as T
 
-from networks.unet_multi import UNet_multi 
+#from networks.unet_multi import UNet_multi 
+from stitching import Canvas, stitch
 from utilities.evaluation import diceCoef
 from utilities.augmentation import Augment, Normalize
 
@@ -39,6 +40,7 @@ class Predict():
     def __init__(self,
                  model,
                  threshold,
+                 tile_dim,
                  step, 
                  normalize=[], 
                  channel_means=[],
@@ -46,16 +48,23 @@ class Predict():
 
         self.model=model
         self.threshold=threshold
+        self.tile_dim=tile_dim
         self.step=step
         self.normalize=normalize
         self.channel_means=[float(m) for m in channel_means]
         self.channel_std=[float(s) for s in channel_std]
 
 
-    def _patching(self, x_dim, y_dim):
+    #def _patching(self, x_dim, y_dim):
+        #for x in range(0, x_dim, self.step):
+            #for y in range(0, y_dim, self.step):
+                #yield x, y
+    def _patching(self, x_dim, y_dim, tile_dim):
         for x in range(0, x_dim, self.step):
             for y in range(0, y_dim, self.step):
-                yield x, y
+                x_new = x_dim-tile_dim if x+tile_dim>x_dim else x
+                y_new = y_dim-tile_dim if y+tile_dim>y_dim else y
+                yield x_new,y_new
 
 
     def _normalize(self, image, mask):
@@ -80,12 +89,15 @@ class Predict():
         return img
 
     def _predict(self, image):
-        tt = T.ToTensor() 
-        print(self.threshold)
-        y_dim, x_dim, _ = image.shape
-        canvas=np.zeros((1,int(y_dim),int(x_dim),1))
-        for x, y in self._patching(x_dim,y_dim):
-            patch=image[y:y+self.step,x:x+self.step,:]
+        #tt = T.ToTensor() 
+        #canvas=np.zeros((1,int(y_dim),int(x_dim),1))
+        margin=int((args.tile_dim-args.step)/2)
+        c=Canvas(x_dim,y_dim)
+        #y_dim, x_dim, _ = image.shape
+        #for x, y in self._patching(x_dim,y_dim):
+        for x, y in self._patching(x_dim,y_dim,self.tile_dim):
+            #patch=image[y:y+self.step,x:x+self.step,:]
+            patch=image[y:y+self.tile_dim,x:x+self.tile_dim,:]
             patch=np.expand_dims(patch,axis=0)
             #patch=self.get_transform(patch)
             #patch=torch.unsqueeze(patch,0)
@@ -94,7 +106,18 @@ class Predict():
             #probs=F.sigmoid(logits)
             #prediction = torch.ge(probs[:,1:2,:,:],self.threshold).float()
             #prediction=torch.permute(prediction,(0,2,3,1))
-            canvas[:,y:y+self.step,x:x+self.step,:]=prediction
+            #canvas[:,y:y+self.step,x:x+self.step,:]=prediction
+            stitch(
+                    c,
+                    prediction, 
+                    y,
+                    x,
+                    y_dim,
+                    x_dim,
+                    self.tile_dim,
+                    self.step, 
+                    margin
+                    )
         return canvas.astype(np.uint8)
 
 
@@ -103,6 +126,7 @@ def test_predictions(model,
                      save_path,
                      feature,
                      threshold=0.7,
+                     tile_dim,
                      step=1024,
                      normalize=[],
                      channel_means=None,
@@ -114,7 +138,7 @@ def test_predictions(model,
     image_paths=glob.glob(os.path.join(test_path,'images','*'))
     mask_paths=glob.glob(os.path.join(test_path,'masks',feature,'*'))
     print(mask_paths)
-    predict=Predict(model,threshold,step,normalize,channel_means,channel_std)
+    predict=Predict(model,threshold,tile_dim,step,normalize,channel_means,channel_std)
     for i, i_path in enumerate(image_paths):
         name=os.path.basename(i_path)[:-9]
         names.append(name)
@@ -143,7 +167,8 @@ if __name__=='__main__':
     ap.add_argument('-sp','--save_path',required=True,help='experiment folder for saving results')
     ap.add_argument('-f','--feature',required=True,help='morphological feature')
     ap.add_argument('-th','--threshold',default=0.5,help='activation threshold')
-    ap.add_argument('-s','--step',default=512,help='sliding window size')
+    ap.add_argument('-td','--tile_dim',default=1600,help='tile dims')
+    ap.add_argument('-s','--step',default=600,help='sliding window size')
     ap.add_argument('-n','--normalize',nargs='+',default=["Scale"],help='normalization methods')
     ap.add_argument('-cm','--means',nargs='+',default=[0.633,0.383,0.659],help='channel mean')
     ap.add_argument('-cs','--std',nargs='+', default=[0.143,0.197,0.19],help='channel std')
@@ -159,6 +184,7 @@ if __name__=='__main__':
                      args.save_path,
                      args.feature,
                      float(args.threshold),
+                     int(args.tile_dim),
                      int(args.step),
                      args.normalize,
                      args.means,

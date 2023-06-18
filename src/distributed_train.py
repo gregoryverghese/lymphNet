@@ -17,6 +17,7 @@ from tensorflow.keras.utils import Progbar
 
 from utilities.custom_loss_classes import BinaryXEntropy
 from utilities.evaluation import diceCoef
+from utilities.utils import get_train_curves, save_experiment
 
 __author__ = 'Gregory Verghese'
 __email__ = 'gregory.verghese@kcl.ac.uk'
@@ -31,21 +32,24 @@ class DistributedTraining():
     and performs backward pass with chosen optimizer. Loss and dice 
     are calculated per gpu (known as replica) and combined at the end.
     '''
-    def __init__(self, 
-                 model, 
-                 train_loader,
-                 valid_loader,
-                 optimizer, 
-                 criterion,
-                 strategy,
-                 global_batch_size,
-                 epoch,
-                 img_dims,
-                 stop_criteria,
-                 threshold, 
-                 task_type,
-                 train_writer,
-                 test_writer):
+    def __init__(
+        self,
+        model,
+        train_loader,
+        valid_loader,
+        optimizer, 
+        criterion,
+        strategy,
+        global_batch_size,
+        epoch,
+        img_dims,
+        stop_criteria,
+        threshold,
+        task_type,
+        train_writer,
+        test_writer,
+        config,
+        save_path):
 
         self.model = model
         self.train_loader = train_loader
@@ -70,6 +74,8 @@ class DistributedTraining():
         self.task_type = task_type
         self.train_writer = train_writer
         self.test_writer = test_writer
+        self.config = config
+        self.save_path = save_path
 
 
     def compute_loss(self, label, predictions):
@@ -131,6 +137,7 @@ class DistributedTraining():
         loss = self.criterion(y, logits)
         y_pred = tf.cast((logits > self.threshold), tf.float32)
         dice = self.compute_dice(y, y_pred)
+        print('greg',dice)
         #need to change batch size variable (testing uses 1)
         loss = tf.reduce_sum(loss) * (1. /(self.img_dims*self.img_dims*1*self.global_batch_size))
         return loss, dice
@@ -209,6 +216,7 @@ class DistributedTraining():
         performs the forward pass of the network. calls each training epoch
         and prediction on validation data. Records results in history
         dictionary. Record logs for tensorboard using create_file_writer
+
         :params train_dataset: contains train image and mask tensor data
         :params test_dataset: contains valid image and mask tensor data
         :returns self.model: trained tensorflow/keras subclassed model
@@ -226,6 +234,7 @@ class DistributedTraining():
             tf.print(epoch_str.format(epoch+1, self.epochs, train_loss, train_dice, 1), end="")
 
             test_loss, test_dice  =  self._test()
+            print('test_dice',test_dice)
             test_loss = float(test_loss/self.valid_loader.steps)
             test_dice = float(test_dice/self.valid_loader.steps)
             with self.test_writer.as_default():
@@ -238,9 +247,18 @@ class DistributedTraining():
             self.history['train_loss'].append(train_loss)
             self.history['val_metric'].append(test_dice)
             self.history['val_loss'].append(test_loss)
+            
+            if test_loss<=min(self.history['val_loss']):
+                print('saving best model...')
+                model_save_path=os.path.join(self.save_path,'models')
+                save_experiment(
+                    self.model,
+                    self.config,
+                    self.history,
+                    model_save_path)
 
-            if self.early_stop(test_loss, epoch):
-                print('Stopping early on epoch: {}'.format(epoch))
-                break
+            #if self.early_stop(test_loss, epoch):
+                #print('Stopping early on epoch: {}'.format(epoch))
+                #break
 
         return self.model, self.history

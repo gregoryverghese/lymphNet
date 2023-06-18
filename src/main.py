@@ -15,6 +15,8 @@ import argparse
 import yaml
 import datetime
 
+#os.environ['TF_CPP_MIN_LOG_LEVEL'] = 2
+
 import cv2
 import numpy as np
 import tensorflow as tf
@@ -40,34 +42,36 @@ from predict import test_predictions
 from utilities.utils import get_train_curves, save_experiment
 from utilities.custom_loss_classes import BinaryXEntropy, DiceLoss, CategoricalXEntropy
 
+#os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 FUNCMODELS={
-            'unet':unet.Unet,
-            'unetmini':unet_mini.UnetMini,
-            'attention':atten_unet.AttenUnet,
-            'multiscale':multiscale.MSUnet,
-            'multiatten':multi_atten.MultiAtten,
-            'resunet':resunet.ResUnet,
-            'fcn8':unet.Unet,
-            'mobile':mobile.MobileUnet,
-            'deeplabv3plus':deeplabv3.DeepLabV3Plus
-            }
+    'unet':unet.Unet,
+    'unetmini':unet_mini.UnetMini,
+    'attention':atten_unet.AttenUnet,
+    'multiscale':multiscale.MSUnet,
+    'multiatten':multi_atten.MultiAtten,
+    'resunet':resunet.ResUnet,
+    'fcn8':unet.Unet,
+    'mobile':mobile.MobileUnet,
+    'deeplabv3plus':deeplabv3.DeepLabV3Plus
+        }
 
 
 LOSSFUNCTIONS={
-              'wCE':BinaryXEntropy,
-              'wCCE':CategoricalXEntropy,
-              'DL':DiceLoss
+    'wCE':BinaryXEntropy,
+    'wCCE':CategoricalXEntropy,
+    'DL':DiceLoss
               }
 
 
 def data_loader(path,config):
     
     #load training files
+    print('Loading training data')
     train_path = os.path.join(path,'train','*.tfrecords')
-    train_files = glob.glob(train_path)[:2]
+    train_files = glob.glob(train_path)
     train_loader=TFRecordLoader(train_files,
-                                'train',
+                                'Train',
                                 config['image_dims'],
                                 config['task_type'],
                                 int(config['batch_size']))
@@ -77,7 +81,7 @@ def data_loader(path,config):
     #augmention
     aug_methods=config['augmentation']['methods']
     aug_parameters=config['augmentation']
-
+    
     train_loader.load(int(config['batch_size']))
     train_loader.augment(aug_methods,aug_parameters)
 
@@ -86,6 +90,7 @@ def data_loader(path,config):
     norm_parameters=config['normalize']
     train_loader.normalize(norm_methods,norm_parameters)
     
+    print('Loading validation data')
     #load validation files
     valid_path = os.path.join(path,'validation','*.tfrecords')
     valid_files = glob.glob(valid_path)
@@ -179,16 +184,18 @@ def main(args,config,name,save_path):
         config['threshold'],
         config['task_type'],
         train_writer,
-        test_writer)
+        test_writer,
+        config,
+        save_path)
     
     model, history = train.forward()
     #save model, config and training curves
-    model_save_path=os.path.join(save_path,'models')
-    save_experiment(model,config,history,name,model_save_path)
+    #model_save_path=os.path.join(save_path,'models')
+    #save_experiment(model,config,history,name,model_save_path)
     curve_save_path=os.path.join(save_path,'curves')
     get_train_curves(history,'train_loss','val_loss',curve_save_path)
     get_train_curves(history,'train_metric', 'val_metric',curve_save_path)
-    pre=True
+    pre=False
 
     if pre:
         print('prediction')
