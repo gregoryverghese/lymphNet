@@ -41,7 +41,7 @@ from data.tfrecord_read import TFRecordLoader
 from utilities.evaluation import diceCoef
 from predict import test_predictions
 from utilities.utils import get_train_curves, save_experiment
-from utilities.custom_loss_classes import BinaryXEntropy, DiceLoss, CategoricalXEntropy
+from utilities.custom_loss_classes import BinaryXEntropy, DiceLoss, CategoricalXEntropy,WeightedCategoricalCrossEntropy,generalized_dice_loss,WCE_and_dice_loss,Focal_loss,Tversky_loss,Switching_loss
 
 DEBUG = True
 
@@ -61,7 +61,12 @@ FUNCMODELS={
 LOSSFUNCTIONS={
               'wCE':BinaryXEntropy,
               'wCCE':CategoricalXEntropy,
-              'DL':DiceLoss
+              'DL':DiceLoss,
+              'GDL':generalized_dice_loss,
+              'WCEnDL':WCE_and_dice_loss,
+              'FL':Focal_loss,
+              'TL':Tversky_loss,
+              'SL':Switching_loss
               }
 
 def get_python_process_id():
@@ -214,7 +219,8 @@ def main(args,config,name,save_path):
         #optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
         optimizer = tf.keras.optimizers.Adam(learning_rate=config['learning_rate'])
         #criterion = LOSSFUNCTIONS[config['loss'][0]](**loss_params)
-        criterion = BinaryXEntropy(config['weights'][0])
+        #Mengyuan - (here is the origin)criterion = BinaryXEntropy(config['weights'][0])
+        criterion=Focal_loss()
         #with tf.device('/cpu:0'):
         model=FUNCMODELS[args.model_name](**model_params)
         model=model.build()

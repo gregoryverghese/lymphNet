@@ -15,7 +15,7 @@ import numpy as np
 import tensorflow.keras.backend as K
 from tensorflow.keras.utils import Progbar
 
-from utilities.custom_loss_classes import BinaryXEntropy
+from utilities.custom_loss_classes import BinaryXEntropy,DiceLoss,WeightedCategoricalCrossEntropy,generalized_dice_loss,WCE_and_dice_loss,Focal_loss,Tversky_loss,Switching_loss
 from utilities.evaluation import diceCoef
 from utilities.utils import save_experiment
 
