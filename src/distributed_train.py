@@ -280,7 +280,7 @@ class DistributedTraining():
             self.history['val_loss'].append(test_loss)
             print("finished epoch HOLLY")
             weighted_sum = (test_loss * weight_loss)+((1-test_dice)*weight_dice)
-
+            self.history['weighted_sum'].append(weighted_sum)
            
             epoch_str = '  val_loss - {:.3f}, val_dice - {:.3f}, w_sum - {:.3f}'
             tf.print(epoch_str.format(test_loss, test_dice,weighted_sum))
@@ -291,7 +291,6 @@ class DistributedTraining():
                 #HR - 18/06 - we only add weighted sum to the history when we are passed the min epochs
                 #otherwise we risk comparing to a min weighted sum that has not been saved
                 #print("lowest weighted sum: ",min(self.history['weighted_sum'])
-                self.history['weighted_sum'].append(weighted_sum)
 
                 #HR try out a weighted sum instead of just comparing to val loss
                 if weighted_sum <= min(self.history['weighted_sum']):
