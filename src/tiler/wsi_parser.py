@@ -21,6 +21,19 @@ from feature_extractor import FeatureGenerator
 #from pyslide.io.tfrecords_io import TFRecordWrite
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 class WSIParser():
     def __init__(
             self,
