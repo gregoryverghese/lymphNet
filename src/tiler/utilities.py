@@ -105,7 +105,7 @@ class TissueDetect():
         image=np.array(image.convert('RGB'))
         cv2.drawContours(image, contours, -1, (0, 255, 0), 5)
         x,y,w,h=cv2.boundingRect(np.concatenate(contours))
-        cv2.rectangle(image,(x,y),(x+w,y+h),(255,0,0),5)
+        #cv2.rectangle(image,(x,y),(x+w,y+h),(255,0,0),5)
 
         return image
         
@@ -243,9 +243,9 @@ def visualise_wsi_tiling(
     for t_xy in tiler.tiles:
         x=int(t_xy[0]/wsi.level_downsamples[viewing_res])
         y=int(t_xy[1]/wsi.level_downsamples[viewing_res])
-        w=int(tiler.tile_dims[0]/wsi.level_downsamples[viewing_res])
-        h=int(tiler.tile_dims[1]/wsi.level_downsamples[viewing_res])
-        patch = patches.Rectangle((y,x), w, h, 
+        w=int(tiler._x_dim/wsi.level_downsamples[viewing_res])
+        h=int(tiler._y_dim/wsi.level_downsamples[viewing_res])
+        patch = patches.Rectangle((x,y), w, h, 
                 fill=False, edgecolor=plot_args['color'])
         ax.add_patch(patch)
 
