@@ -21,19 +21,6 @@ from feature_extractor import FeatureGenerator
 #from pyslide.io.tfrecords_io import TFRecordWrite
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 class WSIParser():
     def __init__(
             self,
@@ -50,10 +37,10 @@ class WSIParser():
         #y_size=int(self.size[1]*self.mag_factor*.5)
         self.border = border
 
-        self._x_min = int(self.border[0][1])
-        self._x_max = int(self.border[1][1])
-        self._y_min = int(self.border[0][0])
-        self._y_max = int(self.border[1][0])
+        self._x_min = int(self.border[0][0])
+        self._x_max = int(self.border[0][1])
+        self._y_min = int(self.border[1][0])
+        self._y_max = int(self.border[1][1])
         self._downsample = int(slide.level_downsamples[mag_level])
         self._x_dim = int(tile_dim*self._downsample) 
         self._y_dim = int(tile_dim*self._downsample)
@@ -148,14 +135,15 @@ class WSIParser():
 
 
     def filter_tissue(self,slide_mask,label,threshold=0.5):
-
+        print('greg',slide_mask.shape)
         slide_mask[slide_mask!=label]=0
         slide_mask[slide_mask==label]=1
         tiles=self._tiles.copy()
-        for t in tiles:
-            x,y=(t[0],t[1])
+        for t in self._tiles:
+            x,y=(t[1],t[0])
             t_mask=slide_mask[x:x+self._x_dim,y:y+self._y_dim]
             if np.sum(t_mask) < threshold * (self._x_dim * self._y_dim):
+                print('removing')
                 tiles.remove(t)
 
         self._tiles = tiles

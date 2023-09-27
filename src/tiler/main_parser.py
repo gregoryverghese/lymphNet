@@ -17,42 +17,47 @@ def parse_wsi(args, wsi_path, ann_path):
         ann_path, source = args.annotate_type, labels = args.classes
     )    
     wsi = Slide(
-        wsi_path, annotations=annotate
-    )
+        wsi_path,annotations=annotate)
 
     detector = TissueDetect(wsi)
     thumb = detector.tissue_thumbnail
     tis_mask = detector.detect_tissue(6)
-
-    cv2.imwrite(os.path.join(args.save_path,'thumb.png'),thumb)
+    #cv2.rectangle(thumb,(x,y),(x+w,y+h),(255,0,0),5)
+    #cv2.imwrite(os.path.join(args.save_path,'thumb.png'),thumb)
     #border = detector.border(3) 
-    cv2.imwrite(os.path.join(args.save_path,'tis.png'),tis_mask*255)
+    #cv2.imwrite(os.path.join(args.save_path,'tis.png'),tis_mask*255)
 
-    border = wsi.get_border(space=500)
+    border = wsi.get_border(space=1000)
     (x1,x2),(y1,y2) = border
     
-    print(border)
-    """
-    for c in classes:
-        annotate_feature = Annotations(ann_path, source='qupath', labels=['GC'])
-        annotations = annotate_feature._annotations 
-        wsi_feature = Slide(curr_path, annotations = annotate_feature)
-        
-        parser = WSIParser(wsi,args.tile_dims, border)
-        num = parser.tiler(args.stride)
-        print('Tiles: {}'.format(num))
+    f=lambda x: (int(x[0]/8),int(x[1]/8))
+    new_border=list(map(f,border))
+    (x1_,x2_),(y1_,y2_) = new_border
+    cv2.rectangle(thumb,(x1_,y1_),(x2_,y2_),(255,0,0),3)
+    cv2.imwrite(os.path.join(args.save_path,'thumb.png'),thumb)
 
-        parser.filter_tissue(
+    print('border',border)    
+    #for c in classes:
+    #annotate_feature = Annotations(ann_path, source='qupath', labels=['GC'])
+    annotations = annotate._annotations 
+    #wsi_feature = Slide(curr_path, annotations = annotate_feature)
+        
+    parser = WSIParser(wsi, args.tile_dims, border, 2)
+    num = parser.tiler(args.stride)
+
+   #print('Tiles: {}'.format(num))
+    parser.filter_tissue(
             tis_mask,
             label=1,
-            threshold=0.5)
+            threshold=0.05
+            )
         
-        print(f'Sampled tiles: {parser.number}') 
-        visualise_wsi_tiling(
-                wsi,
-                parser,
-                args.vis_path,
-                viewing_res=3
+    print(f'Sampled tiles: {parser.number}') 
+    visualise_wsi_tiling(
+            wsi,
+            parser,
+            args.vis_path,
+            viewing_res=3
                 )
 
         #if args.parser != 'tiler':
@@ -65,30 +70,6 @@ def parse_wsi(args, wsi_path, ann_path):
                 #map_size=2e9
         #)
 """
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
         ## Apply Tissue Mask
         #tissue_mask=np.load(os.path.join(tissue_mask_path,name+".ndpi.npy"))
 
@@ -124,7 +105,7 @@ def parse_wsi(args, wsi_path, ann_path):
         #patches.save(curr_save_path,mask_flag=True)
 
 
-    """
+    
     cv2.imwrite(os.path.join(args.save_path,'thumb.png',thumb))
     tis_mask = detector.detect_tissue(3)
     border = detector.border(3)
@@ -154,8 +135,7 @@ def parse_wsi(args, wsi_path, ann_path):
             os.path.join(args.tile_path,
                          os.path.basename(wsi_path)), 
             map_size=2e9
-    )
-    
+    )    
     #patches=remove_black(patches)
     #patches=remove_blue(patches)
     
@@ -184,13 +164,13 @@ if __name__=='__main__':
     ap.add_argument('-sp','--save_path',
             required=True, help='directoy to write tiles and features')
     
-    ap.add_argument('-s','--stride',default=1024,
+    ap.add_argument('-s','--stride',default=512,
             help='distance to step across WSI')
 
-    ap.add_argument('-ml','--mag_level',default=0,
+    ap.add_argument('-ml','--mag_level',default=2,
             help='magnification level of tiling')
 
-    ap.add_argument('-td','--tile_dims',default=1024,
+    ap.add_argument('-td','--tile_dims',default=512,
             help='dimensions of tiles')
     
     ap.add_argument('-tf','--tfrecords',default=False,
@@ -204,7 +184,7 @@ if __name__=='__main__':
 
     args=ap.parse_args()
     
-    args.classes = ['GC']
+    args.classes = ['GC','sinus']
     dir_ = 'tfrecords' if args.tfrecords else 'tiles'
     args.tile_path = os.path.join(args.save_path, dir_)
     args.vis_path = os.path.join(args.save_path, 'vis')
