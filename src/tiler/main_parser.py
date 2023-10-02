@@ -12,12 +12,14 @@ from utilities import TissueDetect, visualise_wsi_tiling
 
 
 def parse_wsi(args, wsi_path, ann_path):
+    
+    if ann_path is not None:
+        annotate = Annotations(
+            ann_path, source = args.annotate_type, labels = args.classes
+         )    
 
-    annotate = Annotations(
-        ann_path, source = args.annotate_type, labels = args.classes
-    )    
     wsi = Slide(
-        wsi_path,annotations=annotate)
+        wsi_path, mask = mask, annotations = annotate)
 
     detector = TissueDetect(wsi)
     thumb = detector.tissue_thumbnail
@@ -36,7 +38,6 @@ def parse_wsi(args, wsi_path, ann_path):
     cv2.rectangle(thumb,(x1_,y1_),(x2_,y2_),(255,0,0),3)
     cv2.imwrite(os.path.join(args.save_path,'thumb.png'),thumb)
 
-    print('border',border)    
     #for c in classes:
     #annotate_feature = Annotations(ann_path, source='qupath', labels=['GC'])
     annotations = annotate._annotations 
@@ -159,7 +160,10 @@ if __name__=='__main__':
             required=True, help='whole slide image directory')
 
     ap.add_argument('-ap','--annotation_path',
-            required=True, help='annotations directory')
+            required=False, help='annotations directory')
+
+    ap.add_argument('mp', '--mask_path',
+            required=False, help='masks directory')
 
     ap.add_argument('-sp','--save_path',
             required=True, help='directoy to write tiles and features')
@@ -194,7 +198,7 @@ if __name__=='__main__':
 
     wsi_paths=glob.glob(os.path.join(args.wsi_path,'*'))
     ann_paths=glob.glob(os.path.join(args.annotation_path,'*'))
-
+    
     for f in wsi_paths:
         wsi_path, wsi_ext = os.path.splitext(f)
         name = os.path.basename(wsi_path)

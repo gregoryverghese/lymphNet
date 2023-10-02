@@ -304,6 +304,13 @@ def calculate_std_mean(patch_path, channel=True, norm=True):
     return mean, std 
 
 
+def average_stack_masks(mask,consensus):
+    if not isinstance(consensus,list):
+        consensus = [consensus]
+    mask[~np.isin(mask,consensus)]=0
+    mask[np.isin(mask,consensus)]=1
+    return mask
+
 
 def calculate_weights(mask_path,num_cls):
 
