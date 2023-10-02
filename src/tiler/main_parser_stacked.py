@@ -8,18 +8,15 @@ import numpy as np
 
 from wsi_parser import WSIParser
 from slide import Slide, Annotations
-from utilities import TissueDetect, visualise_wsi_tiling
+from utilities import ( 
+    TissueDetect, 
+    visualise_wsi_tiling,
+    average_stack_masks
+)
 
 
-def parse_wsi(args, wsi_path, ann_path, mask):
+def parse_wsi(args, wsi_path, annotate, mask):
     
-    if ann_path is not None:
-        annotate = Annotations(
-            ann_path, source = args.annotate_type, labels = args.classes
-         )
-    else:
-        annotate = None
-
     wsi = Slide(
         wsi_path, mask = mask, annotations = annotate)
 
@@ -42,7 +39,7 @@ def parse_wsi(args, wsi_path, ann_path, mask):
 
     #for c in classes:
     #annotate_feature = Annotations(ann_path, source='qupath', labels=['GC'])
-    annotations = annotate._annotations 
+    #annotations = annotate._annotations 
     #wsi_feature = Slide(curr_path, annotations = annotate_feature)
         
     parser = WSIParser(wsi, args.tile_dims, border, 2)
@@ -59,7 +56,7 @@ def parse_wsi(args, wsi_path, ann_path, mask):
     visualise_wsi_tiling(
             wsi,
             parser,
-            args.vis_path,
+            os.path.join(args.vis_path,args.name+'.png'),
             viewing_res=3
                 )
 
@@ -161,10 +158,10 @@ if __name__=='__main__':
     ap.add_argument('-wp','--wsi_path',
             required=True, help='whole slide image directory')
 
-    ap.add_argument('-ap','--annotation_path',
+    ap.add_argument('-ap','--annotation_paths',
             required=False, help='annotations directory')
 
-    ap.add_argument('-mp', '--mask_path',
+    ap.add_argument('-mp', '--mask_paths',
             required=False, help='masks directory')
 
     ap.add_argument('-sp','--save_path',
@@ -185,6 +182,8 @@ if __name__=='__main__':
     ap.add_argument('-at','--annotate_type',default='qupath',
             help='software used to generate annotations')
 
+    ap.add_argument('-c', '--consensus', default = 1,
+                    type = int, help='mask consensus agreement')
     #ap.add_argument('-cl','--classes',default='qupath',
             #help='software used to generate annotations')
 
@@ -194,46 +193,49 @@ if __name__=='__main__':
     dir_ = 'tfrecords' if args.tfrecords else 'tiles'
     args.tile_path = os.path.join(args.save_path, dir_)
     args.vis_path = os.path.join(args.save_path, 'vis')
-
     os.makedirs(args.tile_path, exist_ok=True)
     os.makedirs(args.vis_path, exist_ok=True)
 
     wsi_paths=glob.glob(os.path.join(args.wsi_path,'*'))
 
-    if args.annotation_path is not None:
-        ann_paths=glob.glob(os.path.join(args.annotation_path,'*'))
+    if args.annotation_paths is not None:
+        ann_paths=glob.glob(os.path.join(args.annotation_paths,'*'))
 
-    if args.mask_path is not None:
-        mask_paths=glob.glob(os.path.join(args.mask_path,'*'))
-
+    if args.mask_paths is not None:
+        mask_paths=glob.glob(os.path.join(args.mask_paths,'*'))
+    
+    print(mask_paths)
     for f in wsi_paths:
         wsi_path, wsi_ext = os.path.splitext(f)
-        name = os.path.basename(wsi_path)
-
-        if args.annotation_path is not None:
-            ann_path=[a for a in ann_paths if name in a]
-            print(f'Parsing {name}')
-    
-            if len(ann_path)==0:
-                print('No annotation file')
-                continue
-
-        else:
-            ann_path = None
+        args.name = os.path.basename(wsi_path)
+        print(f'Parsing {args.name}')
         
-        if args.mask_path is not None:
-            mask_path=[m for m in mask_paths if name in m]
-            print(f'Parsing {name}')
-    
-            if len(mask_path)==0:
-                print('No annotation file')
+        if args.annotation_paths is not None:
+            ann_path = [a for a in ann_paths if args.name in a]
+            if len(ann_path)!=0:
+                print('missing annotations')
                 continue
+            annotate = Annotations(
+                ann_path, 
+                source = args.annotate_type, 
+                labels = args.classes
+            )
+        else:
+            annotate = None
 
+        if args.mask_paths is not None:
+            mask_path = [m for m in mask_paths if args.name in m]
+            print(mask_path)
+            if len(mask_path)==0:
+                continue
+                print('missing mask')
             mask = cv2.imread(mask_path[0])
+            mask = average_stack_masks(mask,args.consensus)
+            print(np.unique(mask))
         else:
             mask = None
 
-        parse_wsi(args, f, ann_path,mask)
+        parse_wsi(args, f, annotate, mask)
 
 
         #wsi_save_path=os.path.join(save_path,name)
