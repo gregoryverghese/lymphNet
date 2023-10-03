@@ -46,24 +46,28 @@ class Slide(OpenSlide):
     :param _border: list of border coordinates [(x1,y1),(x2,y2)]
     """
     MAG_FACTORS={0:1,1:2,2:4,3:8,4:16,5:32,6:64}
-    MASK_SIZE=(2000,2000)
+    MASK_SIZE=(200,2000)
 
     #filter mask should be passed in at the specified mag level
-    def __init__(self,
-                 filename,
-                 mag=0,
-                 annotations=None,
-                 annotations_path=None,
-                 labels=None,
-                 source=None,
-                 filter_mask=None,
-                 filter_mask_path=None):
+    def __init__(
+        self,
+        filename,
+        mag=0,
+        mask = None,
+        annotations=None,
+        annotations_path=None,
+        labels=None,
+        source=None,
+        filter_mask=None,
+        filter_mask_path=None):
         super().__init__(filename)
 
         self.mag=mag
         self.dims=self.dimensions
         self.name=os.path.basename(filename)[:-5]
         self._border=None
+        self._mask = mask
+
         if filter_mask is not None:
             self.filter_mask = filter_mask
         elif filter_mask_path is not None:
@@ -88,6 +92,21 @@ class Slide(OpenSlide):
        mask=mask2rgb(mask)
 
        return mask
+    
+
+    @property
+    def mask(self):
+        print('starting')
+        if self._mask is None:
+            self._mask = self.generate_mask()
+        self._mask = cv2.resize(self._mask,self.dimensions)
+        print('mask dims', self._mask.shape)
+        return self._mask
+
+
+    @mask.setter
+    def mask(self,value):
+        self._mask = value
 
 
     def set_filter_mask(self, mask=None, mask_path=None):
@@ -119,6 +138,13 @@ class Slide(OpenSlide):
         if size is not None:
             slide_mask=cv2.resize(slide_mask, size)
         return slide_mask
+
+
+    def filter_mask_classes(self, c):
+        mask = self._mask.copy()
+        mask[mask != c] = 0
+        self.mask = mask
+
 
 
     @staticmethod
