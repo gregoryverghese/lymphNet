@@ -19,7 +19,9 @@ def parse_wsi(args, wsi_path, annotate, mask):
     
     wsi = Slide(
         wsi_path, mask = mask, annotations = annotate)
-
+    
+    #wsi.mask = mask
+    print(f'WSI dimensions: {wsi.dimensions}')
     detector = TissueDetect(wsi)
     thumb = detector.tissue_thumbnail
     tis_mask = detector.detect_tissue(6)
@@ -27,7 +29,8 @@ def parse_wsi(args, wsi_path, annotate, mask):
     #cv2.imwrite(os.path.join(args.save_path,'thumb.png'),thumb)
     #border = detector.border(3) 
     #cv2.imwrite(os.path.join(args.save_path,'tis.png'),tis_mask*255)
-
+    
+    print('greg')
     border = wsi.get_border(space=1000)
     (x1,x2),(y1,y2) = border
     
@@ -45,7 +48,7 @@ def parse_wsi(args, wsi_path, annotate, mask):
     parser = WSIParser(wsi, args.tile_dims, border, 2)
     num = parser.tiler(args.stride)
 
-   #print('Tiles: {}'.format(num))
+    #print('Tiles: {}'.format(num))
     parser.filter_tissue(
             tis_mask,
             label=1,
@@ -60,15 +63,27 @@ def parse_wsi(args, wsi_path, annotate, mask):
             viewing_res=3
                 )
 
-        #if args.parser != 'tiler':
-            #parser.extract_features(args.parser,
-                    #args.model_path)
-        
-        #parser.to_lmdb(
-                #os.path.join(args.tile_path,
-                             #os.path.basename(wsi_path)), 
-                #map_size=2e9
-        #)
+    if args.parser != 'tiler':
+        parser.extract_features(args.parser,
+                    args.model_path)
+    
+    classes = [1]
+    for c in classes:
+        parser.slide.filter_mask_classes(c)
+        parser.save(args.tile_path, mask_flag=True)
+
+        #parser.to_tfrecords(
+            #os.path.join(args.tile_path,
+                        #os.path.basename(wsi_path)), 
+               #map_size=2e9
+            #)
+
+
+
+
+
+
+
 """
         ## Apply Tissue Mask
         #tissue_mask=np.load(os.path.join(tissue_mask_path,name+".ndpi.npy"))
@@ -184,6 +199,9 @@ if __name__=='__main__':
 
     ap.add_argument('-c', '--consensus', default = 1,
                     type = int, help='mask consensus agreement')
+
+    ap.add_argument('-p','--parser', default='tiler',
+            help='type of feature extractor')
     #ap.add_argument('-cl','--classes',default='qupath',
             #help='software used to generate annotations')
 
@@ -204,12 +222,12 @@ if __name__=='__main__':
     if args.mask_paths is not None:
         mask_paths=glob.glob(os.path.join(args.mask_paths,'*'))
     
-    print(mask_paths)
     for f in wsi_paths:
         wsi_path, wsi_ext = os.path.splitext(f)
         args.name = os.path.basename(wsi_path)
-        print(f'Parsing {args.name}')
-        
+        print(f'Parsing {args.name}') 
+        #wsi = openslide.OpenSlide(f)
+
         if args.annotation_paths is not None:
             ann_path = [a for a in ann_paths if args.name in a]
             if len(ann_path)!=0:
@@ -231,10 +249,10 @@ if __name__=='__main__':
                 print('missing mask')
             mask = cv2.imread(mask_path[0])
             mask = average_stack_masks(mask,args.consensus)
-            print(np.unique(mask))
+            print('mask shape', mask.shape)
         else:
             mask = None
-
+        
         parse_wsi(args, f, annotate, mask)
 
 
