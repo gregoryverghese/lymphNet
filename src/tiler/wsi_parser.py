@@ -31,7 +31,8 @@ class WSIParser():
             ):
 
         super().__init__()
-        self.slide = slide
+        self.slide = slide  
+        self.name = self.slide.__str__()[11:-7]
         self.mag_level = mag_level
         self.tile_dims = (tile_dim,tile_dim)
         #y_size=int(self.size[1]*self.mag_factor*.5)
@@ -143,7 +144,6 @@ class WSIParser():
             x,y=(t[1],t[0])
             t_mask=slide_mask[x:x+self._x_dim,y:y+self._y_dim]
             if np.sum(t_mask) < threshold * (self._x_dim * self._y_dim):
-                print('removing')
                 tiles.remove(t)
 
         self._tiles = tiles
@@ -196,14 +196,62 @@ class WSIParser():
         """
         for t in self._tiles:
             tile=self.extract_tile(t[0],t[1])
-            yield t
+            yield t, tile
 
 
-    @staticmethod
+    def static_method_mask(self, x=None, y=None):
+        """ 
+        extract binary mask corresponding to patch
+        from slide_mask
+        :param x: int x coordinate
+        :param y: int y coordinate
+        """
+        #if we want x,y coordinate of point to be central
+        #x_size=int(self.size[0]*self.mag_factor*.5)
+        #y_size=int(self.size[1]*self.mag_factor*.5)
+        #[y-y_size:y+y_size,x-x_size:x+x_size]
+        x_size=int(self.size[0]*self._downsample)
+        y_size=int(self.size[1]*self._downsample)
+        mask=self.slide.generate_mask()[y:y+y_size,x:x+x_size]
+        mask=cv2.resize(mask,(self.size[0],self.size[1]))
+        return mask
+
+    def extract_mask(self, x=None, y=None, slide_mask=None):
+        """ 
+        extract binary mask corresponding to patch
+        from slide_mask
+        :param x: int x coordinate
+        :param y: int y coordinate
+        """
+        #if we want x,y coordinate of point to be central
+        #x_size=int(self.size[0]*self.mag_factor*.5)
+        #y_size=int(self.size[1]*self.mag_factor*.5)
+        #[y-y_size:y+y_size,x-x_size:x+x_size]
+        x_size = int(self.tile_dims[0]*self._downsample)
+        y_size = int(self.tile_dims[1]*self._downsample)
+        if slide_mask is not None:
+            slide_mask = self.slide.mask
+        mask=slide_mask[y:y+y_size,x:x+x_size]
+        mask = cv2.resize(mask,(self.tile_dims))
+        return mask
+
+
+    def extract_masks(self):
+        """ 
+        extract all masks
+        :yield mask: ndarray mask
+        :yield m: mask dict metadata
+        """
+        slide_mask = self.slide.mask
+        for m in self._tiles:
+            mask=self.extract_mask(m[0],m[1],slide_mask)
+            yield m, mask
+
+
     def _save_to_disk(
+        self,
         image, 
         path,
-        filename,
         x=None,
         y=None):
         """
@@ -217,10 +265,12 @@ class WSIParser():
         :param y: int y coordinate for filename
         """
         assert isinstance(y, int) and isinstance(x, int) 
-        filename=filename+'_'+str(x)+'_'+str(y)+'.png'
+        filename=self.name+'_'+str(x)+'_'+str(y)+'.png'
         image_path=os.path.join(path,filename)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        print(image_path)
+        #image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         status=cv2.imwrite(image_path,image)
+        print(status)
         return status
    
 
@@ -228,7 +278,8 @@ class WSIParser():
         self, 
         path, 
         label_dir=False, 
-        label_csv=False
+        label_csv=False,
+        mask_flag=False
         ):
 
         """
@@ -239,11 +290,18 @@ class WSIParser():
         :param label_dir: label directory
         :param label_csv: boolean to save labels in csv
         """
-        tile_path=os.path.join(path,'tiles')
-        os.makedirs(tile_path,exist_ok=True)
-        #CHECK TILE
-        for t in self.extract_tiles():
-            self._save_disk(tile,path,filename,t[0],t[1])
+
+        t_path = os.path.join(path,'images')
+        print(t_path)
+        os.makedirs(t_path,exist_ok=True)
+        for t, tile in self.extract_tiles():
+            print(tile.shape)
+            self._save_to_disk(tile,t_path,t[0],t[1])
+        if mask_flag:
+            m_path = os.path.join(path,'masks')
+            os.makedirs(m_path,exist_ok=True)
+            for m, mask in self.extract_masks():
+                self._save_to_disk(mask,m_path,m[0],m[1])
 
         if label_csv:
             df=pd.DataFrame(self._tiles,columns=['names','x','y'])
