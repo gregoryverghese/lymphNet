@@ -183,6 +183,9 @@ if __name__=='__main__':
     ap.add_argument('-at','--annotate_type',default='qupath',
             help='software used to generate annotations')
 
+    ap.add_argument('-p','--parser', default='tiler',
+            help='type of feature extractor')
+
     #ap.add_argument('-cl','--classes',default='qupath',
             #help='software used to generate annotations')
 
