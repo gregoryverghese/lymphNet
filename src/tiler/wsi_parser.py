@@ -32,7 +32,7 @@ class WSIParser():
 
         super().__init__()
         self.slide = slide  
-        self.name = self.slide.__str__()[11:-7]
+        self.name = os.path.basename(self.slide.__str__()[11:-7])
         self.mag_level = mag_level
         self.tile_dims = (tile_dim,tile_dim)
         #y_size=int(self.size[1]*self.mag_factor*.5)
@@ -194,7 +194,7 @@ class WSIParser():
         :yield tile: ndarray tile
         :yield p: tile dict metadata
         """
-        for t in self._tiles:
+        for t in self._tiles[1:200]:
             tile=self.extract_tile(t[0],t[1])
             yield t, tile
 
@@ -215,6 +215,7 @@ class WSIParser():
         mask=self.slide.generate_mask()[y:y+y_size,x:x+x_size]
         mask=cv2.resize(mask,(self.size[0],self.size[1]))
         return mask
+
 
     def extract_mask(self, x=None, y=None, slide_mask=None):
         """ 
@@ -243,7 +244,7 @@ class WSIParser():
         :yield m: mask dict metadata
         """
         slide_mask = self.slide.mask
-        for m in self._tiles:
+        for m in self._tiles[1:200]:
             mask=self.extract_mask(m[0],m[1],slide_mask)
             yield m, mask
 
@@ -266,11 +267,10 @@ class WSIParser():
         """
         assert isinstance(y, int) and isinstance(x, int) 
         filename=self.name+'_'+str(x)+'_'+str(y)+'.png'
-        image_path=os.path.join(path,filename)
-        print(image_path)
+        #image_path=os.path.join(path,filename)
+        image_path = path + '/' + filename
         #image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         status=cv2.imwrite(image_path,image)
-        print(status)
         return status
    
 
@@ -292,10 +292,8 @@ class WSIParser():
         """
 
         t_path = os.path.join(path,'images')
-        print(t_path)
         os.makedirs(t_path,exist_ok=True)
         for t, tile in self.extract_tiles():
-            print(tile.shape)
             self._save_to_disk(tile,t_path,t[0],t[1])
         if mask_flag:
             m_path = os.path.join(path,'masks')
