@@ -69,12 +69,12 @@ class TFRecordWrite():
                 self._print_progress(j)
                 tile = tf.image.encode_png(tile) 
                 mask = tf.image.encode_png(mask)
-                name = self.name+'_'+str(t[0])+'_'+str(t[1])
+                name = self.parser.name+'_'+str(t[0])+'_'+str(t[1])
 
                 data = {'tile': self._wrap_bytes(tile),
                         'mask': self._wrap_bytes(mask),
                         'name': self._wrap_bytes(name.encode('utf8')),
-                        'dims': self._wrap_int64(self.tile.size[0])}
+                        'dims': self._wrap_int64(self.parser.tile_dims[0])}
                
                 features = tf.train.Features(feature=data)
                 example = tf.train.Example(features=features)
