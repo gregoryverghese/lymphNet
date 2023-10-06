@@ -38,7 +38,8 @@ def parse_wsi(args, wsi_path, annotate, mask):
     new_border=list(map(f,border))
     (x1_,x2_),(y1_,y2_) = new_border
     cv2.rectangle(thumb,(x1_,y1_),(x2_,y2_),(255,0,0),3)
-    cv2.imwrite(os.path.join(args.save_path,'thumb.png'),thumb)
+    cv2.imwrite(os.path.join(args.vis_path,args.name+'_thumb.png')
+                ,thumb)
 
     #for c in classes:
     #annotate_feature = Annotations(ann_path, source='qupath', labels=['GC'])
@@ -75,87 +76,6 @@ def parse_wsi(args, wsi_path, annotate, mask):
             os.path.join(args.tile_path) 
             )
 
-"""
-        ## Apply Tissue Mask
-        #tissue_mask=np.load(os.path.join(tissue_mask_path,name+".ndpi.npy"))
-
-        # Convert True/False values to 0/1
-        #tissue_mask = tissue_mask.astype(np.uint8)*255
-        #tissue_mask = np.transpose(tissue_mask)
-        #tissue_mask_mag = 2.5
-        #slide_mag=40
-        #print("tissue_mask before scaling:",tissue_mask.shape)
-        #tissue_mask_scaled = cv2.resize(tissue_mask, (0, 0), fx=slide_mag/tissue_mask_mag, fy=slide_mag/tissue_mask_mag)
-        #wsi_feature.set_filter_mask(mask=tissue_mask_scaled)
-        #patches=Patch(wsi_feature,mag_level=MAG_LEVEL,border=border,size=SIZE)
-        #print("slide dims:",wsi_feature.dimensions)                
-        ##TESTING
-        ##patch,filter_mask = wsi_feature.get_filtered_region((0,0), 2,(34000,18000))
-        ##patch_path=os.path.join(curr_save_path,'images')
-        ##os.makedirs(patch_path,exist_ok=True)
-        ##image = cv2.cvtColor(patch, cv2.COLOR_BGR2RGB)
-        ##status=cv2.imwrite(os.path.join(patch_path,name+"_region.png"),image
-        ##continue
-
-
-
-
-
-
-        #num=patches.generate_patches(STEP)
- 
-        #print('g','num patches: {}'.format(len(patches._patches)))
-        #print(patches._patches)
-        
-        ## SAVE PATCHES 
-        #patches.save(curr_save_path,mask_flag=True)
-
-
-    
-    cv2.imwrite(os.path.join(args.save_path,'thumb.png',thumb))
-    tis_mask = detector.detect_tissue(3)
-    border = detector.border(3)
-    cv2.imwrite(os.path.join(args.save_path,'mask.png'), tis_mask)    
-    parser = WSIParser(wsi,args.tile_dims,border)
-    num = parser.tiler(args.stride)
-    print('Tiles: {}'.format(num))
-
-    parser.filter_tissue(
-        tis_mask,
-        label=1,
-        threshold=0.5)
-    
-    print(f'Sampled tiles: {parser.number}') 
-    visualise_wsi_tiling(
-            wsi,
-            parser,
-            args.vis_path,
-            viewing_res=3
-            )
-
-    if args.parser != 'tiler':
-        parser.extract_features(args.parser,
-                args.model_path)
-    
-    parser.to_lmdb(
-            os.path.join(args.tile_path,
-                         os.path.basename(wsi_path)), 
-            map_size=2e9
-    )    
-    #patches=remove_black(patches)
-    #patches=remove_blue(patches)
-    
-    #patches.save(save_path,mask_flag=False)
-    #patches.to_lmdb(save_path,map_size=10e9)
-    #print('                         ',end='\r')
-
-    #if feature_method is not None:
-        #pass
-        #getattr(ParseWSI,ars.method+'feature')
-
-    #if args.database:
-        #lmdb.save
-    """
 
 if __name__=='__main__':
     
