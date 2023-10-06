@@ -43,8 +43,7 @@ class TFRecordWrite():
     
     @property
     def mem_size(self):
-        mem = sum(sys.getsizeof(p.tobytes()) 
-                        for p,_ in self.parser.extract_tiles())
+        mem = sum(sys.getsizeof(t.tobytes()) for _, t in self.parser.extract_tiles())
         return mem/self.unit
 
 
@@ -62,7 +61,7 @@ class TFRecordWrite():
 
         for i in range(self.shard_number):
             path=os.path.join(
-                self.db_path,self.parser.name'_'+str(i)+'.tfrecords')
+                self.db_path,self.parser.name+'_'+str(i)+'.tfrecords')
             writer=tf.io.TFRecordWriter(path)
             for j in range(self.img_num_per_shard):
                 t, tile = next(self.parser.extract_tiles())
