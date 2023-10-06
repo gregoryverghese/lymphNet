@@ -18,7 +18,7 @@ from utilities import mask2rgb
 #from exceptions import StitchingMissingPatches
 from lmdb_io import LMDBWrite
 from feature_extractor import FeatureGenerator
-#from pyslide.io.tfrecords_io import TFRecordWrite
+from tfrecords_io import TFRecordWrite
 
 
 class WSIParser():
@@ -136,7 +136,6 @@ class WSIParser():
 
 
     def filter_tissue(self,slide_mask,label,threshold=0.5):
-        print('greg',slide_mask.shape)
         slide_mask[slide_mask!=label]=0
         slide_mask[slide_mask==label]=1
         tiles=self._tiles.copy()

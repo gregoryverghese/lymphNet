@@ -96,11 +96,9 @@ class Slide(OpenSlide):
 
     @property
     def mask(self):
-        print('starting')
         if self._mask is None:
             self._mask = self.generate_mask()
         self._mask = cv2.resize(self._mask,self.dimensions)
-        print('mask dims', self._mask.shape)
         return self._mask
 
 
