@@ -13,6 +13,7 @@ from utilities import (
     visualise_wsi_tiling,
     average_stack_masks
 )
+from tfrecords_io import TFRecordWrite 
 
 
 def parse_wsi(args, wsi_path, annotate, mask):
@@ -30,7 +31,6 @@ def parse_wsi(args, wsi_path, annotate, mask):
     #border = detector.border(3) 
     #cv2.imwrite(os.path.join(args.save_path,'tis.png'),tis_mask*255)
     
-    print('greg')
     border = wsi.get_border(space=1000)
     (x1,x2),(y1,y2) = border
     
@@ -70,19 +70,10 @@ def parse_wsi(args, wsi_path, annotate, mask):
     classes = [1]
     for c in classes:
         parser.slide.filter_mask_classes(c)
-        parser.save(args.tile_path, mask_flag=True)
-
-        #parser.to_tfrecords(
-            #os.path.join(args.tile_path,
-                        #os.path.basename(wsi_path)), 
-               #map_size=2e9
-            #)
-
-
-
-
-
-
+        #parser.save(args.tile_path, mask_flag=True)
+        parser.to_tfrecords(
+            os.path.join(args.tile_path) 
+            )
 
 """
         ## Apply Tissue Mask
