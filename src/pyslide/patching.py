@@ -353,14 +353,16 @@ class Patch():
         :param x: int x coordinate
         :param y: int y coordinate
         """
-        #if we want x,y coordinate of point to be central
-        #x_size=int(self.size[0]*self.mag_factor*.5)
-        #y_size=int(self.size[1]*self.mag_factor*.5)
-        #[y-y_size:y+y_size,x-x_size:x+x_size]
         x_size=int(self.size[0]*self._downsample)
         y_size=int(self.size[1]*self._downsample)
-        mask=self.slide.generate_mask()[y:y+y_size,x:x+x_size]
+        #mask=self.slide.generate_mask()[y:y+y_size,x:x+x_size]
+        mask=self.slide.full_mask[y:y+y_size,x:x+x_size]
+        print(mask.shape)
+        #HR - have to pad the annotation masks at the edge of the images out to the required patch size
+        mask = np.pad(mask, ((0, x_size-mask.shape[0]), (0, y_size-mask.shape[1])), 'constant', constant_values=0)
+
         mask=cv2.resize(mask,(self.size[0],self.size[1]))
+        print(mask.shape)
         return mask
 
 
@@ -370,9 +372,14 @@ class Patch():
         :yield mask: ndarray mask
         :yield m: mask dict metadata
         """
+        #make sure we have a slide mask first
+        print("generate slide mask")
+        self.slide.generate_slide_mask()
+        print("got slide mask")
         for m in self._patches:
             mask=self.extract_mask(m['x'],m['y'])
             yield mask,m
+
 
 
     @staticmethod
@@ -414,7 +421,8 @@ class Patch():
              path, 
              mask_flag=False, 
              label_dir=False, 
-             label_csv=False):
+             label_csv=False,
+             remove_white_patches=False):
         """
         object save method. saves down all patches
         :param path: save path
@@ -422,28 +430,47 @@ class Patch():
         :param label_dir: label directory
         :param label_csv: boolean to save labels in csv
         """
+        patches_removed = []
         #print("saving patch")
         patch_path=os.path.join(path,'images')
         os.makedirs(patch_path,exist_ok=True)
         filename=self.slide.name
+        filename = filename.replace(" ","-").replace("_","-")
+        #print(filename)
 
         for patch,p in self.extract_patches():
+ 
+            ## if we want to remove white patches and the current patch is white
+            if remove_white_patches and np.min(patch) == 255:
+                patches_removed.append((p['x'], p['y']))
+                continue  # Skip saving this patch
+
             if label_dir:
                  patch_path=os.path.join(patch_path,patch['labels'])
             self._save_disk(patch,patch_path,filename,p['x'],p['y'])
+
+        print("removed ",len(patches_removed)," white patches")
+        print("finished patches, now masks")
+
         if mask_flag:
             mask_generator=self.extract_masks()
             mask_path=os.path.join(path,'masks')
             view_path=os.path.join(path,'viewable')
+            print("saving masks to ",mask_path)
+
             os.makedirs(mask_path,exist_ok=True)
             os.makedirs(view_path,exist_ok=True)
-            
-            if label_dir:
-                patch_path=os.path.join(path_path,patch['labels'])
-            for mask,m in self.extract_masks():
-                self._save_disk(mask,mask_path,filename,m['x'],m['y'])
-                self._save_disk((mask*255),view_path,filename,m['x'],m['y'])
+            print("patch size: ", self.size)
 
+            if label_dir:
+                patch_path=os.path.join(patch_path,patch['labels'])
+            print("extracting masks")
+            for mask,m in self.extract_masks():
+                if (m['x'],m['y']) not in patches_removed:
+                    print("*")
+                    self._save_disk(mask,mask_path,filename,m['x'],m['y'])
+                    self._save_disk((mask*255),view_path,filename,m['x'],m['y'])
+            print("finished for")
 
         if label_csv:
             df=pd.DataFrame(self._patches,columns=['names','x','y','labels'])

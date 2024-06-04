@@ -67,7 +67,8 @@ def detect_tissue_section(slide):
     thresh1_args={"thresh":0,"maxval":255,"type":cv2.THRESH_TRUNC+cv2.THRESH_OTSU}
     thresh2_args={"thresh":0,"maxval":255,"type":cv2.THRESH_OTSU}
 
-    slide=slide.get_thumbnail(slide.level_dimensions[6])
+    lvl = min(6,slide.level_count-1)
+    slide=slide.get_thumbnail(slide.level_dimensions[lvl])
     slide=np.array(slide.convert('RGB'))
     img_hsv=cv2.cvtColor(slide,cv2.COLOR_RGB2HSV)
     lower_red=np.array([120,0,0])
@@ -92,6 +93,10 @@ def detect_tissue_section(slide):
     return contours
 
 
+###
+### identifies which LN has been annotated
+### only use when onlyl 1 LN is expected
+###
 def match_annotations_to_tissue_contour(
         contours,
         annotations,
@@ -107,4 +112,29 @@ def match_annotations_to_tissue_contour(
         if target==1:
             break
     return c
+
+
+###
+### used in identifying which LNs have been annotated
+### works for multiple annotated LNs
+### returns the contours for each annotated LN
+def match_annotations_to_multiple_tissue_contours(
+        contours,
+        annotations,
+        ds
+        ):
+    contours_annotated = []
+    for i,c in enumerate(contours):
+        print("contour: ",i)
+        for j,p in enumerate(annotations):
+            #print("    ann: ",j)
+            p=(int(p[0]/ds),int(p[1]/ds))
+            if cv2.pointPolygonTest(c, p, False)==1: 
+                print("****** FOUND ONE!")
+                contours_annotated.append(c)
+                break
+
+    return contours_annotated
+
+
 

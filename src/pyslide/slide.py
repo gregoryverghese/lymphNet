@@ -45,7 +45,8 @@ class Slide(OpenSlide):
     :param draw_border: boolean to generate border based on annotations
     :param _border: list of border coordinates [(x1,y1),(x2,y2)]
     """
-    MAG_FACTORS={0:1,1:2,2:4,3:8,4:16,5:32,6:64}
+    #MAG_FACTORS only valid for ndpi
+    #MAG_FACTORS={0:1,1:2,2:4,3:8,4:16,5:32,6:64}
     MASK_SIZE=(2000,2000)
 
     #filter mask should be passed in at the specified mag level
@@ -62,14 +63,12 @@ class Slide(OpenSlide):
 
         self.mag=mag
         self.dims=self.dimensions
-        self.name=os.path.basename(filename)[:-5]
+        self.name=os.path.basename(filename).replace('.ndpi','')
+        self.name=self.name.replace('.svs','')
+        self.name=self.name.replace('.mrxs','')
         self._border=None
-        if filter_mask is not None:
-            self.filter_mask = filter_mask
-        elif filter_mask_path is not None:
-            self.filter_mask = cv2.imread(filter_mask_path,cv2.IMREAD_GRAYSCALE)
-        else:
-            self.filter_mask = None
+        self.full_mask = None
+        self.set_filter_mask(mask=filter_mask, mask_path=filter_mask_path)
 
         if annotations is not None:
             self.annotations=annotations
@@ -84,19 +83,41 @@ class Slide(OpenSlide):
 
     @property
     def slide_mask(self):
-       mask=self.generate_mask((Slide.MASK_SIZE))
-       mask=mask2rgb(mask)
+        mask=self.generate_mask((Slide.MASK_SIZE))
+        mask=mask2rgb(mask)
 
-       return mask
+        return mask
 
+    def generate_slide_mask(self):
+        self.full_mask =self.generate_mask()
+
+    def clear_slide_mask(self):
+        #setting slide mask to None
+        self.full_mask = None 
 
     def set_filter_mask(self, mask=None, mask_path=None):
-        if mask is not None:
-            self.filter_mask = mask
-        elif mask_path is not None:
-            self.filter_mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
-        else:
-            print("no valid mask detected")
+        if mask is None:
+            if mask_path is None:
+                print("no valid mask detected")
+                return False
+            else:
+                mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+        print("mask shape: ",mask.shape)
+        print("level 1 dims: ",self.level_dimensions[0])
+
+        if mask.shape[0] != self.level_dimensions[0][1] or mask.shape[1] != self.level_dimensions[0][0]:
+            print("resizing tissue mask")
+            mask = cv2.resize(mask, self.level_dimensions[0], interpolation=cv2.INTER_NEAREST)
+
+        self.filter_mask = mask
+        print("tissue mask dims: ",mask.shape)
+
+        #if mask is not None:
+        #    self.filter_mask = mask
+        #elif mask_path is not None:
+        #    self.filter_mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+        #else:
+        #    print("no valid mask detected")
     
 
     def generate_mask(self, size=None):
@@ -109,15 +130,17 @@ class Slide(OpenSlide):
         """
         x, y = self.dims[0], self.dims[1]
         slide_mask=np.zeros((y, x), dtype=np.uint8)
-        self.annotations.encode=True
-        coordinates=self.annotations.annotations
-        keys=sorted(list(coordinates.keys()))
-        for k in keys:
-            v = coordinates[k]
-            v = [np.array(a) for a in v]
-            cv2.fillPoly(slide_mask, v, color=k)
-        if size is not None:
-            slide_mask=cv2.resize(slide_mask, size)
+
+        if self.annotations:
+            self.annotations.encode=True
+            coordinates=self.annotations.annotations
+            keys=sorted(list(coordinates.keys()))
+            for k in keys:
+                v = coordinates[k]
+                v = [np.array(a) for a in v]
+                cv2.fillPoly(slide_mask, v, color=k)
+            if size is not None:
+                slide_mask=cv2.resize(slide_mask, size)
         return slide_mask
 
 
@@ -162,7 +185,8 @@ class Slide(OpenSlide):
             f=lambda x: (min(x)-space, max(x)+space)
             self._border=list(map(f, list(zip(*coordinates))))
 
-        mag_factor=Slide.MAG_FACTORS[self.mag]
+        mag_factor = self.level_downsamples[self.mag]
+        #mag_factor=Slide.MAG_FACTORS[self.mag]
         f=lambda x: (int(x[0]/mag_factor),int(x[1]/mag_factor))
         self._border=list(map(f,self._border))
 
@@ -269,8 +293,11 @@ class Slide(OpenSlide):
         if (y_min+y_size)>self.dimensions[1]:
             y_size=self.dimensions[1]-y_min
 
-        x_size_adj=int(x_size/Slide.MAG_FACTORS[mag])
-        y_size_adj=int(y_size/Slide.MAG_FACTORS[mag])
+        #x_size_adj=int(x_size/Slide.MAG_FACTORS[mag])
+        #y_size_adj=int(y_size/Slide.MAG_FACTORS[mag])
+        lvl = self.level_downsamples[mag]
+        x_size_adj=int(x_size/lvl)
+        y_size_adj=int(y_size/lvl)
         region=self.read_region((x_min,y_min),mag,(x_size_adj, y_size_adj))
 
         ##need to crop the mask to the correct region 
@@ -300,7 +327,10 @@ class Slide(OpenSlide):
         #filter mask will already be stored at the self.mag level
         filter_mask = self.filter_mask
         if mag != self.mag:
-            scaling_factor = Slide.MAG_FACTORS[self.mag]/Slide.MAG_FACTORS[mag]
+            #scaling_factor = Slide.MAG_FACTORS[self.mag]/Slide.MAG_FACTORS[mag]
+            
+            scaling_factor = self.level_downsamples[self.mag]/self.level_downsamples[mag]
+
             #print("scaling: ",scaling_factor)
             #print("original:",filter_mask.shape)
             filter_mask = cv2.resize(filter_mask,(0,0), fx=scaling_factor, fy=scaling_factor)
@@ -310,22 +340,28 @@ class Slide(OpenSlide):
         #need to crop the filter mask to the requested region
         #print("start_x",start_x,start_x+size[0])
         #print("start_y",start_y,start_y+size[1])
-        #print("filter mask shape",filter_mask.shape) 
-        filter_mask_cropped = filter_mask[start_x:start_x+size[0],start_y:start_y+size[1]]
-        
-        if filter_mask_cropped.shape < size:
+        #print("filter mask shape",filter_mask.shape)
+
+        #HR 14/04/2024: mask is currently transpose
+        # so have to switch the x and y dims for comparison 
+        filter_mask_cropped = filter_mask[start_y:start_y+size[1],start_x:start_x+size[0]]
+ 
+        #HR 14/04/2024: have to check each dimension as can't assume a square patch
+        if filter_mask_cropped.shape[0] < size[1] or filter_mask_cropped.shape[1] < size[0]:
             # Pad the mask to the desired size
-            print("cropped shape:",filter_mask_cropped.shape)    
-            print("padding")
+            #print("cropped shape:",filter_mask_cropped.shape)    
+            #print("padding")
             padded_mask = np.pad(filter_mask_cropped, ((0, size[0]-filter_mask_cropped.shape[0]), (0, size[1]-filter_mask_cropped.shape[1])), 'constant', constant_values=0)
-            print("padded mask shape",padded_mask.shape)
+            #print("padded mask shape",padded_mask.shape)
 
         else:
             # The mask is already the desired size or larger, so no padding is needed
             padded_mask = filter_mask_cropped
 
         #need to transpose the mask to apply bitwise and
-        padded_mask = np.transpose(padded_mask) 
+        #HR 14/04/2024: not transposing during creation in generate_patches
+        #so no longer need to transpose here
+        #padded_mask = np.transpose(padded_mask) 
         filtered_region = cv2.bitwise_and(np.array(region),np.array(region),mask=padded_mask)
         filtered_region = cv2.cvtColor(filtered_region, cv2.COLOR_RGBA2RGB)
         #print(filtered_region.shape,padded_mask.shape)

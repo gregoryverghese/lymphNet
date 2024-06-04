@@ -8,15 +8,25 @@ import argparse
 import ast
 
 def predict_multiple(model, test_path, save_path, feature,step,normalize,means,std):
-    results={}
+
+    test_files = os.listdir(os.path.join(test_path,'images','germinal'))    
+
+    print(test_files)
+    # Count the number of files
+    #for i in len(test_files):
+    #    results[i] = []
+
+    results={str(i): [] for i,v in enumerate(test_files)}
     
     results['threshold'] = [i / 100 for i in range(50, 101, 5)]
+    #results['threshold'] = [i / 100 for i in range(90, 95, 5)]
     results['dices']=[]
-    results['14']=[]
-    results['32']=[]
-    results['38']=[]
-    results['42']=[]
-    results['48']=[]
+    print(results)
+    #results['14']=[]
+    #results['32']=[]
+    #results['38']=[]
+    #results['42']=[]
+    #results['48']=[]
     #go from 0.5 to 1 in increments of 
     # Loop through threshold values from 0.5 to 1 with 0.05 increments
     for threshold in results['threshold']:
@@ -37,14 +47,18 @@ def predict_multiple(model, test_path, save_path, feature,step,normalize,means,s
                          std
                          )
         results['dices'].append(dices)
-        results['14'].append(dices[0])
-        results['32'].append(dices[1])
-        results['38'].append(dices[2])
-        results['42'].append(dices[3])
-        results['48'].append(dices[4])
+        print("num dices:",len(dices))
+        print("num test files:",len(test_files))
+        for j,_ in enumerate(dices):
+            results[str(j)].append(dices[j])
+        #results['1'].append(dices[1])
+        #results['2'].append(dices[2])
+        #results['3'].append(dices[3])
+        #results['4'].append(dices[4])
 
-    results_df = pd.DataFrame(results)
-    results_df.to_csv(os.path.join(save_path,'results-multiple.csv'))
+    print(results)
+    #results_df = pd.DataFrame(results)
+    #results_df.to_csv(os.path.join(save_path,'results-multiple.csv'))
 
 if __name__=='__main__':
     ap=argparse.ArgumentParser(description='model inference')
@@ -54,8 +68,8 @@ if __name__=='__main__':
     ap.add_argument('-f','--feature',required=True,help='morphological feature')
     ap.add_argument('-s','--step',default=512,help='sliding window size')
     ap.add_argument('-n','--normalize',nargs='+',default=["Scale","StandardizeDataset"],help='normalization methods')
-    ap.add_argument('-cm','--means',nargs='+',default=[0.675,0.460,0.690],help='channel mean')
-    ap.add_argument('-cs','--std',nargs='+', default=[0.180,0.269,0.218],help='channel std')
+    ap.add_argument('-cm','--means',nargs='+',default=[0.791, 0.663, 0.825],help='channel mean')
+    ap.add_argument('-cs','--std',nargs='+', default=[0.164,  0.248, 0.178],help='channel std')
     args=ap.parse_args()
     cm=[float(x) for x in args.means]
     cs=[float(x) for x in args.std] 

@@ -20,13 +20,16 @@ def calculate_std_mean(path):
     print('total number pixels: {}'.format(pixel_num))
 
     for path in images:
+        print(path)
         image = cv2.imread(path)
         image = (image/255.0).astype('float64')
         channel_values += np.sum(image, axis=(0,1), dtype='float64')
 
     mean=channel_values/pixel_num
+    print("mean:",mean)
 
     for path in images:
+        print(path)
         image = cv2.imread(path)
         image = (image/255.0).astype('float64')
         channel_values_sq += np.sum(np.square(image-mean), axis=(0,1), dtype='float64')

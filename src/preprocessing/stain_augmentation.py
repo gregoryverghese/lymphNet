@@ -38,6 +38,7 @@ def stain_aug(image_path,mask_path, output_path, method_name, sig1=0.7, sig2=0.7
 
     #read all images names in directories
     image_paths=glob.glob(os.path.join(image_path,'*.png'))
+    image_paths = sorted(image_paths)
     #print(image_paths)
     #during testing we will just try a few images at once
     #image_paths = image_paths[:10]
@@ -55,6 +56,7 @@ def stain_aug(image_path,mask_path, output_path, method_name, sig1=0.7, sig2=0.7
 
 def staintools_aug(image_path,mask_path, output_path, method_name, sig1=0.7, sig2=0.7, bgaug=False):
 
+        print(method_name)
         img = staintools.read_image(image_path)
         name = os.path.basename(image_path) 
         mask = cv2.imread(os.path.join(mask_path,name))
@@ -74,12 +76,14 @@ def staintools_aug(image_path,mask_path, output_path, method_name, sig1=0.7, sig
             cv2.imwrite(os.path.join(output_path,"masks",name+"_"+method_name[:3]+"_"+str(i)+".png"),mask)
 
 def hsv_augment(img_path,mask_path,output_path):
+    print("hsv")
     img = cv2.imread(img_path)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    
+    print(mask_path) 
     name = os.path.basename(img_path)
+    print(name)
     mask = cv2.imread(os.path.join(mask_path,name))
-
+    print(mask)
     # Define an HSV color augmentation sequence
     augmentation = iaa.Sequential([
         iaa.AddToHue(),

@@ -51,6 +51,10 @@ def getShardNumber(images, masks, shardSize=0.25, unit=10**9):
         shardNum: number of shards
         imgPerShard: number of images in each shard
     '''
+    print("num ims:",len(images))
+    print("num masks:",len(masks))
+    print(images)
+    print(masks)
     maskMem = sum(os.path.getsize(f) for f in masks if os.path.isfile(f))
     imageMem = sum(os.path.getsize(f) for f in images if os.path.isfile(f))
     totalMem = (maskMem+imageMem)/unit
@@ -195,6 +199,9 @@ def getFiles(imagePath, maskPath, outPath, config, shardSize=0.1):
     if DEBUG: print(maskPath)
     validFiles=configFile['validFiles']
     testFiles = configFile['testFiles']
+    print(validFiles)
+    print(testFiles)
+    print(configFile)
     #imagePaths = glob.glob(os.path.join(imagePath, '*/images/*'))
     imagePaths = glob.glob(os.path.join(imagePath,'*.png'))
     #maskPaths = glob.glob(os.path.join(maskPath, '*/mask/*'))
@@ -221,6 +228,8 @@ def getFiles(imagePath, maskPath, outPath, config, shardSize=0.1):
     doConversion(trainImgs, trainMasks, trainShardNum, tNum, outPath, 'train')
     print('Number of train shards: {}'.format(trainShardNum))
 
+
+    ################# HERE ###################
     validShardNum, vNum = getShardNumber(validImgs, validMasks, shardSize=0.1)
     doConversion(validImgs, validMasks, validShardNum, vNum, outPath, 'validation')
     print('Number of validation shards: {}'.format(validShardNum))
@@ -284,9 +293,17 @@ if __name__ == '__main__':
     os.makedirs(os.path.join(args['outpath'],'test'),exist_ok=True)
     os.makedirs(os.path.join(args['outpath'],'validation'),exist_ok=True)
 
+    print("im: ",args['filepath'])
+    #print("images: ",args.filepath)
+    #print("masks: ",args.maskpath)
+    #print("config: ",args.configfile)
+    #print("out: ",args.outpath)
+
     #getFiles(args['filepath'], args['maskpath'], args['outpath'], args['configfile'])
     if(args['configfile']):
+        print("calling getFiles")
         getFiles(args['filepath'], args['maskpath'], args['outpath'], args['configfile'])
     else:
+        print("calling basicConvert")
         basicConvert(args['filepath'], args['maskpath'], args['outpath'])
 

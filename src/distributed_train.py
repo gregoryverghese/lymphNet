@@ -14,10 +14,15 @@ import tensorflow as tf
 import numpy as np
 import tensorflow.keras.backend as K
 from tensorflow.keras.utils import Progbar
+from tensorflow.keras import mixed_precision
 
 from utilities.custom_loss_classes import BinaryXEntropy
 from utilities.evaluation import diceCoef
 from utilities.utils import save_experiment
+
+import wandb
+#from wandb.keras import WandbMetricsLogger, WandbModelCheckpoint
+#from tensorflow.keras.callbacks import Callback
 
 __author__ = 'Gregory Verghese'
 __email__ = 'gregory.verghese@kcl.ac.uk'
@@ -26,6 +31,10 @@ __email__ = 'gregory.verghese@kcl.ac.uk'
 #tf.__dict__["gradients"] = memory_saving_gradients.gradients_speed
 
 DEBUG = True
+
+##added by HR 02/06/2024
+# Enable mixed precision training
+mixed_precision.set_global_policy('mixed_float16')
 
 def get_gpu_memory_used():
     command = "nvidia-smi --query-gpu=memory.used --format=csv,nounits,noheader"
@@ -60,6 +69,7 @@ class DistributedTraining():
                  ):
 
         self.model = model
+        self.best_model = model
         self.train_loader = train_loader
         self.valid_loader = valid_loader
         self.optimizer = optimizer
@@ -114,7 +124,7 @@ class DistributedTraining():
         dice = dice * (1 / self.strategy.num_replicas_in_sync)
         return dice
 
-
+    @tf.function
     def _train_step(self, inputs):
         '''
         perfoms one gradient update using tf.GradientTape.
@@ -127,13 +137,13 @@ class DistributedTraining():
         with tf.GradientTape() as tape:
             logits = self.model(x, training=True)
             loss = self.compute_loss(y, logits)
-            y_pred = tf.cast((logits > self.threshold), tf.float32)
+            y_pred = tf.cast((logits > self.threshold), tf.float16) #.float32)
             dice = self.compute_dice(y, y_pred)
             gradients = tape.gradient(loss, self.model.trainable_variables)
             self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
         return loss, dice
 
-
+    @tf.function
     def _test_step(self, inputs):
         '''
         performs prediction using trained model
@@ -148,14 +158,14 @@ class DistributedTraining():
         
         loss = self.criterion(y, logits)
         #print(loss)
-        y_pred = tf.cast((logits > self.threshold), tf.float32)
+        y_pred = tf.cast((logits > self.threshold), tf.float16) ##tf.float32)
         #print(np.sum(y_pred))
         
         dice = self.compute_dice(y, y_pred)
         #print(dice)
         #need to change batch size variable (testing uses 1)
-        print(tf.reduce_sum(loss))
-        print(self.img_dims)
+        #print(tf.reduce_sum(loss))
+        #print(self.img_dims)
         #loss = tf.reduce_sum(loss) * (1. / (self.img_dims*self.img_dims*1))
         #should we just call self.compute_loss like we do in _train_step
         #it contains an additional line to div by the num of replicas
@@ -171,6 +181,8 @@ class DistributedTraining():
         return replica_loss, replica_dice
 
 
+    #in order to use tf.function we have to stop using enumerate
+    @tf.function
     def _train(self):
         '''
         iterates over each batch in the data and calulates total
@@ -179,16 +191,21 @@ class DistributedTraining():
         :returns total_loss: total loss across all replicas
         :returns total_dice: total dice across all replicas
         '''
+        #i = tf.constant(0)
+        #i=0
         total_loss = 0.0
         total_dice = 0.0
-        prog = Progbar(self.train_loader.steps-1)
-        for i, batch in enumerate(self.train_loader.dataset):
-            
-            replica_loss, replica_dice = self._run(batch)
+        #prog = Progbar(self.train_loader.steps-1)
+        #for i, batch in enumerate(self.train_loader.dataset):
+        for batch in self.train_loader.dataset:
+            #replica_loss, replica_dice = self._run(batch)
+            replica_loss, replica_dice = self.strategy.run(self._train_step,args=(batch,))
+            ##we really need this to go straight to self.strategy.run
             total_loss += self.strategy.reduce(tf.distribute.ReduceOp.SUM,replica_loss, axis=None)
             total_dice += self.strategy.reduce(tf.distribute.ReduceOp.SUM,replica_dice, axis=None)
             #print(get_gpu_memory_used())
-            prog.update(i) 
+            #prog.update(i)
+            #i += 1  # Increment counter 
         return total_loss, total_dice
 
 	
@@ -204,12 +221,12 @@ class DistributedTraining():
         total_loss = 0.0
         total_dice = 0.0
         for batch in self.valid_loader.dataset:
-            print("enumerate valid loader: ")
+            #print("enumerate valid loader: ")
             loss, dice = self.strategy.run(self._test_step, args=(batch,))
-            print(loss,dice)
+            #print(loss,dice)
             total_loss += self.strategy.reduce(tf.distribute.ReduceOp.SUM, loss, axis=None)
             total_dice += self.strategy.reduce(tf.distribute.ReduceOp.SUM, dice, axis=None)
-            print(total_loss,total_dice)
+            #print(total_loss,total_dice)
         return total_loss, total_dice   
 
 
@@ -248,29 +265,65 @@ class DistributedTraining():
         '''
         #HR - 15/06 - must run for at least XX epochs before we save the model
         min_num_epochs = 10
+        min_sum = 100
+        #we care most about loss but dice is also important in choosing a best model
         weight_loss = 0.7
         weight_dice = 0.3
         model_save_path = os.path.join(self.save_path,'models')
+        optimizer_config = self.optimizer.get_config()
+        lr = optimizer_config['learning_rate']
+
+        # Enable TensorFlow Profiler
+        log_dir='/SAN/colcc/WSI_LymphNodes_BreastCancer/HollyR/output'
+        tf.profiler.experimental.start(log_dir)
+
+        #setup wandb
+        wandb_active=False
+        try:
+            wandb.init(project='retrain',name=self.name,sync_tensorboard=True)
+            wandb_active = True
+        except Exception as e:
+            print("Failed to initialize wandb:")
+            #traceback.print_exc()
 
         for epoch in range(self.epochs):
-            print(epoch)
+            print("Epoch:",epoch,flush=True)
             #trainLoss, trainDice = self.distributedTrainEpoch(trainDistDataset)
-            train_loss, train_dice = self._train()
+
+            ########## TRAIN THE MODEL ####################
+            #the _r keyword argument makes this trace event get processed as a step event by the Profiler
+            with tf.profiler.experimental.Trace('train', step_num=epoch, _r=1):
+                train_loss, train_dice = self._train()
+
+
+
             train_loss = float(train_loss/self.train_loader.steps)
             train_dice = float(train_dice/self.train_loader.steps)
+
             with self.train_writer.as_default():
                 tf.summary.scalar('loss', train_loss, step=epoch)
                 tf.summary.scalar('dice', train_dice, step=epoch)
             epoch_str=' Epoch: {}/{},  loss - {:.2f}, dice - {:.2f}, lr - {:.5f}'
-            tf.print(epoch_str.format(epoch+1, self.epochs, train_loss, train_dice, 1), end="")
+            #lr = optimizer.get_config()
+            #print(optimizer_config['learning_rate'])
+            tf.print(epoch_str.format(epoch+1, self.epochs, train_loss, train_dice, lr), end="")
 
-            test_loss, test_dice  =  self._test()
-            print(test_loss,test_dice)
+
+            ###### VALIDATION ###################i
+
+            with tf.profiler.experimental.Trace('validation', step_num=epoch, _r=1):
+                test_loss, test_dice  =  self._test()
+
+            #print(test_loss,test_dice)
             test_loss = float(test_loss/self.valid_loader.steps)
             test_dice = float(test_dice/self.valid_loader.steps)
+
             with self.test_writer.as_default():
                 tf.summary.scalar('loss', test_loss, step=epoch)
                 tf.summary.scalar('dice', test_dice, step=epoch)
+                for layer in self.model.layers:
+                    for weight in layer.weights:
+                        tf.summary.histogram(weight.name, weight, step=epoch)
             #epoch_str = '  val_loss - {:.3f}, val_dice - {:.3f}'
             #tf.print(epoch_str.format(test_loss, test_dice))
             
@@ -278,43 +331,80 @@ class DistributedTraining():
             self.history['train_loss'].append(train_loss)
             self.history['val_metric'].append(test_dice)
             self.history['val_loss'].append(test_loss)
-            print("finished epoch HOLLY")
+
+
+            print("finished epoch HOLLY",flush=True)
             weighted_sum = (test_loss * weight_loss)+((1-test_dice)*weight_dice)
 
+            self.history['weighted_sum'].append(weighted_sum)
            
             epoch_str = '  val_loss - {:.3f}, val_dice - {:.3f}, w_sum - {:.3f}'
             tf.print(epoch_str.format(test_loss, test_dice,weighted_sum))
 
-            
+            if wandb_active:
+                
+                print("about to save to wandb")
+                metrics = {'epoch': epoch+1, 'loss': train_loss, 'accuracy': train_dice, 'val_loss': test_loss, 'val_dice': test_dice, 'weighted_sum': weighted_sum}            
+                try:
+                    wandb.log(metrics)
+                except Exception as e:
+                    print("wandb: Failed to log metrics on epoch: ",epoch+1)
+
             #HR - 15/06 - must run for at least XX epochs before we save
-            if epoch >= min_num_epochs:
+            #HR - 19/06 - must save the first one over min num to make sure we have something saved
+            if epoch == min_num_epochs:
+                print("saving first model...at epoch ",epoch+1)
+                min_sum = weighted_sum
+                self.best_model = self.model
+                save_experiment(self.model, 
+                                self.config,
+                                self.history, 
+                                self.name,
+                                model_save_path) 
+
+            elif epoch > min_num_epochs:
                 #HR - 18/06 - we only add weighted sum to the history when we are passed the min epochs
                 #otherwise we risk comparing to a min weighted sum that has not been saved
                 #print("lowest weighted sum: ",min(self.history['weighted_sum'])
-                self.history['weighted_sum'].append(weighted_sum)
+                #self.history['weighted_sum'].append(weighted_sum)
 
                 #HR try out a weighted sum instead of just comparing to val loss
-                if weighted_sum <= min(self.history['weighted_sum']):
+                if weighted_sum <= min_sum: #min(self.history['weighted_sum']):
                     #if test_loss <= min(self.history['val_loss']):
                     print("saving best model...at epoch ",epoch+1)
                     print(model_save_path)
+                    min_sum = weighted_sum
+                    self.best_model = self.model
                     save_experiment(self.model, 
                                     self.config,
                                     self.history, 
                                     self.name,
                                     model_save_path)
-
+            else:
+                print("below min epochs")
 
             #if self.early_stop(test_loss, epoch):
             #    print('Stopping early on epoch: {}'.format(epoch))
             #    break
         #save final model
         os.makedirs(os.path.join(model_save_path,'final'),exist_ok=True)
+        print("saving final model")
         save_experiment(self.model, 
                         self.config,
                         self.history, 
                         self.name,
                         os.path.join(model_save_path,'final'))
 
+        print("about to stop tf profiling")
+        # Stop TensorFlow Profiler
+        tf.profiler.experimental.stop(save=True)
+        print("profiler stopped")
+        if wandb_active:
+            print("saving wandb")
+            try:
+                wandb.finish()
+            except Exception as e:
+                print("wandb: Failed during call to .finish()")
 
-        return self.model, self.history
+        print("returning from forward()")
+        return self.best_model, self.history

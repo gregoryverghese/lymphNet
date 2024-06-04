@@ -174,9 +174,9 @@ class TFRecordLoader():
         #f1=tf.cast(tf.reshape(x,(self.tile_dims,self.tile_dims,3)),tf.float16)
         dataset= dataset.map(lambda x, y: (tf.cast(tf.reshape(x,(self.tile_dims,self.tile_dims,3)),tf.float16),tf.cast(tf.reshape(y,(self.tile_dims,self.tile_dims,3)),tf.float16)))
         #dataset = dataset.map(f2)
-        dataset = dataset.map(lambda x, y: (x, y[:,:,0:1]), num_parallel_calls=4)
+        dataset = dataset.map(lambda x, y: (x, y[:,:,0:1]), num_parallel_calls=AUTO) #changed from 4 to AUTO
         if self.task_type=='multi':
-            dataset = dataset.map(lambda x, y: (x, tf.one_hot(tf.cast(y[:,:,0], tf.int32), depth=3, dtype=tf.float32)), num_parallel_calls=4)
+            dataset = dataset.map(lambda x, y: (x, tf.one_hot(tf.cast(y[:,:,0], tf.int32), depth=3, dtype=tf.float32)), num_parallel_calls=AUTO) #float32
         #batch train and validation datasets (do not use dataset.repeat())
         #since we build our own custom training loop as opposed to model.fit
         #if model.fit used order of shuffle,cache and batch important
@@ -185,7 +185,11 @@ class TFRecordLoader():
             #dataset = dataset.cache()
             #dataset = dataset.repeat()
             #HR 16/05/23 - reduce num shuffled each time to reduce mem requirements
-            dataset = dataset.shuffle(int(self.tile_nums/500), reshuffle_each_iteration=True)
+            denom = 500
+            if self.tile_nums < 600:
+                denom = 100
+            dataset = dataset.shuffle(int(self.tile_nums/denom), reshuffle_each_iteration=True)
+            #dataset = dataset.shuffle(int(self.tile_nums/100), reshuffle_each_iteration=True)
             dataset = dataset.batch(self.batch_size, drop_remainder=True)
             dataset = dataset.prefetch(AUTO)
         else:

@@ -31,6 +31,7 @@ from tensorflow.keras import backend as K
 from tensorflow.keras.losses import binary_crossentropy
 from tensorflow.keras.callbacks import LearningRateScheduler
 #from tensorflow.keras.utils import multi_gpu_model
+from tensorflow.keras import mixed_precision
 
 from distributed_train import DistributedTraining 
 from models import fcn8,unet,mobile,resunet,resunet_a,unet_mini,atten_unet
@@ -42,6 +43,10 @@ from utilities.evaluation import diceCoef
 from predict import test_predictions
 from utilities.utils import get_train_curves, save_experiment
 from utilities.custom_loss_classes import BinaryXEntropy, DiceLoss, CategoricalXEntropy
+
+#import wandb
+#from wandb.keras import WandbMetricsLogger, WandbModelCheckpoint
+#from tensorflow.keras.callbacks import Callback
 
 DEBUG = True
 
@@ -63,6 +68,12 @@ LOSSFUNCTIONS={
               'wCCE':CategoricalXEntropy,
               'DL':DiceLoss
               }
+
+# Enable mixed precision
+mixed_precision.set_global_policy('mixed_float16')
+
+#wandb.init(project='retrain', entity='holly-rafique')
+
 
 def get_python_process_id():
     process_id = os.getpid()
@@ -131,6 +142,7 @@ def data_loader(path,config):
     norm_parameters=config['normalize']
     train_loader.normalize(norm_methods,norm_parameters)
     
+    if DEBUG: print("finished loading TRAINING data at: ",datetime.datetime.now().strftime('%H:%M'))
     #load validation files
     valid_path = os.path.join(path,'validation','*.tfrecords')
     valid_files = glob.glob(valid_path)
@@ -148,6 +160,7 @@ def data_loader(path,config):
     valid_loader.load(config['batch_size'])
     valid_loader.normalize(norm_methods,norm_parameters)
     print("normalised")
+    if DEBUG: print("finished loading VALIDATION data at: ",datetime.datetime.now().strftime('%H:%M'))
     return train_loader,valid_loader
 
 
@@ -174,6 +187,10 @@ def main(args,config,name,save_path):
     #print(means, type(means))
     #print(stds, type(stds))
     
+    # Start a run, tracking hyperparameters
+    #wandb.init(project='retrain', entity='holly-rafique')
+
+
     train_log_dir = os.path.join(save_path,'tensorboard_logs', 'train')
     test_log_dir = os.path.join(save_path, 'tensorboard_logs', 'test') 
     train_writer = tf.summary.create_file_writer(train_log_dir)
@@ -182,6 +199,7 @@ def main(args,config,name,save_path):
     #set up train and valid loaders
     data_path = os.path.join(args.record_path,args.record_dir)
     if DEBUG: print("data_path", data_path)
+    if DEBUG: print("about to load data at: ",datetime.datetime.now().strftime('%H:%M'),flush=True)
     train_loader,valid_loader=data_loader(data_path,config)
         
     #collect gpus
@@ -198,6 +216,11 @@ def main(args,config,name,save_path):
         'n_output':config['num_classes'],
             }
     loss_params={'weights':config['weights'][0]}
+    #EXPERIMENT WITH DIFFERENT WEIGHT SCALING
+    #class_weights = np.log(config['weights'][0])
+    scaling_factor = 2.0
+    class_weights = config['weights'][0] # / scaling_factor
+    print('new class weight:',class_weights)
 
     #use distributed training (multi-gpu training)
     strategy = tf.distribute.MirroredStrategy(devices)
@@ -206,7 +229,7 @@ def main(args,config,name,save_path):
     #need to check when GV added these
      
 
-    if DEBUG: print("about to build model at: ",datetime.datetime.now().strftime('%H:%M'))
+    if DEBUG: print("about to build model at: ",datetime.datetime.now().strftime('%H:%M'),flush=True)
     with strategy.scope():
         #boundaries=[30, 60]
         #values=[0.001,0.0005,0.0001]
@@ -214,7 +237,7 @@ def main(args,config,name,save_path):
         #optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
         optimizer = tf.keras.optimizers.Adam(learning_rate=config['learning_rate'])
         #criterion = LOSSFUNCTIONS[config['loss'][0]](**loss_params)
-        criterion = BinaryXEntropy(config['weights'][0])
+        criterion = BinaryXEntropy(class_weights)
         #with tf.device('/cpu:0'):
         model=FUNCMODELS[args.model_name](**model_params)
         model=model.build()
@@ -224,10 +247,11 @@ def main(args,config,name,save_path):
     train_loader.dataset = strategy.experimental_distribute_dataset(train_loader.dataset)
     valid_loader.dataset = strategy.experimental_distribute_dataset(valid_loader.dataset)
 
-    if DEBUG: print("CPU Memory Usage:", get_process_memory_usage(), "MB")
+    #if DEBUG: print("CPU Memory Usage:", get_process_memory_usage(), "MB")
+    #throws an error - do not use
     #if DEBUG: print("GPU Memory Usage:", get_gpu_memory_usage(), "MB")
 
-    if DEBUG: print("about to start training at: ",datetime.datetime.now().strftime('%H:%M'))
+    if DEBUG: print("about to start training at: ",datetime.datetime.now().strftime('%H:%M'),flush=True)
     
     train = DistributedTraining(
         model,
@@ -247,7 +271,9 @@ def main(args,config,name,save_path):
         save_path,
         name,
         config )
-    
+   
+    #I think this is returning the final model rather than the best
+     
     model, history = train.forward()
     #save model, config and training curves
     model_save_path=os.path.join(save_path,'models')
@@ -277,6 +303,9 @@ def main(args,config,name,save_path):
             config['normalize']['channel_mean'],
             config['normalize']['channel_std']
         )
+
+
+    #wandb.finish()
     #why is this commented out?
     return result
 

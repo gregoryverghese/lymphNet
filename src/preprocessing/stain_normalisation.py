@@ -36,7 +36,14 @@ def stain_norm(image_path, target_path, target_name, output_path, method_name):
     #elif(method_name.lower() in NET_METHODS):
 
 def staintools_norm(image_path, target_path, target_name, output_path, method_name):
- 
+
+    saved_path='/SAN/colcc/WSI_LymphNodes_BreastCancer/HollyR/data/patches/100cohort/stainnormed/images/M2'
+    NO_OVERWRITE=True
+
+    if NO_OVERWRITE:
+        existing = os.listdir(saved_path)
+    else:
+        existing = []
     #read all images names in directories
     #target_paths=glob.glob(os.path.join(target_path,'*.png'))
     target_path=os.path.join(target_path,target_name)
@@ -58,6 +65,11 @@ def staintools_norm(image_path, target_path, target_name, output_path, method_na
     untransformed = []
 
     for i_path in image_paths:
+        i_name = os.path.basename(i_path)
+        if i_name in existing:
+            print("already processed: ",i_name)
+            continue
+
         print("*\n")
         try:        
             print(i_path)
@@ -84,7 +96,7 @@ def staintools_norm(image_path, target_path, target_name, output_path, method_na
         #write image to output folder
         #img is RGB so need to make sure we write it correctly as CV2 expects BGR
         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-        cv2.imwrite(os.path.join(output_path, os.path.basename(i_path)),img)
+        cv2.imwrite(os.path.join(output_path, i_name),img)
 
 
     print("The following images remain untransformed: ")

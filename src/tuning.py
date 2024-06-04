@@ -24,7 +24,7 @@ __email__ = 'gregory.e.verghese@kcl.ac.uk'
 
 #averages over 10 iterations
 #can change this to reduce running time
-N=10
+N=1
 
 def tuning(args,config,save_path,curr_date,curr_time):
 
@@ -32,7 +32,8 @@ def tuning(args,config,save_path,curr_date,curr_time):
     generates series of config files to tune different parameters
     :param args: command line arguments
     '''  
-
+    print('TensorFlow version:', tf.__version__)
+    print('CUDA is available:', tf.test.is_gpu_available(cuda_only=True))
     indexes = []
     results = []
     
@@ -48,6 +49,8 @@ def tuning(args,config,save_path,curr_date,curr_time):
     #dropouts = config['dropouts']
     augmentation = config['augmentation']['methods'] 
     augmentation=augmentation*N
+    print("augmentation: ",augmentation)
+    print("losses: ",losses)
     feature = config['feature']
     mag = config['magnification']
     #Loop over parameters (augmentation and loss functions)
@@ -55,7 +58,10 @@ def tuning(args,config,save_path,curr_date,curr_time):
     #added a count to be able to save seperate results for each iteration when N>1
     #could use a subprocess for each iteration
     for a_i,a  in enumerate(augmentation):
+       print("a_i: ",a_i)
+       print("a: ",a)
        for l in losses:
+          print("LOSS: ",l)
           config['loss'] = l
           config['augmentation']['methods'] = a
           #generate experiment name using 
@@ -68,7 +74,7 @@ def tuning(args,config,save_path,curr_date,curr_time):
           name = name.replace('$augment', ''.join(aug_initials))
           name=name.replace('$dim',str(config['image_dims']))
           config['experiment_name'] = name
-          name = name+curr_date+'_'+curr_time+'_'+str(a_i) 
+          name = str(args.record_dir)+'_'+name+curr_date+'_'+curr_time+'_'+str(a_i) 
           #set up folders for experiment
           exp_save_path = os.path.join(save_path,name)
           os.makedirs(exp_save_path,exist_ok=True)
@@ -123,5 +129,5 @@ if __name__ == '__main__':
     #set up paths for models, training curves and predictions
     save_path = os.path.join(args.save_path,curr_date)
     os.makedirs(save_path,exist_ok=True)
-
+    print(save_path)
     tuning(args,config,save_path,curr_date,curr_time)

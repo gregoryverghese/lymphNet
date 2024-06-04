@@ -21,42 +21,54 @@ from pyslide.patching import Patch
 from pyslide.util.utilities import detect_tissue_section
 from pyslide.util.utilities import match_annotations_to_tissue_contour
 
+
+
 #step=stride
 #if step and size are the same then there will be no overlap of patches
-#mag level 2:10x  
+#mag downsample 4:10x  for a 40x slide
+# for svs 
 STEP=512
-MAG_LEVEL=2
-SIZE=(1024,1024)
-#/SAN/colcc/WSI_LymphNodes_BreastCancer/HollyR/data/patches/10x/testing/baseline
-WSI_MASK_PATH='/SAN/colcc/WSI_LymphNodes_BreastCancer/HollyR/data/test/wsi-masks'
-SAVE_PATH='/SAN/colcc/WSI_LymphNodes_BreastCancer/HollyR/data/patches/10x/testing/baseline/patches'
-WSI_PATH='/SAN/colcc/WSI_LymphNodes_BreastCancer/Greg/lymphnode-keras/data/wsi/Guys/wsi/all'
-ANNOTATIONS_PATH='/SAN/colcc/WSI_LymphNodes_BreastCancer/HollyR/data/annotations'
-ANNOTATIONS_PATH='/SAN/colcc/WSI_LymphNodes_BreastCancer/HollyR/data/patches/10x/testing/baseline/annotations'
-FILTER_PATH='/SAN/colcc/WSI_LymphNodes_BreastCancer/HollyR/data/test/filter'
-TISSUE_MASK_PATH='/SAN/colcc/WSI_LymphNodes_BreastCancer/HollyR/data/tissue_masks'
+MAG_DS = 4
+PATCH_SIZE=(1024,1024)
 
-TESTIMS = True
+tissue_mask_mag = 2.5
+SAVE_PATCH_MASKS=True
+EXTERNAL_TEST = False
+slide_mag = 40
+classes=['GC']
+
+#not used
+WSI_MASK_PATH='/SAN/colcc/WSI_LymphNodes_BreastCancer/HollyR/data/test/wsi-masks'
+
+
+#WSI_PATH='/SAN/colcc/WSI_LymphNodes_BreastCancer/HollyR/data/100-cohort/batch8'
+#SAVE_PATH='/SAN/colcc/WSI_LymphNodes_BreastCancer/HollyR/data/patches/100cohort/batch8'
+ANNOTATIONS_PATH='/SAN/colcc/WSI_LymphNodes_BreastCancer/HollyR/data/annotations/100cohort'
+#ANNOTATIONS_PATH='/SAN/colcc/WSI_LymphNodes_BreastCancer/HollyR/data/patches/10x/testing/barts/set2/baseline/annotations'
+TISSUE_MASK_PATH='/SAN/colcc/WSI_LymphNodes_BreastCancer/HollyR/data/tissue_masks/100cohort'
+
+TESTIMS = False
+#TISSUE_MASK_EXT=".png_lnmask.png" #"_tissuemask.png"
+TISSUE_MASK_EXT="_tissuemask.png"
 
 def patch_slides(wsi_path, ann_path,tissue_mask_path, save_path, classes=[],wsi_mask=True, wsi_mask_path="", filter_path=""):
     print("in patch_images")
     draw_contours=False
-    wsi_paths=glob.glob(os.path.join(wsi_path,'*.ndpi'))
-    annotations_paths=glob.glob(os.path.join(ann_path,'*'))
+    wsi_paths=glob.glob(os.path.join(wsi_path,'*.svs'))
+    annotations_paths=glob.glob(os.path.join(ann_path,'*.json'))
     #print(annotations_paths)    
-    ##what is filtered for?
-    filtered=glob.glob(os.path.join(filter_path,'*'))
-    filtered=[os.path.basename(f)[:-4] for f in filtered]
-    #print(len(filtered))
     
     #presumably this is so that we can skip ones we have already done?
     saved=glob.glob(os.path.join(save_path,'*'))
     saved=[os.path.basename(s) for s in saved]
-    print("saved: ",saved)    
+    print("saved: ",saved)   
+    
     for curr_path in wsi_paths:
-        #remove ".ndpi" extension
-        name=os.path.basename(curr_path)[:-5]
-
+        full_name=os.path.basename(curr_path)
+        name=full_name.replace('.ndpi','')
+        name=name.replace('.svs','')
+        name=name.replace('.mrxs','')
+        
         if name in saved:
             print('skipping: ',name)
             continue
@@ -70,10 +82,6 @@ def patch_slides(wsi_path, ann_path,tissue_mask_path, save_path, classes=[],wsi_
         ann_path=[a for a in annotations_paths if name in a]
         #print('length',len(ann_path))
         print(ann_path)
-        #skip if there are no annotations for this image
-        if len(ann_path)==0:
-            print("no annotation files!",name)
-            continue
         print('slide',name)
 
         #the patch masks don't have an extension??
@@ -82,15 +90,19 @@ def patch_slides(wsi_path, ann_path,tissue_mask_path, save_path, classes=[],wsi_
 
         
         #retrieve all annotations for the specified classes
-        annotate=Annotations(ann_path,source='qupath',labels=classes)
+        if len(ann_path)==0:
+            annotate=None
+        else:
+            annotate=Annotations(ann_path,source='qupath',labels=classes)
 
-        #if there are no annotations then skip to next image
-        if len(annotate._annotations)==0:
-            if not TESTIMS:
-                continue
+            if len(annotate._annotations)==0:
+                print("**** WARNING - NO ANNOTATIONS ***")
         
         ## need to get border with sinuses as well
         wsi=Slide(curr_path,annotations=annotate)
+ 
+        ## svs files don't necessarily have 6 levels
+        lvl = min(6,wsi.level_count-1)
 
         ## WRITE MASK FOR WSI
         #if wsi_mask:
@@ -98,41 +110,44 @@ def patch_slides(wsi_path, ann_path,tissue_mask_path, save_path, classes=[],wsi_
         #    cv2.imwrite(os.path.join(wsi_mask_path,name+'_mask.png'),mask*255)
 
 
-        if(draw_contours):
-            # GET CONTOURS - useful if we want to print out thumbnails but not using for actual border
-            # we only want to use the LNs that we have annotations for
+        ## READ TISSUE MASK
+        # Ensure mask is read in grayscale
+        tissue_mask_name = os.path.join(TISSUE_MASK_PATH, full_name +TISSUE_MASK_EXT) # ".png_lnmask.png") #_tissuemask.png for combined with histoqc
+        print(tissue_mask_name)
+        tissue_mask = cv2.imread(tissue_mask_name, cv2.IMREAD_GRAYSCALE)  
 
-            border_annotate=Annotations(ann_path,source='qupath',labels=['border'])
-            border_annotations=border_annotate._annotations
-            if len(border_annotations)==0:
-                ## CONTOUR ALL LNs
-                contours=detect_tissue_section(wsi)
-                scale_factor = 2**MAG_LEVEL
-            else:
-                c=border_annotations['border'][0]
-                c = np.array(c)
-                contours=[c]
-                scale_factor = 1
- 
-            #DRAW THUMBNAIL and CONTOURS
-            slide=wsi.get_thumbnail(wsi.level_dimensions[6])
-            slide=np.array(slide.convert('RGB'))
-            slide=cv2.drawContours(slide,contours,-1,(0,0,255),3)
+        # Since your mask is binary, it should already be in 0/255 format, but in case it's not:
+        # Convert any non-zero values to 1 and then multiply by 255 to ensure binary mask is 0/255
+        tissue_mask = np.where(tissue_mask > 0, 1, 0).astype(np.uint8) * 255
 
-            ## DRAW A RECTANGLE around the LN that has annotations
-            annotations=list(itertools.chain(*list(annotate.annotations.values())[0]))
-            c=match_annotations_to_tissue_contour(contours,annotations,wsi.level_downsamples[6])
+        #transpose the mask?
+        print(tissue_mask.shape)
         
-            rect = cv2.boundingRect(c)
-            #print(rect)
-            x,y,w,h = rect
-            slide=cv2.rectangle(slide,(x,y),(x+w,y+h),(0,255,0),2)
-            # save a thumb image showing the countours, rectangle and selected LN
-            cv2.imwrite(os.path.join(SAVE_PATH,name+'_slidethumb.png'),slide)
+        #do not need to transpose mask for combined
+        #tissue_mask = np.transpose(tissue_mask)
+        #print(tissue_mask.shape)
 
-        ### GET THE BORDER for LN to save based on ALL the annotations (original wsi)
-        #set the padding to 5% of avg width and height of the region
+        dims= wsi.level_dimensions[lvl]
+        print("wsi dims:",dims)
+        print("tissue mask dims:",tissue_mask.shape)
+
+        #set this based on slide properties
+        slide_mag = int(wsi.properties.get('openslide.objective-power'))
+        print(slide_mag)
+
+        ## RESIZE tissue mask
+        #tissue_mask_scaled = cv2.resize(tissue_mask, (0, 0), fx=wsi.level_downsamples[lvl], fy=wsi.level_downsamples[lvl])
+        tissue_mask_scaled = cv2.resize(tissue_mask, wsi.level_dimensions[0], interpolation=cv2.INTER_NEAREST)
+
+        ## APPLY tissue mask to the WSI
+        print("tissue_mask after scaling:",tissue_mask_scaled.shape)
+        wsi.set_filter_mask(mask=tissue_mask_scaled)
+
+        ### GET THE BORDER for LN to save based on ALL the LNs
+        #set the padding to 2% of avg width and height of the region
         if(TESTIMS):
+            # for test images there won't be any annotations so need to set a region in QuPath first
+            print("testims true")
             border_annotate=Annotations(ann_path,source='qupath',labels=['border'])
             border_annotations=border_annotate._annotations
             border=border_annotations['border'][0]
@@ -143,30 +158,52 @@ def patch_slides(wsi_path, ann_path,tissue_mask_path, save_path, classes=[],wsi_
             y2 = np.max(border[:, 1])
             border = [[x1,x2],[y1,y2]]
         else:
-            border=wsi.get_border(space=500)
-            (x1,x2),(y1,y2)=border
+            ## CONTOUR ALL LNs
+            contours=detect_tissue_section(wsi)
+
+            # First, we need to combine all the contours into one array
+            all_points = np.concatenate([cnt for cnt in contours], axis=0)
+
+            # add some padding to create a border around the countours
+            xmin, ymin, w, h = cv2.boundingRect(all_points)
+            padding = int((w+h)/2*.02)
+            xmin = max(0,xmin - padding)
+            xmax = max(0,xmin + w + padding)
+            ymin = max(0,ymin - padding)
+            ymax = max(0,ymin + h + padding)
+            border_mask = [[xmin,xmax],[ymin,ymax]]
+
+            #contours are at level 6 (or min level) so we need to scale them up to level 0
+            scale_factor =  wsi.level_downsamples[lvl] /wsi.level_downsamples[0] 
+            #print(scale_factor)
+
+            xmin = int(xmin * scale_factor)
+            xmax = int(xmax * scale_factor)
+            ymin = int(ymin * scale_factor)
+            ymax = int(ymax * scale_factor)
+            border = [[xmin,xmax],[ymin,ymax]]
+
+            # CROP to a multiple of the step size so patches are equal size
+            w=int(xmax-xmin)
+            h=int(ymax-ymin)
+            #print(w,h)
+            crop_w_by = w%STEP  #(STEP*scale_factor)
+            xmax = xmax - crop_w_by
+            crop_h_by = h%STEP  #(STEP*scale_factor)
+            ymax = ymax - crop_h_by
+            #print(crop_w_by)
+            #print(crop_h_by)
+
+            # ASSEMBLE FINAL BORDER
+            border = [[xmin,xmax],[ymin,ymax]]
+
+
+
         print(border)
         ### FEATURE TO MASK & SAVE
-        annotate_feature=Annotations(ann_path,source='qupath',labels=['GC'])
-        annotations=annotate_feature._annotations 
-        wsi_feature=Slide(curr_path,annotations=annotate_feature)
-
-        ## Apply Tissue Mask
-        tissue_mask=np.load(os.path.join(tissue_mask_path,name+".ndpi.npy"))
-
-        # Convert True/False values to 0/1
-        tissue_mask = tissue_mask.astype(np.uint8)*255
-        #tissue_mask = np.transpose(tissue_mask)
-        tissue_mask_mag = 2.5
-        slide_mag=40
-        #print("tissue_mask before scaling:",tissue_mask.shape)
-        tissue_mask_scaled = cv2.resize(tissue_mask, (0, 0), fx=slide_mag/tissue_mask_mag, fy=slide_mag/tissue_mask_mag)
-        wsi_feature.set_filter_mask(mask=tissue_mask_scaled)
-
-
-        patches=Patch(wsi_feature,mag_level=MAG_LEVEL,border=border,size=SIZE)
-        #print("slide dims:",wsi_feature.dimensions)        
-        
+        MAG_LEVEL = wsi.get_best_level_for_downsample(MAG_DS+0.1) #have to add .1 for svs
+        patches=Patch(wsi,mag_level=MAG_LEVEL,border=border,size=PATCH_SIZE)
+ 
         ##TESTING
         ##patch,filter_mask = wsi_feature.get_filtered_region((0,0), 2,(34000,18000))
         ##patch_path=os.path.join(curr_save_path,'images')
@@ -176,30 +213,27 @@ def patch_slides(wsi_path, ann_path,tissue_mask_path, save_path, classes=[],wsi_
         ##continue
 
         num=patches.generate_patches(STEP)
- 
+
         print('g','num patches: {}'.format(len(patches._patches)))
         #print(patches._patches)
         
         ## SAVE PATCHES 
-        patches.save(curr_save_path,mask_flag=True)
-              
-        #patches.save_mask(curr_save_path, 'mask')
-        #s=Stitching(os.path.join(save_path,'images'),mag_level=MAG_LEVEL,name=name)
-        #canvas=s.stitch((2000,2000))
-        #canvas=cv2.resize(canvas,(2000,2000))
-        #cv2.imwrite(os.path.join(WSI_MASK_PATH,name+'_stitch.png'),canvas)
+        patches.save(save_path,mask_flag=True,remove_white_patches=True)
+ 
 
 
 
 
 if __name__=='__main__':
     
-    #ap=argparse.ArgumentParser()
-    #ap.add_argument('-cp','--configpath', required=True,help='path to config file')
-    #args=vars(ap.parse_args())
+    ap=argparse.ArgumentParser()
+    ap.add_argument('-wp','--wsi_path', required=True,help='path to WSIs')
+    ap.add_argument('-op','--output_path', required=True,help='path to WSIs')
+    #ap.add_argument('-mp','--mask_path', required=True,help='path to tissue masks')
+    args=ap.parse_args()
 
     classes=['GC','sinus']
-    patch_slides(WSI_PATH, ANNOTATIONS_PATH, TISSUE_MASK_PATH,SAVE_PATH, classes, wsi_mask=True, wsi_mask_path=WSI_MASK_PATH)
+    patch_slides(args.wsi_path, ANNOTATIONS_PATH, TISSUE_MASK_PATH,args.output_path, classes, wsi_mask=True, wsi_mask_path=WSI_MASK_PATH)
 
 
 

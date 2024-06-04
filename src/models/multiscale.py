@@ -30,8 +30,8 @@ class MSUnet():
                  dropout=0, 
                  normalize=True,
                  up_type='upsampling', 
-                 dtype='float32'):
-
+                 dtype='float16'):
+        #float32
 
         self.filters = filters
         self.final_activation = final_activation

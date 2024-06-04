@@ -25,8 +25,8 @@ from stitching import Canvas, stitch
 DEBUG = True
 
 def dice_coef(y_true,y_pred,idx=[0,2,3],smooth=1):
-        y_true=y_true.type(torch.float32)
-        y_pred=y_pred.type(torch.float32)
+        y_true=y_true.type(torch.float16) #float32)
+        y_pred=y_pred.type(torch.float16) #float32)
         intersection=torch.sum(y_true*y_pred,dim=idx)
         union=torch.sum(y_true,dim=idx)+torch.sum(y_pred,dim=idx)
         dice=torch.mean((2*intersection+smooth)/(union+smooth),dim=0)
@@ -61,10 +61,9 @@ class Predict():
 
 
     def _normalize(self, image, mask):
-   
         norm=Normalize(self.channel_means, self.channel_std)
         data=[(image,mask)]
-        print(self.normalize)
+        #print(self.normalize)
         for method in self.normalize:
             #print(str(method))
             f=lambda x: getattr(norm,'get'+method)(x[0],x[1])
@@ -87,13 +86,20 @@ class Predict():
     def _predict(self, image):
         margin=int((self.tile_dim-self.step)/2)
         y_dim, x_dim, _ = image.shape
+
+        #using this to call getStandardiseDataset on patches where the image is too big
+
         c=Canvas(y_dim,x_dim)
         for x, y in self._patching(x_dim,y_dim):
             patch=image[y:y+self.tile_dim,x:x+self.tile_dim,:]
+            
+            #the np.zeros is a placeholder for the mask - mask doesn't actually get modified here at all
+            patch,_ = self._normalize(patch,np.zeros((1,1,1)))
+
             patch=np.expand_dims(patch,axis=0)
             logits=self.model(patch)
             #print("logits:",logits.shape)
-            prediction=tf.cast((logits>self.threshold), tf.float32)
+            prediction=tf.cast((logits>self.threshold), tf.float16) #tf.float32)
             #print("preds:",prediction.shape)
             stitch(c, prediction, y, x, y_dim, x_dim, self.tile_dim, self.step, margin)
             #plt.imshow(c.canvas[0,:,:,:])
@@ -121,32 +127,45 @@ def test_predictions(model,
 
     if DEBUG: print("save path: ",save_path)
     if DEBUG: print("threshold: ",threshold)
+    if DEBUG: print("normalize: ",normalize)
     #HR 17/05/23
     #added sorted to make sure we have the right mask to image
     image_paths=sorted(glob.glob(os.path.join(test_path,'images',feature,'*')))
     mask_paths=sorted(glob.glob(os.path.join(test_path,'masks',feature,'*')))
     #if DEBUG: print("mask paths: ",mask_paths)
     #if DEBUG: print("image paths: ",image_paths)
-    if DEBUG: print("means",channel_means)
-    if DEBUG: print("stds",channel_std)
+    #if DEBUG: print("means",channel_means)
+    #if DEBUG: print("stds",channel_std)
     predict=Predict(model,threshold,tile_dim,step,normalize,channel_means,channel_std)
 
     for i, i_path in enumerate(image_paths):
-        name=os.path.basename(i_path)[:-9]
+        name=os.path.basename(i_path)[:-4]
+        print(name)
         names.append(name)
         if DEBUG: print(name)
         m_path=[m for m in mask_paths if name in m][0]
         mask=cv2.imread(m_path)
+        print("loaded mask",datetime.datetime.now().strftime('%H:%M'))
         image=cv2.imread(i_path)
+        print("\nloaded image",datetime.datetime.now().strftime('%H:%M'))
         image=cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
-        image,mask=predict._normalize(image,mask)
+        print("\nconverted to RGB",datetime.datetime.now().strftime('%H:%M'))
+        #image,mask=predict._normalize(image,mask)
+        #print("\nnormalised",datetime.datetime.now().strftime('%H:%M'))
         prediction=predict._predict(image)
+        print("\ngot predictions",datetime.datetime.now().strftime('%H:%M'))
         mask=np.expand_dims(mask,axis=0)
+        print("expanded mask dims",datetime.datetime.now().strftime('%H:%M'))
         #if DEBUG: print("shapes:",prediction.shape,mask.shape)
-        
+       
+        #print(np.sum(prediction))
+        #print(np.sum(mask))
+        print("prediction shape: ",prediction.shape)
+        print("mask shape: ",mask.shape) 
         dices.append(diceCoef(prediction,mask[:,:,:,0:1]))
-        writePredictionsToImage(prediction,save_path,name)
+        writePredictionsToImage(prediction,save_path,str("pred_"+name))
         writePredictionsToImage(mask,save_path,str("mask_"+name)) 
+        print("written ims to file",datetime.datetime.now().strftime('%H:%M'))
         if DEBUG: print(names[i],dices[i])
 	#cv2.imwrite(os.path.join(save_path,'predictions',name+'.png'),prediction[0,:,:,:]*255)
     #print(dices)
