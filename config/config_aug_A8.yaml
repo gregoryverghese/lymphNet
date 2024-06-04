@@ -5,7 +5,7 @@ magnification: "10x"
 loss: ["wCE"]
 name: "$model_$feature_$mag_$augment_$dim_$step-" 
 ratio: 0.9
-batch_size: 4
+batch_size: 2
 image_dims: 1024
 epochs: 100
 augmentation: 

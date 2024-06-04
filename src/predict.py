@@ -11,11 +11,11 @@ import cv2
 import numpy as np
 import pandas as pd
 from tensorflow.keras.models import load_model
-import torch
+#import torch
 import tensorflow as tf
-import torch.nn.functional as F
-import torch.nn as nn
-from torchvision import transforms as T
+#import torch.nn.functional as F
+#import torch.nn as nn
+#from torchvision import transforms as T
 
 from networks.unet_multi import UNet_multi 
 from utilities.evaluation import diceCoef
