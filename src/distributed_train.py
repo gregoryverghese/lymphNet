@@ -31,10 +31,15 @@ __email__ = 'gregory.verghese@kcl.ac.uk'
 #tf.__dict__["gradients"] = memory_saving_gradients.gradients_speed
 
 DEBUG = True
+#PROFILE = False
 
 ##added by HR 02/06/2024
 # Enable mixed precision training
-mixed_precision.set_global_policy('mixed_float16')
+# setting in main.py
+#mixed_precision.set_global_policy('mixed_float16')
+
+#os.environ["WANDB_MODE"] = "offline"
+
 
 def get_gpu_memory_used():
     command = "nvidia-smi --query-gpu=memory.used --format=csv,nounits,noheader"
@@ -76,7 +81,10 @@ class DistributedTraining():
         self.criterion = criterion
         self.strategy = strategy
         self.epochs = epoch
+        # HR 12/06/2024
+        # try adjusting this based on num replics 
         self.global_batch_size = global_batch_size
+        #self.global_batch_size = global_batch_size * strategy.num_replicas_in_sync
         self.metric = diceCoef
         self.img_dims = img_dims
 
@@ -97,6 +105,20 @@ class DistributedTraining():
         self.config = config
         self.name = name
 
+    ### HR 12/06/2024 - overhauling compute_los and compute_dice in an attempt to make 4GPUs work
+    def NEWcompute_loss(self, label, predictions):
+        per_example_loss = self.criterion(label, predictions)
+        per_example_loss = tf.reshape(per_example_loss, [self.global_batch_size, -1])
+        #return tf.nn.compute_average_loss(per_example_loss, global_batch_size=self.global_batch_size)
+        return tf.reduce_sum(per_example_loss) / (1024*1024*self.global_batch_size)
+
+    def NEWcompute_dice(self, y_true, y_pred):
+        # Compute dice for each example in the batch
+        per_example_dice = tf.reduce_mean([self.metric(y_true[:,:,:,i], y_pred[:,:,:,i]) for i in range(y_true.shape[-1])], axis=0)
+        return per_example_dice
+
+
+
     def compute_loss(self, label, predictions):
         '''
         computes loss for each replica
@@ -107,7 +129,7 @@ class DistributedTraining():
         loss = self.criterion(label, predictions)
         loss = tf.reduce_sum(loss) * (1. /(self.img_dims*self.img_dims*self.global_batch_size))
         #loss = tf.reduce_sum(loss) * (1. / (self.batchSize))
-        loss = loss * (1/self.strategy.num_replicas_in_sync)
+        loss = loss * (1./self.strategy.num_replicas_in_sync)
         return loss
 
 
@@ -121,7 +143,7 @@ class DistributedTraining():
         #axIdx=[1,2,3] if self.tasktype=='binary' else [1,2]
         dice = tf.reduce_mean([self.metric(y_true[:,:,:,i], y_pred[:,:,:,i])
                                for i in range(y_true.shape[-1])])
-        dice = dice * (1 / self.strategy.num_replicas_in_sync)
+        dice = dice * (1. / self.strategy.num_replicas_in_sync)
         return dice
 
     @tf.function
@@ -137,9 +159,25 @@ class DistributedTraining():
         with tf.GradientTape() as tape:
             logits = self.model(x, training=True)
             loss = self.compute_loss(y, logits)
-            y_pred = tf.cast((logits > self.threshold), tf.float16) #.float32)
+            y_pred = tf.cast((logits > self.threshold), tf.float32) #.float32)
             dice = self.compute_dice(y, y_pred)
             gradients = tape.gradient(loss, self.model.trainable_variables)
+
+            #HR 12/06/2024 ### ADDING DEBUGGING to check when 4GPU doesn't train ##########
+            # Compute gradient norms and log them
+            #grad_norms = [tf.norm(grad) for grad in gradients]
+            #for norm, var in zip(grad_norms, self.model.trainable_variables):
+            #    tf.summary.scalar(var.name + '/gradient_norm', norm, step=tf.summary.experimental.get_step())
+            
+            # Log gradients for debugging
+            #for grad, var in zip(gradients, self.model.trainable_variables):
+            #    tf.summary.histogram(var.name + '/gradient', grad, step=tf.summary.experimental.get_step())
+            
+            # Check that gradients are not None and do not contain NaNs
+            #for grad in gradients:
+            #    tf.debugging.check_numerics(grad, message="Gradient check")
+            #### HR END ####################################################################
+
             self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
         return loss, dice
 
@@ -158,7 +196,7 @@ class DistributedTraining():
         
         loss = self.criterion(y, logits)
         #print(loss)
-        y_pred = tf.cast((logits > self.threshold), tf.float16) ##tf.float32)
+        y_pred = tf.cast((logits > self.threshold), tf.float32) ##tf.float32)
         #print(np.sum(y_pred))
         
         dice = self.compute_dice(y, y_pred)
@@ -169,6 +207,8 @@ class DistributedTraining():
         #loss = tf.reduce_sum(loss) * (1. / (self.img_dims*self.img_dims*1))
         #should we just call self.compute_loss like we do in _train_step
         #it contains an additional line to div by the num of replicas
+
+        ## HR 12/06/2024 - consider removing this line
         loss = tf.reduce_sum(loss) * (1. /(self.img_dims*self.img_dims*self.global_batch_size))
         return loss, dice
 
@@ -253,7 +293,7 @@ class DistributedTraining():
         return stop
 
 
-    def forward(self):
+    def forward(self, run_profiling=False):
         '''
         performs the forward pass of the network. calls each training epoch
         and prediction on validation data. Records results in history
@@ -263,6 +303,7 @@ class DistributedTraining():
         :returns self.model: trained tensorflow/keras subclassed model
         :returns self.history: dictonary containing train and validation scores
         '''
+        PROFILE = run_profiling
         #HR - 15/06 - must run for at least XX epochs before we save the model
         min_num_epochs = 10
         min_sum = 100
@@ -275,7 +316,8 @@ class DistributedTraining():
 
         # Enable TensorFlow Profiler
         log_dir='/SAN/colcc/WSI_LymphNodes_BreastCancer/HollyR/output'
-        tf.profiler.experimental.start(log_dir)
+        if PROFILE:
+            tf.profiler.experimental.start(log_dir)
 
         #setup wandb
         wandb_active=False
@@ -291,8 +333,11 @@ class DistributedTraining():
             #trainLoss, trainDice = self.distributedTrainEpoch(trainDistDataset)
 
             ########## TRAIN THE MODEL ####################
-            #the _r keyword argument makes this trace event get processed as a step event by the Profiler
-            with tf.profiler.experimental.Trace('train', step_num=epoch, _r=1):
+            if PROFILE:
+                #the _r keyword argument makes this trace event get processed as a step event by the Profiler
+                with tf.profiler.experimental.Trace('train', step_num=epoch, _r=1):
+                    train_loss, train_dice = self._train()
+            else:
                 train_loss, train_dice = self._train()
 
 
@@ -310,8 +355,10 @@ class DistributedTraining():
 
 
             ###### VALIDATION ###################i
-
-            with tf.profiler.experimental.Trace('validation', step_num=epoch, _r=1):
+            if PROFILE:
+                with tf.profiler.experimental.Trace('validation', step_num=epoch, _r=1):
+                    test_loss, test_dice  =  self._test()
+            else:
                 test_loss, test_dice  =  self._test()
 
             #print(test_loss,test_dice)
@@ -393,10 +440,12 @@ class DistributedTraining():
                         self.name,
                         os.path.join(model_save_path,'final'))
 
-        print("about to stop tf profiling")
-        # Stop TensorFlow Profiler
-        tf.profiler.experimental.stop(save=True)
-        print("profiler stopped")
+        if PROFILE:
+            print("about to stop tf profiling")
+            # Stop TensorFlow Profiler
+            tf.profiler.experimental.stop(save=True)
+            print("profiler stopped")
+
         if wandb_active:
             print("saving wandb")
             try:

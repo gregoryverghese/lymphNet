@@ -14,6 +14,7 @@ import tensorflow_addons as tfa
 import matplotlib.pyplot as plt
 import imgaug.augmenters as iaa
 import staintools
+from tiatoolbox.tools.stainaugment import StainAugmentor
 
 __author__ = 'Gregory Verghese'
 __email__ ='gregory.verghese@kcl.ac.uk'
@@ -48,8 +49,8 @@ def is_uint8_image(I):
     return True
 
 # Function to standardize brightness and apply stain augmentation
-#@tf.py_function(Tout=tf.float16)
-def stain_augment_image(image):
+#@tf.py_function #(Tout=tf.float16)
+def stain_augment_image(image,method='tia-toolbox'):
     stain_method='macenko'
     sig1 = np.random.uniform(0.55,0.85)
     sig2 = np.random.uniform(0.55,0.85)
@@ -61,19 +62,31 @@ def stain_augment_image(image):
     image_np = image_np.astype(np.uint8)
     #print(image_np.shape,image_np.dtype)
 
-    # Standardize brightness
-    image_standardized = staintools.LuminosityStandardizer.standardize(image_np)
+    if method=='staintools':
+        # Standardize brightness
+        image_standardized = staintools.LuminosityStandardizer.standardize(image_np)
     
-    # Stain augment
-    augmentor = staintools.StainAugmentor(method=stain_method, sigma1=sig1, sigma2=sig2, augment_background=False)
-    augmentor.fit(image_standardized)
-    augmented_image = augmentor.pop()
+        # Stain augment
+        augmentor = staintools.StainAugmentor(method=stain_method, sigma1=sig1, sigma2=sig2, augment_background=False)
+        augmentor.fit(image_standardized)
+        augmented_image = augmentor.pop()
+
+    elif method=='tia-toolbox':
+        stain_augmentor = StainAugmentor(method=stain_method,sigma1=sig1, sigma2=sig2, augment_background=False)
+        augmented_image = stain_augmentor.apply(image)
+
+    else:
+        augmented_image = image
 
     # Convert the augmented image back to float16
     augmented_image_float16 = augmented_image.astype(np.float16)
     
     
     return tf.convert_to_tensor(augmented_image, dtype=tf.float16)  # Convert back to TensorFlow tensor
+
+
+
+
 
 
 
@@ -105,7 +118,7 @@ class Augment():
     '''
 
     def __init__(self, hueLimits, saturationLimits, contrastLimits, brightnessLimits,
-                 rotateProb=0.5, flipProb=0.5, colorProb=0.5,stain_method='macenko'): 
+                 rotateProb=0.5, flipProb=0.5, colorProb=0.5,stain_method='macenko',aug_method='tia-toolbox'): 
 
         self.hueLimits = hueLimits
         self.saturationLimits = saturationLimits
@@ -115,6 +128,7 @@ class Augment():
         self.flipProb = flipProb
         self.colorProb = colorProb
         self.stain_method = stain_method
+        self.aug_method = aug_method
     
 
     def getRotate90(self, x, y):
