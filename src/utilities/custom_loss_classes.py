@@ -23,8 +23,6 @@ class DiceLoss(tf.keras.losses.Loss):
         return 1 - dice
 
 
-# HR 13/06/2024
-# change reduction from NONE to SUM OVER BATCH SIZE
 class BinaryXEntropy(tf.keras.losses.Loss):
     def __init__(self, posWeight, reduction=tf.keras.losses.Reduction.NONE):
         super().__init__(reduction=reduction)

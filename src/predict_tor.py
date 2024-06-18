@@ -40,7 +40,7 @@ class Predict():
             patch=image[y:y+self.step,x:x+self.step,:]
             patch=np.expand_dims(patch,axis=0)
             probs=self.model.predict(patch)
-            prediction=tf.cast((probs>self.threshold), tf.float32)
+            prediction=tf.cast((probs>self.threshold),tf.tf.float32)
             canvas[:,y:y+self.step,x:x+self.step,:]=prediction
         return canvas.astype(np.uint8)
 

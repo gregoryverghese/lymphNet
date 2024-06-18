@@ -25,8 +25,8 @@ from stitching import Canvas, stitch
 DEBUG = True
 
 def dice_coef(y_true,y_pred,idx=[0,2,3],smooth=1):
-        y_true=y_true.type(torch.float16) #float32)
-        y_pred=y_pred.type(torch.float16) #float32)
+        y_true=y_true.type(torch.float32)
+        y_pred=y_pred.type(torch.float32)
         intersection=torch.sum(y_true*y_pred,dim=idx)
         union=torch.sum(y_true,dim=idx)+torch.sum(y_pred,dim=idx)
         dice=torch.mean((2*intersection+smooth)/(union+smooth),dim=0)
@@ -99,7 +99,7 @@ class Predict():
             patch=np.expand_dims(patch,axis=0)
             logits=self.model(patch)
             #print("logits:",logits.shape)
-            prediction=tf.cast((logits>self.threshold), tf.float16) #tf.float32)
+            prediction=tf.cast((logits>self.threshold), tf.float32)
             #print("preds:",prediction.shape)
             stitch(c, prediction, y, x, y_dim, x_dim, self.tile_dim, self.step, margin)
             #plt.imshow(c.canvas[0,:,:,:])

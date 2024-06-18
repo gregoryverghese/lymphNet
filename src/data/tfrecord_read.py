@@ -171,8 +171,8 @@ class TFRecordLoader():
         dataset = dataset.with_options(ignoreDataOrder)
         dataset = dataset.interleave(lambda x: tf.data.TFRecordDataset(x), cycle_length=16, num_parallel_calls=AUTO)
         dataset = dataset.map(self._read_tfr_record, num_parallel_calls=AUTO)
-        #f1=tf.cast(tf.reshape(x,(self.tile_dims,self.tile_dims,3)),tf.float16)
-        dataset= dataset.map(lambda x, y: (tf.cast(tf.reshape(x,(self.tile_dims,self.tile_dims,3)),tf.float16),tf.cast(tf.reshape(y,(self.tile_dims,self.tile_dims,3)),tf.float16)))
+        #f1=tf.cast(tf.reshape(x,(self.tile_dims,self.tile_dims,3)),tf.float32)
+        dataset= dataset.map(lambda x, y: (tf.cast(tf.reshape(x,(self.tile_dims,self.tile_dims,3)),tf.float32),tf.cast(tf.reshape(y,(self.tile_dims,self.tile_dims,3)),tf.float32)))
         #dataset = dataset.map(f2)
         dataset = dataset.map(lambda x, y: (x, y[:,:,0:1]), num_parallel_calls=AUTO) #changed from 4 to AUTO
         if self.task_type=='multi':

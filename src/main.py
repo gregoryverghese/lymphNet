@@ -32,7 +32,6 @@ from tensorflow.keras.losses import binary_crossentropy
 from tensorflow.keras.callbacks import LearningRateScheduler
 #from tensorflow.keras.utils import multi_gpu_model
 from tensorflow.keras import mixed_precision
-from tensorflow.python.client import device_lib  
 
 from distributed_train import DistributedTraining 
 from models import fcn8,unet,mobile,resunet,resunet_a,unet_mini,atten_unet
@@ -71,28 +70,7 @@ LOSSFUNCTIONS={
               }
 
 # Enable mixed precision
-# mixed_precision.set_global_policy('mixed_float16')
-def get_gpu_compute_capability():
-    local_device_protos = device_lib.list_local_devices()
-    for device in local_device_protos:
-        if device.device_type == 'GPU':
-            compute_capability = device.physical_device_desc.split('compute capability: ')[-1]
-            major, minor = compute_capability.split('.')
-            return int(major), int(minor)
-    return None, None
-
-def set_precision_policy():
-    major, minor = get_gpu_compute_capability()
-    if major is None:
-        print("No GPU found. Defaulting to float32.")
-        tf.keras.mixed_precision.set_global_policy('float32')
-    elif major >= 7:
-        print(f"GPU with compute capability {major}.{minor} detected. Setting mixed precision policy.")
-        tf.keras.mixed_precision.set_global_policy('mixed_float16')
-    else:
-        print(f"GPU with compute capability {major}.{minor} detected. Defaulting to float32.")
-        tf.keras.mixed_precision.set_global_policy('float32')
-
+#mixed_precision.set_global_policy('mixed_float16')
 
 #wandb.init(project='retrain', entity='holly-rafique')
 
@@ -131,7 +109,17 @@ def get_gpu_memory_usage():
     memory_usage = int(output[1]) if len(output) > 1 else 0
     return memory_usage
 
-
+def set_precision_policy():
+    major, minor = get_gpu_compute_capability()
+    if major is None:
+        print("No GPU found. Defaulting to float32.")
+        tf.keras.mixed_precision.set_global_policy('float32')
+    elif major >= 7:
+        print(f"GPU with compute capability {major}.{minor} detected. Setting mixed precision policy.")
+        tf.keras.mixed_precision.set_global_policy('mixed_float16')
+    else:
+        print(f"GPU with compute capability {major}.{minor} detected. Defaulting to float32.")
+        tf.keras.mixed_precision.set_global_policy('float32')
 
 def data_loader(path,config):
     
@@ -211,7 +199,6 @@ def main(args,config,name,save_path):
     
     # Start a run, tracking hyperparameters
     #wandb.init(project='retrain', entity='holly-rafique')
-
     #HR 13/06/2024
     set_precision_policy()
 
@@ -265,10 +252,6 @@ def main(args,config,name,save_path):
         #with tf.device('/cpu:0'):
         model=FUNCMODELS[args.model_name](**model_params)
         model=model.build()
-        for i,layer in enumerate(model.layers):
-            print("\nlayer",i)
-            for weight in layer.weights:
-                print(weight.name,weight) 
  
     #HOLLY - this is different to holly-old-branch
     # check when GV added
@@ -303,6 +286,8 @@ def main(args,config,name,save_path):
     #I think this is returning the final model rather than the best
     run_profiling= config['profile'] if 'profile' in config else False
     model, history = train.forward(run_profiling)
+ 
+    # model, history = train.forward()
     #save model, config and training curves
     model_save_path=os.path.join(save_path,'models')
     #save_experiment(model,config,history,name,model_save_path)

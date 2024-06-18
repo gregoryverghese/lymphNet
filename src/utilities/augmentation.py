@@ -14,7 +14,6 @@ import tensorflow_addons as tfa
 import matplotlib.pyplot as plt
 import imgaug.augmenters as iaa
 import staintools
-from tiatoolbox.tools.stainaugment import StainAugmentor
 
 __author__ = 'Gregory Verghese'
 __email__ ='gregory.verghese@kcl.ac.uk'
@@ -49,8 +48,8 @@ def is_uint8_image(I):
     return True
 
 # Function to standardize brightness and apply stain augmentation
-#@tf.py_function #(Tout=tf.float16)
-def stain_augment_image(image,method='tia-toolbox'):
+#@tf.py_function(Tout=tf.float32)
+def stain_augment_image(image):
     stain_method='macenko'
     sig1 = np.random.uniform(0.55,0.85)
     sig2 = np.random.uniform(0.55,0.85)
@@ -58,35 +57,23 @@ def stain_augment_image(image,method='tia-toolbox'):
     image_np = image.numpy()  # Convert TensorFlow tensor to NumPy array
     #print("in stain_augment_image...image_np max:",np.max(image_np),image_np.shape) 
 
-    # Convert from float16 to uint8 for staintools processing
+    # Convert from float32 to uint8 for staintools processing
     image_np = image_np.astype(np.uint8)
     #print(image_np.shape,image_np.dtype)
 
-    if method=='staintools':
-        # Standardize brightness
-        image_standardized = staintools.LuminosityStandardizer.standardize(image_np)
+    # Standardize brightness
+    image_standardized = staintools.LuminosityStandardizer.standardize(image_np)
     
-        # Stain augment
-        augmentor = staintools.StainAugmentor(method=stain_method, sigma1=sig1, sigma2=sig2, augment_background=False)
-        augmentor.fit(image_standardized)
-        augmented_image = augmentor.pop()
+    # Stain augment
+    augmentor = staintools.StainAugmentor(method=stain_method, sigma1=sig1, sigma2=sig2, augment_background=False)
+    augmentor.fit(image_standardized)
+    augmented_image = augmentor.pop()
 
-    elif method=='tia-toolbox':
-        stain_augmentor = StainAugmentor(method=stain_method,sigma1=sig1, sigma2=sig2, augment_background=False)
-        augmented_image = stain_augmentor.apply(image)
-
-    else:
-        augmented_image = image
-
-    # Convert the augmented image back to float16
-    augmented_image_float16 = augmented_image.astype(np.float16)
+    # Convert the augmented image back to float32
+    augmented_image_float16 = augmented_image.astype(np.float32)
     
     
-    return tf.convert_to_tensor(augmented_image, dtype=tf.float16)  # Convert back to TensorFlow tensor
-
-
-
-
+    return tf.convert_to_tensor(augmented_image, dtype=tf.float32)  # Convert back to TensorFlow tensor
 
 
 
@@ -118,7 +105,7 @@ class Augment():
     '''
 
     def __init__(self, hueLimits, saturationLimits, contrastLimits, brightnessLimits,
-                 rotateProb=0.5, flipProb=0.5, colorProb=0.5,stain_method='macenko',aug_method='tia-toolbox'): 
+                 rotateProb=0.5, flipProb=0.5, colorProb=0.5,stain_method='macenko'): 
 
         self.hueLimits = hueLimits
         self.saturationLimits = saturationLimits
@@ -128,7 +115,6 @@ class Augment():
         self.flipProb = flipProb
         self.colorProb = colorProb
         self.stain_method = stain_method
-        self.aug_method = aug_method
     
 
     def getRotate90(self, x, y):
@@ -236,13 +222,13 @@ class Augment():
     def getStainAugment(self, x, y):
         #print("x type:",x.dtype,x.shape)
         
-        #augmented_image = tf.py_function(stain_augment_image, [x], tf.float16)
+        #augmented_image = tf.py_function(stain_augment_image, [x], tf.float32)
         #augmented_image = stain_augment_image(x)
 
         augmented_images = tf.map_fn(
-        lambda img: tf.py_function(stain_augment_image, [img], tf.float16),
+        lambda img: tf.py_function(stain_augment_image, [img], tf.float32),
             x,
-            dtype=tf.float16
+            dtype=tf.float32
         )
         augmented_images.set_shape(x.shape)  # Ensure the shape information is retained
         return augmented_images, y
