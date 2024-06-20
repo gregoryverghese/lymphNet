@@ -32,6 +32,7 @@ from tensorflow.keras.losses import binary_crossentropy
 from tensorflow.keras.callbacks import LearningRateScheduler
 #from tensorflow.keras.utils import multi_gpu_model
 from tensorflow.keras import mixed_precision
+from tensorflow.python.client import device_lib  
 
 from distributed_train import DistributedTraining 
 from models import fcn8,unet,mobile,resunet,resunet_a,unet_mini,atten_unet
@@ -108,6 +109,15 @@ def get_gpu_memory_usage():
     output = subprocess.check_output(command, shell=True).decode().strip().split('\n')
     memory_usage = int(output[1]) if len(output) > 1 else 0
     return memory_usage
+
+def get_gpu_compute_capability():
+    local_device_protos = device_lib.list_local_devices()
+    for device in local_device_protos:
+        if device.device_type == 'GPU':
+            compute_capability = device.physical_device_desc.split('compute capability: ')[-1]
+            major, minor = compute_capability.split('.')
+            return int(major), int(minor)
+    return None, None
 
 def set_precision_policy():
     major, minor = get_gpu_compute_capability()
