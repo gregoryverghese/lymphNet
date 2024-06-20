@@ -245,7 +245,8 @@ class DistributedTraining():
         PROFILE = run_profiling
         #HR - 15/06 - must run for at least XX epochs before we save the model
         min_num_epochs = 10
-        
+        min_sum = 100        
+ 
         weight_loss = 0.7
         weight_dice = 0.3
         model_save_path = os.path.join(self.save_path,'models')
@@ -324,23 +325,35 @@ class DistributedTraining():
                 except Exception as e:
                     print("wandb: Failed to log metrics on epoch: ",epoch+1)           
  
-            #HR - 15/06 - must run for at least XX epochs before we save
-            if epoch >= min_num_epochs:
-                #HR - 18/06 - we only add weighted sum to the history when we are passed the min epochs
+            #HR - 15/06/23 - must run for at least XX epochs before we save
+            #HR - 19/06/23 - must save the first one over min num to make sure we have something saved
+            if epoch == min_num_epochs:
+                print("saving first model...at epoch ",epoch+1)
+                min_sum = weighted_sum
+                self.best_model = self.model
+                save_experiment(self.model, 
+                                self.config,
+                                self.history, 
+                                self.name,
+                                model_save_path) 
+
+            elif epoch > min_num_epochs:
+                #HR - 18/06/23 - we only add weighted sum to the history when we are passed the min epochs
                 #otherwise we risk comparing to a min weighted sum that has not been saved
                 #print("lowest weighted sum: ",min(self.history['weighted_sum'])
-
                 #HR try out a weighted sum instead of just comparing to val loss
-                if weighted_sum <= min(self.history['weighted_sum']):
-                    #if test_loss <= min(self.history['val_loss']):
+                if weighted_sum <= min_sum:
                     print("saving best model...at epoch ",epoch+1)
                     print(model_save_path)
+                    min_sum = weighted_sum
+                    self.best_model = self.model
                     save_experiment(self.model, 
                                     self.config,
                                     self.history, 
                                     self.name,
                                     model_save_path)
-
+            else:
+                print("below min epochs")
 
             #if self.early_stop(test_loss, epoch):
             #    print('Stopping early on epoch: {}'.format(epoch))
