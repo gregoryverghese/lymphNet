@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+'''
+' currently returns BGR format
+'''
 
 import os
 import glob

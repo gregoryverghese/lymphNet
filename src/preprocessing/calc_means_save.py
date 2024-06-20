@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
 
+'''
+' author: Holly Rafiqe
+' email: holly.rafique@kcl.ac.uk
+'
+' returns: means and std in RGB format
+'
+'''
+
 import os
 import glob
 import argparse
