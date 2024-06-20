@@ -107,7 +107,8 @@ class TFRecordLoader():
         option_no_order.experimental_deterministic = False
         dataset = tf.data.Dataset.list_files(self.tfrecords)
         dataset = dataset.with_options(option_no_order)
-        dataset = dataset.interleave(tf.data.TFRecordDataset, cycle_length=4, num_parallel_calls=4)
+        #HR 20/06/2024 - try changing num_parallel_calls to AUTO
+        dataset = dataset.interleave(tf.data.TFRecordDataset, cycle_length=4, num_parallel_calls=4) 
         dataset = dataset.map(self._read_tfr_record, num_parallel_calls=4)
         for i, d in enumerate(dataset):
             pass
@@ -171,12 +172,12 @@ class TFRecordLoader():
         dataset = dataset.with_options(ignoreDataOrder)
         dataset = dataset.interleave(lambda x: tf.data.TFRecordDataset(x), cycle_length=16, num_parallel_calls=AUTO)
         dataset = dataset.map(self._read_tfr_record, num_parallel_calls=AUTO)
-        #f1=tf.cast(tf.reshape(x,(self.tile_dims,self.tile_dims,3)),tf.float32)
-        dataset= dataset.map(lambda x, y: (tf.cast(tf.reshape(x,(self.tile_dims,self.tile_dims,3)),tf.float32),tf.cast(tf.reshape(y,(self.tile_dims,self.tile_dims,3)),tf.float32)))
+        #f1=tf.cast(tf.reshape(x,(self.tile_dims,self.tile_dims,3)),tf.float16)
+        dataset= dataset.map(lambda x, y: (tf.cast(tf.reshape(x,(self.tile_dims,self.tile_dims,3)),tf.float16),tf.cast(tf.reshape(y,(self.tile_dims,self.tile_dims,3)),tf.float16)))
         #dataset = dataset.map(f2)
-        dataset = dataset.map(lambda x, y: (x, y[:,:,0:1]), num_parallel_calls=AUTO) #changed from 4 to AUTO
+        dataset = dataset.map(lambda x, y: (x, y[:,:,0:1]), num_parallel_calls=4)
         if self.task_type=='multi':
-            dataset = dataset.map(lambda x, y: (x, tf.one_hot(tf.cast(y[:,:,0], tf.int32), depth=3, dtype=tf.float32)), num_parallel_calls=AUTO) #float32
+            dataset = dataset.map(lambda x, y: (x, tf.one_hot(tf.cast(y[:,:,0], tf.int32), depth=3, dtype=tf.float32)), num_parallel_calls=4)
         #batch train and validation datasets (do not use dataset.repeat())
         #since we build our own custom training loop as opposed to model.fit
         #if model.fit used order of shuffle,cache and batch important
@@ -185,11 +186,9 @@ class TFRecordLoader():
             #dataset = dataset.cache()
             #dataset = dataset.repeat()
             #HR 16/05/23 - reduce num shuffled each time to reduce mem requirements
-            denom = 500
-            if self.tile_nums < 600:
-                denom = 100
+            #HR 20/06/24 - need to shuffle by a smaller number for minimal dataset for debugging
+            denom = 100 if self.tile_nums < 600 else 500
             dataset = dataset.shuffle(int(self.tile_nums/denom), reshuffle_each_iteration=True)
-            #dataset = dataset.shuffle(int(self.tile_nums/100), reshuffle_each_iteration=True)
             dataset = dataset.batch(self.batch_size, drop_remainder=True)
             dataset = dataset.prefetch(AUTO)
         else:
