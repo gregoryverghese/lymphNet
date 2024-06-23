@@ -118,6 +118,7 @@ class DistributedTraining():
 
 
     #HR 20/06/24 - consider making this @tf.function
+    @tf.function
     def _train_step(self, inputs):
         '''
         perfoms one gradient update using tf.GradientTape.
@@ -138,6 +139,7 @@ class DistributedTraining():
 
 
     #HR 20/06/24 - consider making this @tf.function
+    @tf.function
     def _test_step(self, inputs):
         '''
         performs prediction using trained model
@@ -171,6 +173,7 @@ class DistributedTraining():
 
     #HR 20/06/24 - consider making this @tf.function
     #will have to remove the Progbar code and directly call self.strategy.run instead of the _run function
+    @tf.function
     def _train(self):
         '''
         iterates over each batch in the data and calulates total
@@ -181,13 +184,21 @@ class DistributedTraining():
         '''
         total_loss = 0.0
         total_dice = 0.0
-        prog = Progbar(self.train_loader.steps-1)
-        for i, batch in enumerate(self.train_loader.dataset):
-            
-            replica_loss, replica_dice = self._run(batch)
+
+        #HR 20/06/24 - old version to display ETA progress (can check now using wandb)
+        #prog = Progbar(self.train_loader.steps-1)
+        #for i, batch in enumerate(self.train_loader.dataset):
+        #    replica_loss, replica_dice = self._run(batch)
+        #    total_loss += self.strategy.reduce(tf.distribute.ReduceOp.SUM,replica_loss, axis=None)
+        #    total_dice += self.strategy.reduce(tf.distribute.ReduceOp.SUM,replica_dice, axis=None)
+        #    prog.update(i) 
+
+        #HR 20/06/24 - by removing Progbar we can keep everything on the GPU
+        for batch in self.train_loader.dataset:
+            replica_loss, replica_dice = self.strategy.run(self._train_step,args=(batch,))
             total_loss += self.strategy.reduce(tf.distribute.ReduceOp.SUM,replica_loss, axis=None)
             total_dice += self.strategy.reduce(tf.distribute.ReduceOp.SUM,replica_dice, axis=None)
-            prog.update(i) 
+
         return total_loss, total_dice
 
 	
@@ -202,11 +213,19 @@ class DistributedTraining():
         '''
         total_loss = 0.0
         total_dice = 0.0
+        patch_losses = []
+        patch_dices = []
         for batch in self.valid_loader.dataset:
-            loss, dice = self.strategy.run(self._test_step, args=(batch,))
-            total_loss += self.strategy.reduce(tf.distribute.ReduceOp.SUM, loss, axis=None)
-            total_dice += self.strategy.reduce(tf.distribute.ReduceOp.SUM, dice, axis=None)
-        return total_loss, total_dice   
+            per_replica_losses, per_replica_dices = self.strategy.run(self._test_step, args=(batch,))
+            total_loss += self.strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses, axis=None)
+            total_dice += self.strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_dices, axis=None)
+            #patch_losses.append(self.strategy.experimental_local_results(per_replica_losses))
+            #patch_dices.append(self.strategy.experimental_local_results(per_replica_dices))
+        # Flatten the lists of lists
+        #patch_losses = [item for sublist in patch_losses for item in sublist]
+        #patch_dices = [item for sublist in patch_dices for item in sublist]
+
+        return total_loss, total_dice, patch_losses, patch_dices     
 
 
     #we want to stop on a moving average value, min threshold dice and min epoch iterations 
@@ -251,6 +270,8 @@ class DistributedTraining():
         weight_dice = 0.3
         model_save_path = os.path.join(self.save_path,'models')
 
+        print("num_replicas_in_sync:",self.strategy.num_replicas_in_sync,flush=True)
+
         # Enable TensorFlow Profiler
         log_dir='/SAN/colcc/WSI_LymphNodes_BreastCancer/HollyR/output'
         if PROFILE:
@@ -290,16 +311,24 @@ class DistributedTraining():
             ###### VALIDATION ###################i
             if PROFILE:
                 with tf.profiler.experimental.Trace('validation', step_num=epoch, _r=1):
-                    test_loss, test_dice  =  self._test()
+                    test_loss, test_dice, patch_losses, patch_dices  =  self._test()
             else:
-                test_loss, test_dice  =  self._test()
+                test_loss, test_dice, patch_losses, patch_dices  =  self._test()
 
             test_loss = float(test_loss/self.valid_loader.steps)
             test_dice = float(test_dice/self.valid_loader.steps)
 
+            # Convert Tensor values to numpy outside of the tf.function
+            #patch_losses = [loss.numpy() for loss in patch_losses]
+            #patch_dices = [dice.numpy() for dice in patch_dices]
+
             with self.test_writer.as_default():
                 tf.summary.scalar('loss', test_loss, step=epoch)
                 tf.summary.scalar('dice', test_dice, step=epoch)
+                for i, (patch_loss, patch_dice) in enumerate(zip(patch_losses, patch_dices)):
+                    tf.summary.scalar(f'patch_loss_{i}', patch_loss, step=epoch)
+                    tf.summary.scalar(f'patch_dice_{i}', patch_dice, step=epoch)
+
                 for layer in self.model.layers:
                     for weight in layer.weights:
                         tf.summary.histogram(weight.name, weight, step=epoch)
@@ -309,7 +338,11 @@ class DistributedTraining():
             self.history['val_metric'].append(test_dice)
             self.history['val_loss'].append(test_loss)
 
-            print("finished epoch HOLLY",flush=True)
+            # Save patch-level metrics for this epoch
+            self.history[f'val_patch_loss_epoch_{epoch}'] = patch_losses
+            self.history[f'val_patch_dice_epoch_{epoch}'] = patch_dices
+
+            #print("finished epoch HOLLY",flush=True)
 
             weighted_sum = (test_loss * weight_loss)+((1-test_dice)*weight_dice)
             self.history['weighted_sum'].append(weighted_sum)
