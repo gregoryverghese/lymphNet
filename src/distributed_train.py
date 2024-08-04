@@ -14,6 +14,7 @@ import tensorflow as tf
 import numpy as np
 import tensorflow.keras.backend as K
 from tensorflow.keras.utils import Progbar
+from tensorflow.keras import mixed_precision
 
 from utilities.custom_loss_classes import BinaryXEntropy
 from utilities.evaluation import diceCoef
@@ -26,6 +27,11 @@ __email__ = 'gregory.verghese@kcl.ac.uk'
 #tf.__dict__["gradients"] = memory_saving_gradients.gradients_speed
 
 DEBUG = True
+
+##added by HR 02/06/2024
+# Enable mixed precision training
+mixed_precision.set_global_policy('mixed_float16')
+
 
 def get_gpu_memory_used():
     command = "nvidia-smi --query-gpu=memory.used --format=csv,nounits,noheader"
@@ -114,7 +120,7 @@ class DistributedTraining():
         dice = dice * (1 / self.strategy.num_replicas_in_sync)
         return dice
 
-
+    @tf.function
     def _train_step(self, inputs):
         '''
         perfoms one gradient update using tf.GradientTape.
@@ -127,13 +133,13 @@ class DistributedTraining():
         with tf.GradientTape() as tape:
             logits = self.model(x, training=True)
             loss = self.compute_loss(y, logits)
-            y_pred = tf.cast((logits > self.threshold), tf.float32)
+            y_pred = tf.cast((logits > self.threshold), tf.float16)
             dice = self.compute_dice(y, y_pred)
             gradients = tape.gradient(loss, self.model.trainable_variables)
             self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
         return loss, dice
 
-
+    @tf.function
     def _test_step(self, inputs):
         '''
         performs prediction using trained model
@@ -148,7 +154,7 @@ class DistributedTraining():
         
         loss = self.criterion(y, logits)
         #print(loss)
-        y_pred = tf.cast((logits > self.threshold), tf.float32)
+        y_pred = tf.cast((logits > self.threshold), tf.float16)
         #print(np.sum(y_pred))
         
         dice = self.compute_dice(y, y_pred)
@@ -170,7 +176,7 @@ class DistributedTraining():
         replica_loss, replica_dice = self.strategy.run(self._train_step,args=(batch,))
         return replica_loss, replica_dice
 
-
+    @tf.function    
     def _train(self):
         '''
         iterates over each batch in the data and calulates total
@@ -181,14 +187,15 @@ class DistributedTraining():
         '''
         total_loss = 0.0
         total_dice = 0.0
-        prog = Progbar(self.train_loader.steps-1)
-        for i, batch in enumerate(self.train_loader.dataset):
-            
-            replica_loss, replica_dice = self._run(batch)
+        #prog = Progbar(self.train_loader.steps-1)
+        #for i, batch in enumerate(self.train_loader.dataset):
+        for batch in self.train_loader.dataset:
+            #replica_loss, replica_dice = self._run(batch)
+            replica_loss, replica_dice = self.strategy.run(self._train_step,args=(batch,))
             total_loss += self.strategy.reduce(tf.distribute.ReduceOp.SUM,replica_loss, axis=None)
             total_dice += self.strategy.reduce(tf.distribute.ReduceOp.SUM,replica_dice, axis=None)
             #print(get_gpu_memory_used())
-            prog.update(i) 
+            #prog.update(i) 
         return total_loss, total_dice
 
 	
@@ -248,6 +255,7 @@ class DistributedTraining():
         '''
         #HR - 15/06 - must run for at least XX epochs before we save the model
         min_num_epochs = 10
+        min_sum = 100 #HR 02/08/24
         weight_loss = 0.7
         weight_dice = 0.3
         model_save_path = os.path.join(self.save_path,'models')
@@ -261,7 +269,9 @@ class DistributedTraining():
             with self.train_writer.as_default():
                 tf.summary.scalar('loss', train_loss, step=epoch)
                 tf.summary.scalar('dice', train_dice, step=epoch)
-            epoch_str=' Epoch: {}/{},  loss - {:.2f}, dice - {:.2f}, lr - {:.5f}'
+
+            epoch_str=datetime.datetime.now().strftime('%H:%M')
+            epoch_str=epoch_str+' Epoch: {}/{},  loss - {:.2f}, dice - {:.2f}, lr - {:.5f}'
             tf.print(epoch_str.format(epoch+1, self.epochs, train_loss, train_dice, 1), end="")
 
             test_loss, test_dice  =  self._test()
@@ -287,21 +297,38 @@ class DistributedTraining():
 
             
             #HR - 15/06 - must run for at least XX epochs before we save
-            if epoch >= min_num_epochs:
+            #HR - 19/06 - must save the first one over min num to make sure we have something saved
+            if epoch == min_num_epochs:
+                print("saving first model...at epoch ",epoch+1)
+                min_sum = weighted_sum
+                self.best_model = self.model
+                save_experiment(self.model, 
+                                self.config,
+                                self.history, 
+                                self.name,
+                                model_save_path) 
+
+            elif epoch > min_num_epochs:
                 #HR - 18/06 - we only add weighted sum to the history when we are passed the min epochs
                 #otherwise we risk comparing to a min weighted sum that has not been saved
                 #print("lowest weighted sum: ",min(self.history['weighted_sum'])
 
                 #HR try out a weighted sum instead of just comparing to val loss
-                if weighted_sum <= min(self.history['weighted_sum']):
+                if weighted_sum <= min_sum:   #min(self.history['weighted_sum']):
                     #if test_loss <= min(self.history['val_loss']):
                     print("saving best model...at epoch ",epoch+1)
                     print(model_save_path)
+                    min_sum = weighted_sum
+                    self.best_model = self.model
+
                     save_experiment(self.model, 
                                     self.config,
                                     self.history, 
                                     self.name,
                                     model_save_path)
+
+            else:
+                print("below min epochs")
 
 
             #if self.early_stop(test_loss, epoch):
@@ -309,6 +336,7 @@ class DistributedTraining():
             #    break
         #save final model
         os.makedirs(os.path.join(model_save_path,'final'),exist_ok=True)
+        print("saving final model")
         save_experiment(self.model, 
                         self.config,
                         self.history, 

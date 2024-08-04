@@ -24,7 +24,7 @@ __email__ = 'gregory.e.verghese@kcl.ac.uk'
 
 #averages over 10 iterations
 #can change this to reduce running time
-N=10
+N=1
 
 def tuning(args,config,save_path,curr_date,curr_time):
 

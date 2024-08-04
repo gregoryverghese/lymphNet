@@ -31,6 +31,7 @@ from tensorflow.keras import backend as K
 from tensorflow.keras.losses import binary_crossentropy
 from tensorflow.keras.callbacks import LearningRateScheduler
 #from tensorflow.keras.utils import multi_gpu_model
+from tensorflow.keras import mixed_precision
 
 from distributed_train import DistributedTraining 
 from models import fcn8,unet,mobile,resunet,resunet_a,unet_mini,atten_unet
@@ -63,6 +64,8 @@ LOSSFUNCTIONS={
               'wCCE':CategoricalXEntropy,
               'DL':DiceLoss
               }
+
+mixed_precision.set_global_policy('mixed_float16')
 
 def get_python_process_id():
     process_id = os.getpid()
@@ -193,9 +196,9 @@ def main(args,config,name,save_path):
     #set up model parameters
     model_params={
         'filters':config['model']['filters'],
-        'final_activation':config['model']['final_activation'],
+        'final_activation':'sigmoid', #config['model']['final_activation'],
         'dropout':config['model']['dropout'],
-        'n_output':config['num_classes'],
+        'n_output':1, #config['num_classes'],
             }
     loss_params={'weights':config['weights'][0]}
 

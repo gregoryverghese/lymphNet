@@ -184,8 +184,15 @@ class TFRecordLoader():
             #HR 16/05/23 - removed caching to fix aggregating memory issues
             #dataset = dataset.cache()
             #dataset = dataset.repeat()
+
+            #HR need this for the debug dataset
+            denom = 500
+            if self.tile_nums < 600:
+                denom = 100
+            dataset = dataset.shuffle(int(self.tile_nums/denom), reshuffle_each_iteration=True)
+
             #HR 16/05/23 - reduce num shuffled each time to reduce mem requirements
-            dataset = dataset.shuffle(int(self.tile_nums/500), reshuffle_each_iteration=True)
+            #dataset = dataset.shuffle(int(self.tile_nums/500), reshuffle_each_iteration=True)
             dataset = dataset.batch(self.batch_size, drop_remainder=True)
             dataset = dataset.prefetch(AUTO)
         else:
