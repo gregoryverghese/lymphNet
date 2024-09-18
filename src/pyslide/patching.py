@@ -29,8 +29,6 @@ import operator as op
 from pyslide.util.utilities import mask2rgb
 from pyslide.exceptions import StitchingMissingPatches
 from pyslide.analysis.filters import image_entropy
-from pyslide.io.lmdb_io import LMDBWrite
-from pyslide.io.tfrecords_io import TFRecordWrite
 
 __author__='Gregory Verghese'
 __email__='gregory.verghese@gmail.com'
@@ -477,20 +475,7 @@ class Patch():
             df.to_csv(os.path.join(path,'labels.csv'))
 
 
-    def to_lmdb(self, db_path, write_frequency=100):
-        size_estimate=len(self._patches)*self.size[0]*self.size[1]*3
-        db_write=LMDBWrite(db_path,size_estimate,write_frequency)
-        db_write.write(self)
-            
-
-    def to_tfrecords(self, 
-                     db_path,
-                     shard_size=0.01,
-                     unit=1e9
-                     ):
-        TFRecordWrite(db_path,self,shard_size,unit).convert()
-        
-        
+           
 
 
 class Stitching():
