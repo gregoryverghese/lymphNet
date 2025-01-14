@@ -1,3 +1,13 @@
+"""
+This script filters image patches into categories such as white, black, green, partial, or swirl based on various criteria.
+It uses HSV and RGB image processing to analyze pixel characteristics and stores the filtered categories in separate text files.
+
+It is used to identify patches that are not suitable for including in models due to artefacts or too much background
+
+Author: Holly Rafique
+Email: holly.rafique@kcl.ac.uk
+"""
+
 #!/usr/bin/env python3
 
 import os
@@ -6,7 +16,28 @@ import cv2
 import numpy as np
 import argparse
 
-def get_percentage_overexposed_rainbows(image_path):
+def save_to_file(category: str, file_list: list[str]) -> None:
+    """Save a list of file paths to a text file.
+
+    Args:
+        category (str): Name of the category.
+        file_list (list[str]): List of file paths.
+    """
+    if file_list:
+        with open(os.path.join(output_path, f'exclude_{category}.txt'), 'w') as f:
+            f.writelines('\n'.join(file_list))
+            f.write('\n')
+
+def get_percentage_overexposed_rainbows(image_path: str) -> float:
+    """Calculate the percentage of overexposed rainbow-like areas in an image.
+
+    Args:
+        image_path (str): Path to the image file.
+
+    Returns:
+        float: Percentage of the image area containing overexposed rainbow-like features.
+    """
+
     # Load the image
     img = cv2.imread(image_path)
 
@@ -14,8 +45,7 @@ def get_percentage_overexposed_rainbows(image_path):
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
     # Threshold the value channel to identify over-exposed areas
-    #V [0.255]
-    v_thresh = 165  # Adjust this threshold to fine-tune the detection 240
+    v_thresh = 165  # Adjust this threshold to fine-tune the detection - 240 also works
     mask_v = cv2.inRange(hsv[:, :, 2], v_thresh, 225)
 
     # Threshold the hue channel to identify rainbow areas
@@ -30,7 +60,7 @@ def get_percentage_overexposed_rainbows(image_path):
 
     # Find contours of the detected areas
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-   # Assume contours is a list of contours obtained from an image
+    # Assume contours is a list of contours obtained from an image
     # Initialize a blank image with the same size as the original image
     img_blank = np.zeros_like(img)
     
@@ -41,10 +71,13 @@ def get_percentage_overexposed_rainbows(image_path):
     return percent_within_contours
 
 
-def filter_patches(path, output_path):
+def filter_patches(path: str, output_path: str) -> None:
+        """Filter image patches into categories based on color and intensity metrics.
 
-	#path = "/SAN/colcc/WSI_LymphNodes_BreastCancer/HollyR/data/patches/100cohort/batch1a/images"
-	#output_path = "/SAN/colcc/WSI_LymphNodes_BreastCancer/HollyR/data/patches/100cohort/filter/excluded/batch1a"
+        Args:
+            path (str): Directory path containing the image patches.
+            output_path (str): Directory path to save the output text files with filtered categories.
+        """
 	ci = 1
 
 	#xs90 = np.percentile(df.loc['under5']['avgstd'],95)
@@ -144,36 +177,11 @@ def filter_patches(path, output_path):
 			#        elif img_std[ci] > dark_s_th[2]:
 			#            if img_mean[ci]>=dark_m_th[2]:
 			#                partial_imgs.append(img_path)
-
-	if(white_imgs):
-		f = open(os.path.join(output_path,'exclude_white.txt'), 'w')
-		f.writelines('\n'.join(white_imgs))
-		f.write("\n")
-		f.close()
-
-	if(black_imgs):
-		f = open(os.path.join(output_path,'exclude_black.txt'), 'w')
-		f.writelines('\n'.join(black_imgs))
-		f.write("\n")
-		f.close()
-
-	if(green_imgs):
-		f = open(os.path.join(output_path,'exclude_green.txt'), 'w')
-		f.writelines('\n'.join(green_imgs))
-		f.write("\n")
-		f.close()
-
-	if(partial_imgs):
-		f = open(os.path.join(output_path,'exclude_partial.txt'), 'w')
-		f.writelines('\n'.join(partial_imgs))
-		f.write("\n")
-		f.close()
-
-	if(swirl_imgs):
-		f = open(os.path.join(output_path,'exclude_swirl.txt'), 'w')
-		f.writelines('\n'.join(swirl_imgs))
-		f.write("\n")
-		f.close()
+        save_to_file('white', white_imgs)
+        save_to_file('black', black_imgs)
+        save_to_file('green', green_imgs)
+        save_to_file('partial', partial_imgs)
+        save_to_file('swirl', swirl_imgs)
 
 if __name__=='__main__':
     ap=argparse.ArgumentParser(description='model inference')

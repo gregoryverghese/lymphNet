@@ -4,9 +4,15 @@
 '''
 stain_normalisation.py: normalises H&E stain of digital pathology slides to a common colour space
 
-choice of models: macenko, vahadane
-1
-2
+Supported methods: macenko, vahadane
+
+WARNING:
+    The code uses the staintools package, which is not compatible with more recent versions of python.
+    This code will need to be rewritten - potentially using tiatoolbox.
+
+Author: Holly Rafique
+Email: holly.rafique@kcl.ac.uk
+
 '''
 
 import staintools
@@ -20,65 +26,79 @@ import glob
 import cv2
 
 STAINTOOLS_METHODS = ['vahadane', 'macenko']
-GAN_METHODS = ['gan', 'staingan']
-NET_METHODS = ['net', 'stainnet'] 
 
 
-def stain_norm(image_path, target_path, target_name, output_path, method_name):
+def stain_norm(image_path: str, target_path: str, target_name: str, output_path: str, method_name: str) -> None:
+    '''
+    Normalize the stain of images using the specified method.
 
+    Args:
+        image_path (str): Path to the directory containing input images.
+        target_path (str): Path to the target image directory.
+        target_name (str): Name of the target image.
+        output_path (str): Path to the output directory for saving normalized images.
+        method_name (str): Name of the stain normalization method (e.g., "macenko" or "vahadane").
+    '''
 
-    
-    #can use staintools module for vahadane and macenko
     if(method_name.lower() in STAINTOOLS_METHODS):
-        staintools_norm(image_path, target_path, target_name, output_path, method_name) 
-  
-    #elif(method_name.lower() in GAN_METHODS):
-    #elif(method_name.lower() in NET_METHODS):
-
-def staintools_norm(image_path, target_path, target_name, output_path, method_name):
-
-    saved_path='/SAN/colcc/WSI_LymphNodes_BreastCancer/HollyR/data/patches/100cohort/stainnormed/images/M2'
-    NO_OVERWRITE=True
-
-    if NO_OVERWRITE:
-        existing = os.listdir(saved_path)
+        staintools_norm(image_path, target_path, target_name, output_path, method_name)
     else:
-        existing = []
-    #read all images names in directories
+        print(f"Unknown method: {method_name} - exiting without applying normalisation")  
+  
+
+def staintools_norm(image_path: str, target_path: str, target_name: str, output_path: str, method_name: str) -> None:
+    '''
+    Perform stain normalization using staintools.
+
+    Args:
+        image_path (str): Path to the directory containing input images.
+        target_path (str): Path to the target image directory.
+        target_name (str): Name of the target image.
+        output_path (str): Path to the output directory for saving normalized images.
+        method_name (str): Name of the stain normalization method (e.g., "macenko" or "vahadane").
+    '''
+    # added this to make sure we don't waste time re-processing existing images
+    # TODO: make saved_path an additional command line argument for __main__
+    # saved_path='/SAN/colcc/WSI_LymphNodes_BreastCancer/HollyR/data/patches/100cohort/stainnormed/images/M2'
+
+    saved_path = output_path
+    NO_OVERWRITE=True
+    existing = os.listdir(saved_path) if NO_OVERWRITE else []
+
+    # OLD CODE just took the first image in the target paths directory
     #target_paths=glob.glob(os.path.join(target_path,'*.png'))
+    #target_path = target_paths[0]
+    # NEW CODE uses the specified target image
     target_path=os.path.join(target_path,target_name)
     image_paths=glob.glob(os.path.join(image_path,'*'))
-    print(image_paths)
-    #define ideal target patch and train normaliser
-    #if there is more than one image in the target folder we will only read the first
+
+    # 1. define ideal target patch and train normaliser
     target = staintools.read_image(target_path)
-    #target = staintools.LuminosityStandardizer.standardize(target)
-    print("target defined")
+
+    # 2. Create a normaliser with the method name provided and fit to the target image
     normalizer = staintools.StainNormalizer(method=method_name)
-
-    print("Stain Matrix:",normalizer.extractor.get_stain_matrix(target))
-    
+    #print("Stain Matrix:",normalizer.extractor.get_stain_matrix(target)
     normalizer.fit(target)
-    print("fitted")
-    #during testing we will just try a few images at once
-    #image_paths = image_paths[:100]
-    untransformed = []
 
+    # 3. Loop through the images
+    untransformed = []
     for i_path in image_paths:
         i_name = os.path.basename(i_path)
         if i_name in existing:
-            print("already processed: ",i_name)
+            print(f"already processed: {i_name}")
             continue
 
         print("*\n")
         try:        
-            print(i_path)
-            # Read data from names 
-            #staintools reads into RGB format
+            print(f"processing: {i_name}")
+            # 3.1 read the image 
+            # staintools reads into RGB format
             img = staintools.read_image(i_path)
-            #standardize brightness
+
+            # 3.2 standardize brightness
             img = staintools.LuminosityStandardizer.standardize(img)
-            #stain normalise image towards target
+
+            # 3.3 stain normalise image towards target
             img = normalizer.transform(img)
         
             pass
@@ -93,7 +113,7 @@ def staintools_norm(image_path, target_path, target_name, output_path, method_na
             untransformed.append(i_path)
             pass
 
-        #write image to output folder
+        # 3.4 write image to output folder
         #img is RGB so need to make sure we write it correctly as CV2 expects BGR
         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         cv2.imwrite(os.path.join(output_path, i_name),img)
@@ -101,17 +121,12 @@ def staintools_norm(image_path, target_path, target_name, output_path, method_na
 
     print("The following images remain untransformed: ")
     print(untransformed)
-    #USING LIST COMPREHENSION - too memory intensive for 4k images at once?
-    #images = []
-    #images = [staintools.read_image(i_path)  for i_path in image_paths]
-    #Standardise Luminosity
-    #images = [staintools.LuminosityStandardizer.standardize(img) for img in images]
-    #Normalise Images
-    #images = [normalizer.transform(img) for img in images]
 
 
 if __name__ == '__main__':
-
+    '''
+    Entry point for the script. Parses command-line arguments and initiates stain normalization.
+    '''
     ap = argparse.ArgumentParser()
     ap.add_argument('-ip', '--input_path', required=True, help='path to images to be normalised')
     ap.add_argument('-tp', '--target_path', help='path to target image - should only be one image in the directory')
@@ -122,15 +137,12 @@ if __name__ == '__main__':
     args = ap.parse_args()
 
     curr_datetime = time.strftime("%Y%m%d-%H%M%S")
-
-    if(args.target_path):
-        target_path = args.target_path
-    else:
-        target_path = args.input_path
+    target_path = args.target_path if args.target_path else args.input_path
         
-    #set up paths for models
+    # set up paths for models
+    # this is important to avoid accidentally overwriting previously generated images
     output_path = os.path.join(args.output_path,str(args.method_name+"-"+curr_datetime))
-    print(output_path)
+    print(f"saving new images to: {output_path}")
     os.makedirs(output_path,exist_ok=True)
 
 

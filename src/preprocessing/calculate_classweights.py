@@ -2,8 +2,12 @@
 # -*- coding: utf-8 -*-
 
 '''
-calculate_classweights.py: returns weights for each class
-by calculating proportion of pixels for each class in the mask
+Calculate_classweights.py: returns weights for each class
+by calculating proportion of pixels for each class in the mask.
+
+Author: Gregory Verghese
+Email: gregory.verghese@kcl.ac.uk
+
 '''
 
 import os
@@ -14,8 +18,23 @@ import cv2
 import numpy as np
 from sklearn.utils import class_weight
 
+def calculate_weights(
+    mask_path: str, 
+    out_path: str, 
+    file_name: str, 
+    num_classes: int
+) -> None:
+    """Calculate and save class weights based on pixel proportions in mask images.
 
-def calculate_weights(mask_path, out_path, file_name, num_classes):
+    Args:
+        mask_path (str): Path to the directory containing mask images.
+        out_path (str): Path to the directory where the weights will be saved.
+        file_name (str): Name of the file to save the weights.
+        num_classes (int): Number of classes in the mask images.
+
+    Returns:
+        None
+    """
 
     total = {c:0 for c in range(num_classes)}
     #masks = glob.glob(os.path.join(mask_path,'*/masks/*'))

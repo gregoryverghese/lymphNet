@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
 
+"""
+This script provides functions to calculate the mean and standard deviation of pixel values for a set of images.
+
+It includes parallel processing for performance optimization and supports two methods for calculation: a fast method using threading
+and an older sequential method.
+
+Author: Holly Rafique
+Email: holly.rafique@kcl.ac.uk
+"""
+
+
 import os
 import glob
 import argparse
@@ -10,9 +21,17 @@ import numpy as np
 from concurrent.futures import ThreadPoolExecutor
 
 
+def process_image(path: str) -> tuple[int, np.ndarray, np.ndarray]:
+    """Process an image to calculate pixel count, sum of pixel values, and sum of squared pixel values.
 
-def process_image(path):
-    print(path)
+    Args:
+        path (str): Path to the image file.
+
+    Returns:
+        tuple[int, np.ndarray, np.ndarray]: A tuple containing the pixel count, sum of pixel values per channel,
+        and sum of squared pixel values per channel. Returns zeros if the image fails to load.
+    """
+    print(f"Input path: {path}")
     image = cv2.imread(path)
     if image is not None:
         image = (image / 255.0).astype('float32')
@@ -21,14 +40,24 @@ def process_image(path):
         pixel_sum = np.sum(image, axis=(0, 1))
         pixel_sum_sq = np.sum(np.square(image), axis=(0, 1))
         return pixel_count, pixel_sum, pixel_sum_sq
+
+    print("Empty image so returning zeros")
     return 0, np.zeros(3), np.zeros(3)  # Return zeros for images that failed to load
 
-def calculate_stats(path, num_workers=8):
+def calculate_stats(path: str, num_workers: int = 8) -> tuple[np.ndarray, np.ndarray]:
+    """Calculate mean and standard deviation of pixel values for all images in a directory.
+       This is the faster method with parallelization
+
+    Args:
+        path (str): Path to the directory containing image files.
+        num_workers (int, optional): Number of worker threads for parallel processing. Defaults to 8.
+
+    Returns:
+        tuple[np.ndarray, np.ndarray]: Mean and standard deviation of pixel values per channel.
+    """
     total_pixels = 0
     total_sum = np.zeros(3, dtype='float32')
     total_sum_sq = np.zeros(3, dtype='float32')
-    #images1 =  [file for file in os.listdir(path) if file.endswith('.png')]
-    #print(images1)
 
     images = glob.glob(os.path.join(path,'*.png'))
 
@@ -49,18 +78,23 @@ def calculate_stats(path, num_workers=8):
 
 
 
+def calculate_std_mean(path: str) -> tuple[np.ndarray, np.ndarray]:
+    """Calculate mean and standard deviation of pixel values using a sequential method.
+       This is the slower, older method.
 
-def calculate_std_mean(path):
-    print(path)
+    Args:
+        path (str): Path to the directory containing image files.
+
+    Returns:
+        tuple[np.ndarray, np.ndarray]: Mean and standard deviation of pixel values per channel.
+    """
     images = glob.glob(os.path.join(path,'*.png'))
-    print(images)
     image_shape = cv2.imread(images[0]).shape
     channel_num = image_shape[-1]
     channel_values = np.zeros((channel_num))
     channel_values_sq = np.zeros((channel_num))
 
     pixel_num = len(images)*image_shape[0]*image_shape[1]
-    print('total number pixels: {}'.format(pixel_num))
 
     for path in images:
         print(path)
@@ -69,10 +103,8 @@ def calculate_std_mean(path):
         channel_values += np.sum(image, axis=(0,1))
 
     mean=channel_values/pixel_num
-    print("mean:",mean)
 
     for path in images:
-        print(path)
         image = cv2.imread(path)
         image = (image/255.0).astype('float32')
         channel_values_sq += np.sum(np.square(image-mean), axis=(0,1))
