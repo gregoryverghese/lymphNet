@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="logo.png" alt="LymphNet Logo" width="100"/>
+  <img src="logo.png" alt="LymphNet Logo" width="600"/>
 </div>
 
 # LymphNet
