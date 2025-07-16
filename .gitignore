@@ -126,7 +126,6 @@ dmypy.json
 *.json
 archive/*
 /models/*
-/images*
 *.pyc
 *.swp
 *.sh
