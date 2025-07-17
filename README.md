@@ -2,7 +2,6 @@
   <img src="logo.png" alt="LymphNet Logo" width="200"/>
 </div>
 
-
 # 
 
 Deep learning pipeline for capturing morphometric immune features in lymph nodes of breast cancer patients. This project implements a segmentation pipeline based on Fully Convolutional Networks (FCNs) for automated analysis of lymph node histopathology.
